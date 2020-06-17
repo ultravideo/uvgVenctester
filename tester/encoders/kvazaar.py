@@ -6,6 +6,7 @@ This module defines all Kvazaar-specific functionality.
 """
 
 from time import strftime
+import hashlib
 import os
 import platform
 import shutil
@@ -37,24 +38,26 @@ KVZ_MSBUILD_CONFIGURATION: str = "Release"
 KVZ_MSBUILD_PLATFORM: str = "x64"
 KVZ_MSBUILD_PLATFORMTOOLSET: str = "v142"
 KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION: str = "10.0"
-KVZ_MSBUILD_ARGS: tuple = (f"/p:Configuration={KVZ_MSBUILD_CONFIGURATION}",
-                           f"/p:Platform={KVZ_MSBUILD_PLATFORM}",
-                           f"/p:PlatformToolset={KVZ_MSBUILD_PLATFORMTOOLSET}",
-                           f"/p:WindowsTargetPlatformVersion={KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION}")
+KVZ_MSBUILD_ARGS: list = [f"/p:Configuration={KVZ_MSBUILD_CONFIGURATION}",
+                          f"/p:Platform={KVZ_MSBUILD_PLATFORM}",
+                          f"/p:PlatformToolset={KVZ_MSBUILD_PLATFORMTOOLSET}",
+                          f"/p:WindowsTargetPlatformVersion={KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION}"]
 KVZ_VS_SOLUTION_NAME: str = "kvazaar_VS2015.sln"
 KVZ_VS_SOLUTION_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "build", KVZ_VS_SOLUTION_NAME)
 KVZ_AUTOGEN_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "autogen.sh")
 KVZ_CONFIGURE_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "configure")
-KVZ_CONFIGURE_ARGS: tuple = ("--disable-shared", "--enable-static")
+KVZ_CONFIGURE_ARGS: list = ["--disable-shared", "--enable-static",]
 
 class TestInstance():
     """
     This class defines all Kvazaar-specific functionality.
     """
 
-    def __init__(self, revision: str):
+    def __init__(self, revision: str, defines: list):
+        self.defines: list = sorted(set(defines)) # ensure no duplicates
+        self.define_hash: str = hashlib.md5(str(self.defines).encode()).digest().hex()[:16] # first 16 digits of MD5
         self.revision: str = revision
-        self.exe_name: str = f"kvazaar_{revision}{'.exe' if OS_NAME == 'Windows' else ''}"
+        self.exe_name: str = f"kvazaar_{self.revision}_{self.define_hash}{'.exe' if OS_NAME == 'Windows' else ''}"
         self.exe_dest_path: str = os.path.join(BINARIES_DIR_PATH, self.exe_name)
 
     def build(self):
@@ -92,13 +95,17 @@ class TestInstance():
         if OS_NAME == "Windows":
             assert os.path.exists(KVZ_VS_SOLUTION_PATH)
 
+            # Add defines to msbuild arguments.
+            MSBUILD_SEMICOLON_ESCAPE = "%3B"
+            KVZ_MSBUILD_ARGS.append("/p:DefineConstants={}".format(MSBUILD_SEMICOLON_ESCAPE.join(self.defines)))
+
             # Run VsDevCmd.bat, then msbuild. Return 0 on success, 1 on failure.
-            # KVZ_MSDBUILD_ARGS has to be a tuple so the syntax below is pretty stupid.
+            # KVZ_MSBUILD_ARGS has to be a list/tuple so the syntax below is pretty stupid.
             # TODO: Find a less idiotic and more readable way to do this.
             compile_cmd: tuple = ("(", "call", VS_VSDEVCMD_BAT_PATH,
-                                        "&&", "msbuild", KVZ_VS_SOLUTION_PATH) + KVZ_MSBUILD_ARGS + (
-                                        "&&", "exit", "0",
-                                   ")", "||", "exit", "1")
+                                       "&&", "msbuild", KVZ_VS_SOLUTION_PATH) + tuple(KVZ_MSBUILD_ARGS) + (
+                                       "&&", "exit", "0",
+                                  ")", "||", "exit", "1")
             print(subprocess.list2cmdline(compile_cmd))
             try:
                 output: bytes = subprocess.check_output(compile_cmd, shell=True)
@@ -118,12 +125,16 @@ class TestInstance():
                 raise
 
         elif OS_NAME == "Linux":
+            # Add defines to configure arguments.
+            cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self.defines])}"
+            KVZ_CONFIGURE_ARGS.append(cflags_str.strip())
+
             # Run autogen.sh, then configure, then make. Return 0 on success, 1 on failure.
             # TODO: Find a better way to do this (KVZ_CONFIGURE_ARGS is a tuple).
             compile_cmd = (
                 "(", "cd", KVZ_GIT_REPO_PATH,
                      "&&", KVZ_AUTOGEN_SCRIPT_PATH,
-                     "&&", KVZ_CONFIGURE_SCRIPT_PATH,) + KVZ_CONFIGURE_ARGS + (
+                     "&&", KVZ_CONFIGURE_SCRIPT_PATH,) + tuple(KVZ_CONFIGURE_ARGS) + (
                      "&&", "make",
                      "&&", "exit", "0",
                 ")", "||", "exit", "1",
