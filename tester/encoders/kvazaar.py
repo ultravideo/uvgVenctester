@@ -11,7 +11,7 @@ import platform
 import shutil
 import subprocess
 
-OS_NAME = platform.system()
+OS_NAME: str = platform.system()
 
 TESTER_ROOT_PATH: str = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 PROJECT_ROOT_PATH: str = os.path.dirname(os.path.realpath(os.path.join(str(TESTER_ROOT_PATH), "..")))
@@ -32,6 +32,7 @@ KVZ_GITHUB_REPO_SSH_URL: str = "git@github.com:ultravideo/kvazaar.git"
 KVZ_GITLAB_REPO_SSH_URL: str = "git@gitlab.tut.fi:TIE/ultravideo/kvazaar.git"
 KVZ_EXE_SRC_NAME: str = f"kvazaar{'.exe' if OS_NAME == 'Windows' else ''}"
 KVZ_EXE_SRC_PATH_WINDOWS: str = os.path.join(KVZ_GIT_REPO_PATH, "bin", "x64-Release", KVZ_EXE_SRC_NAME)
+KVZ_EXE_SRC_PATH_LINUX: str = os.path.join(KVZ_GIT_REPO_PATH, "src", "kvazaar")
 KVZ_MSBUILD_CONFIGURATION: str = "Release"
 KVZ_MSBUILD_PLATFORM: str = "x64"
 KVZ_MSBUILD_PLATFORMTOOLSET: str = "v142"
@@ -42,6 +43,9 @@ KVZ_MSBUILD_ARGS: tuple = (f"/p:Configuration={KVZ_MSBUILD_CONFIGURATION}",
                            f"/p:WindowsTargetPlatformVersion={KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION}")
 KVZ_VS_SOLUTION_NAME: str = "kvazaar_VS2015.sln"
 KVZ_VS_SOLUTION_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "build", KVZ_VS_SOLUTION_NAME)
+KVZ_AUTOGEN_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "autogen.sh")
+KVZ_CONFIGURE_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "configure")
+KVZ_CONFIGURE_ARGS: tuple = ("--disable-shared", "--enable-static")
 
 class TestInstance():
     """
@@ -114,20 +118,49 @@ class TestInstance():
                 raise
 
         elif OS_NAME == "Linux":
-            # Prepare Bourne shell script call. The script compiles Kvazaar using the scripts provided in the Kvazaar
-            # repo.
-            compile_cmd: tuple = (KVZ_COMPILE_SCRIPT_LINUX_PATH, KVZ_GIT_REPO_PATH, self.exe_dest_path)
+            # Run autogen.sh, then configure, then make. Return 0 on success, 1 on failure.
+            # TODO: Find a better way to do this (KVZ_CONFIGURE_ARGS is a tuple).
+            compile_cmd = (
+                "(", "cd", KVZ_GIT_REPO_PATH,
+                     "&&", KVZ_AUTOGEN_SCRIPT_PATH,
+                     "&&", KVZ_CONFIGURE_SCRIPT_PATH,) + KVZ_CONFIGURE_ARGS + (
+                     "&&", "make",
+                     "&&", "exit", "0",
+                ")", "||", "exit", "1",
+            )
+
+            print(subprocess.list2cmdline(compile_cmd))
+            try:
+                # The shell command needs to be converted into a string.
+                output: bytes = subprocess.check_output(subprocess.list2cmdline(compile_cmd), shell=True)
+                print(output.decode())
+            except subprocess.CalledProcessError as exception:
+                print(exception.output.decode())
+                raise
+
+            # Copy the executable to its destination.
+            if not os.path.exists(BINARIES_DIR_PATH):
+                os.makedirs(BINARIES_DIR_PATH)
+            assert os.path.exists(KVZ_EXE_SRC_PATH_LINUX)
+            shutil.copy(KVZ_EXE_SRC_PATH_LINUX, self.exe_dest_path)
+
+            # Clean the build so that Kvazaar binaries of different versions
+            # can be built without problems if desired.
+            clean_cmd = (
+                "(", "cd", KVZ_GIT_REPO_PATH,
+                     "&&", "make", "clean",
+                     "&&", "exit", "0",
+                ")", "||", "exit", "1"
+            )
+
+            print(subprocess.list2cmdline(clean_cmd))
+            try:
+                output: bytes = subprocess.check_output(subprocess.list2cmdline(clean_cmd), shell=True)
+                print(output.decode())
+            except subprocess.CalledProcessError as exception:
+                print(exception.output.decode())
+                raise
 
         # Only Linux and Windows are supported.
         else:
             raise RuntimeError(f"--ERROR: Unsupported OS '{OS_NAME}'. Expected one of ['Linux', 'Windows']")
-
-        # Compile or die trying.
-        print(subprocess.list2cmdline(compile_cmd))
-        try:
-            # Shell required on Linux.
-            output: bytes = subprocess.check_output(compile_cmd, shell=True, stderr=subprocess.STDOUT)
-            print(output.decode())
-        except subprocess.CalledProcessError as exception:
-            print(exception.output.decode())
-            raise
