@@ -5,13 +5,13 @@
 This module defines all Kvazaar-specific functionality.
 """
 
+import core
 import hashlib
 import logging
 import os
 import platform
 import shutil
 import subprocess
-import sys
 
 OS_NAME: str = platform.system()
 
@@ -49,26 +49,6 @@ KVZ_AUTOGEN_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "autogen.sh")
 KVZ_CONFIGURE_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "configure")
 KVZ_CONFIGURE_ARGS: list = ["--disable-shared", "--enable-static",]
 
-# Set up global console logger.
-formatter = logging.Formatter("--%(levelname)s: %(message)s")
-handler = logging.StreamHandler(sys.stdout)
-console_logger = logging.getLogger("console")
-handler.setFormatter(formatter)
-console_logger.addHandler(handler)
-console_logger.setLevel(logging.DEBUG)
-
-def setup_build_logger(log_name: str, log_filename: str) -> logging.Logger:
-    """Initializes and returns a Logger object with the given name and filename.
-    The returned object is intended to be used for build logging.
-    NOTE: Make sure this function is always called with a different log_name!"""
-    formatter = logging.Formatter("%(message)s")
-    handler = logging.FileHandler(log_filename, "w")
-    handler.setFormatter(formatter)
-    build_logger = logging.getLogger(log_name)
-    build_logger.addHandler(handler)
-    build_logger.setLevel(logging.DEBUG)
-    return build_logger
-
 class TestInstance():
     """
     This class defines all Kvazaar-specific functionality.
@@ -84,17 +64,17 @@ class TestInstance():
         self.build_log_path: str = os.path.join(BINARIES_DIR_PATH, self.build_log_name)
 
     def build(self):
-        console_logger.info(f"Building Kvazaar (revision '{self.revision}')")
+        core.console_logger.info(f"Building Kvazaar (revision '{self.revision}')")
 
         # Don't build unnecessarily.
         if (os.path.exists(self.exe_dest_path)):
-            console_logger.info(f"Executable '{self.exe_dest_path}' already exists - aborting build")
+            core.console_logger.info(f"Executable '{self.exe_dest_path}' already exists - aborting build")
             return
 
         if not os.path.exists(BINARIES_DIR_PATH):
             os.makedirs(BINARIES_DIR_PATH)
 
-        build_logger: logging.Logger = setup_build_logger(self.exe_name, self.build_log_path)
+        build_logger: logging.Logger = core.setup_build_logger(self.exe_name, self.build_log_path)
 
         # Clone the remote if the local repo doesn't exist yet.
         if not os.path.exists(KVZ_GIT_REPO_PATH):
@@ -105,7 +85,7 @@ class TestInstance():
                 build_logger.info(output.decode())
             except subprocess.CalledProcessError as exception:
                 build_logger.error(exception.output.decode())
-                console_logger.error(exception.output.decode())
+                core.console_logger.error(exception.output.decode())
                 raise
 
         # Checkout to the desired version.
@@ -118,7 +98,7 @@ class TestInstance():
             output: bytes = subprocess.check_output(checkout_command, stderr=subprocess.STDOUT)
             build_logger.info(output.decode())
         except subprocess.CalledProcessError as exception:
-            console_logger.error(exception.output.decode())
+            core.console_logger.error(exception.output.decode())
             build_logger.error(exception.output.decode())
             raise
 
@@ -142,7 +122,7 @@ class TestInstance():
                 # "cp1252" is the encoding the Windows shell uses.
                 build_logger.info(output.decode(encoding="cp1252"))
             except subprocess.CalledProcessError as exception:
-                console_logger.error(exception.output.decode())
+                core.console_logger.error(exception.output.decode())
                 build_logger.error(exception.output.decode())
                 raise
 
@@ -153,7 +133,7 @@ class TestInstance():
                 shutil.copy(KVZ_EXE_SRC_PATH_WINDOWS, self.exe_dest_path)
 
             except FileNotFoundError as exception:
-                console_logger.error(str(exception))
+                core.console_logger.error(str(exception))
                 build_logger.error(str(exception))
                 raise
 
@@ -181,7 +161,7 @@ class TestInstance():
                                                         stderr=subprocess.STDOUT)
                 build_logger.info(output.decode())
             except subprocess.CalledProcessError as exception:
-                console_logger.error(exception.output.decode())
+                core.console_logger.error(exception.output.decode())
                 build_logger.error(exception.output.decode())
                 raise
 
@@ -191,7 +171,7 @@ class TestInstance():
             try:
                 shutil.copy(KVZ_EXE_SRC_PATH_LINUX, self.exe_dest_path)
             except FileNotFoundError as exception:
-                console_logger.error(str(exception))
+                core.console_logger.error(str(exception))
                 build_logger.error(str(exception))
                 raise
 
@@ -206,11 +186,11 @@ class TestInstance():
             try:
                 subprocess.check_output(subprocess.list2cmdline(clean_cmd), shell=True)
             except subprocess.CalledProcessError as exception:
-                console_logger.error(exception.output.decode())
+                core.console_logger.error(exception.output.decode())
                 raise
 
         # Only Linux and Windows are supported.
         else:
             exception = RuntimeError(f"Unsupported OS '{OS_NAME}'. Expected one of ['Linux', 'Windows']")
-            console_logger.error(str(exception))
+            core.console_logger.error(str(exception))
             raise exception
