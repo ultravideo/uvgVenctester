@@ -5,12 +5,13 @@
 This module defines all Kvazaar-specific functionality.
 """
 
-from time import strftime
 import hashlib
+import logging
 import os
 import platform
 import shutil
 import subprocess
+import sys
 
 OS_NAME: str = platform.system()
 
@@ -48,6 +49,26 @@ KVZ_AUTOGEN_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "autogen.sh")
 KVZ_CONFIGURE_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "configure")
 KVZ_CONFIGURE_ARGS: list = ["--disable-shared", "--enable-static",]
 
+# Set up global console logger.
+formatter = logging.Formatter("--%(levelname)s: %(message)s")
+handler = logging.StreamHandler(sys.stdout)
+console_logger = logging.getLogger("console")
+handler.setFormatter(formatter)
+console_logger.addHandler(handler)
+console_logger.setLevel(logging.DEBUG)
+
+def setup_build_logger(log_name: str, log_filename: str) -> logging.Logger:
+    """Initializes and returns a Logger object with the given name and filename.
+    The returned object is intended to be used for build logging.
+    NOTE: Make sure this function is always called with a different log_name!"""
+    formatter = logging.Formatter("%(message)s")
+    handler = logging.FileHandler(log_filename, "w")
+    handler.setFormatter(formatter)
+    build_logger = logging.getLogger(log_name)
+    build_logger.addHandler(handler)
+    build_logger.setLevel(logging.DEBUG)
+    return build_logger
+
 class TestInstance():
     """
     This class defines all Kvazaar-specific functionality.
@@ -59,24 +80,32 @@ class TestInstance():
         self.revision: str = revision
         self.exe_name: str = f"kvazaar_{self.revision}_{self.define_hash}{'.exe' if OS_NAME == 'Windows' else ''}"
         self.exe_dest_path: str = os.path.join(BINARIES_DIR_PATH, self.exe_name)
+        self.build_log_name: str = f"kvazaar_{self.revision}_{self.define_hash}_build_log.txt"
+        self.build_log_path: str = os.path.join(BINARIES_DIR_PATH, self.build_log_name)
 
     def build(self):
-        print(f"--INFO: Building Kvazaar (revision '{self.revision}')")
+        console_logger.info(f"Building Kvazaar (revision '{self.revision}')")
 
         # Don't build unnecessarily.
         if (os.path.exists(self.exe_dest_path)):
-            print(f"--WARNING: Executable '{self.exe_dest_path}' already exists - aborting build")
+            console_logger.info(f"Executable '{self.exe_dest_path}' already exists - aborting build")
             return
+
+        if not os.path.exists(BINARIES_DIR_PATH):
+            os.makedirs(BINARIES_DIR_PATH)
+
+        build_logger: logging.Logger = setup_build_logger(self.exe_name, self.build_log_path)
 
         # Clone the remote if the local repo doesn't exist yet.
         if not os.path.exists(KVZ_GIT_REPO_PATH):
             try:
                 clone_command: tuple = ("git", "clone", KVZ_GITLAB_REPO_SSH_URL, KVZ_GIT_REPO_PATH)
-                print(subprocess.list2cmdline(clone_command))
+                build_logger.info(subprocess.list2cmdline(clone_command))
                 output: bytes = subprocess.check_output(clone_command)
-                print(output.decode())
+                build_logger.info(output.decode())
             except subprocess.CalledProcessError as exception:
-                print(exception.output.decode())
+                build_logger.error(exception.output.decode())
+                console_logger.error(exception.output.decode())
                 raise
 
         # Checkout to the desired version.
@@ -85,11 +114,12 @@ class TestInstance():
                                        "--work-tree", KVZ_GIT_REPO_PATH,
                                        "--git-dir", KVZ_GIT_DIR_PATH,
                                        "checkout", self.revision)
-            print(subprocess.list2cmdline(checkout_command))
-            output: bytes = subprocess.check_output(checkout_command)
-            print(output.decode())
+            build_logger.info(subprocess.list2cmdline(checkout_command))
+            output: bytes = subprocess.check_output(checkout_command, stderr=subprocess.STDOUT)
+            build_logger.info(output.decode())
         except subprocess.CalledProcessError as exception:
-            print(exception.output.decode())
+            console_logger.error(exception.output.decode())
+            build_logger.error(exception.output.decode())
             raise
 
         if OS_NAME == "Windows":
@@ -106,22 +136,25 @@ class TestInstance():
                                        "&&", "msbuild", KVZ_VS_SOLUTION_PATH) + tuple(KVZ_MSBUILD_ARGS) + (
                                        "&&", "exit", "0",
                                   ")", "||", "exit", "1")
-            print(subprocess.list2cmdline(compile_cmd))
+            build_logger.info(subprocess.list2cmdline(compile_cmd))
             try:
                 output: bytes = subprocess.check_output(compile_cmd, shell=True)
-                print(output.decode(encoding="cp1252"))
+                # "cp1252" is the encoding the Windows shell uses.
+                build_logger.info(output.decode(encoding="cp1252"))
             except subprocess.CalledProcessError as exception:
-                print(exception.output.decode())
+                console_logger.error(exception.output.decode())
+                build_logger.error(exception.output.decode())
                 raise
 
-            if not os.path.exists(BINARIES_DIR_PATH):
-                os.makedirs(BINARIES_DIR_PATH)
-
+            # Copy the executable to its destination.
             assert os.path.exists(KVZ_EXE_SRC_PATH_WINDOWS)
-
             try:
+                build_logger.info(f"Copying file '{KVZ_EXE_SRC_PATH_WINDOWS}' to '{self.exe_dest_path}'")
                 shutil.copy(KVZ_EXE_SRC_PATH_WINDOWS, self.exe_dest_path)
+
             except FileNotFoundError as exception:
+                console_logger.error(str(exception))
+                build_logger.error(str(exception))
                 raise
 
         elif OS_NAME == "Linux":
@@ -140,38 +173,44 @@ class TestInstance():
                 ")", "||", "exit", "1",
             )
 
-            print(subprocess.list2cmdline(compile_cmd))
+            build_logger.info(subprocess.list2cmdline(compile_cmd))
             try:
                 # The shell command needs to be converted into a string.
-                output: bytes = subprocess.check_output(subprocess.list2cmdline(compile_cmd), shell=True)
-                print(output.decode())
+                output: bytes = subprocess.check_output(subprocess.list2cmdline(compile_cmd),
+                                                        shell=True,
+                                                        stderr=subprocess.STDOUT)
+                build_logger.info(output.decode())
             except subprocess.CalledProcessError as exception:
-                print(exception.output.decode())
+                console_logger.error(exception.output.decode())
+                build_logger.error(exception.output.decode())
                 raise
 
             # Copy the executable to its destination.
-            if not os.path.exists(BINARIES_DIR_PATH):
-                os.makedirs(BINARIES_DIR_PATH)
             assert os.path.exists(KVZ_EXE_SRC_PATH_LINUX)
-            shutil.copy(KVZ_EXE_SRC_PATH_LINUX, self.exe_dest_path)
+            build_logger.info(f"Copying file '{KVZ_EXE_SRC_PATH_LINUX}' to '{self.exe_dest_path}'")
+            try:
+                shutil.copy(KVZ_EXE_SRC_PATH_LINUX, self.exe_dest_path)
+            except FileNotFoundError as exception:
+                console_logger.error(str(exception))
+                build_logger.error(str(exception))
+                raise
 
             # Clean the build so that Kvazaar binaries of different versions
-            # can be built without problems if desired.
+            # can be built without problems if desired. This is not logged.
             clean_cmd = (
                 "(", "cd", KVZ_GIT_REPO_PATH,
                      "&&", "make", "clean",
                      "&&", "exit", "0",
                 ")", "||", "exit", "1"
             )
-
-            print(subprocess.list2cmdline(clean_cmd))
             try:
-                output: bytes = subprocess.check_output(subprocess.list2cmdline(clean_cmd), shell=True)
-                print(output.decode())
+                subprocess.check_output(subprocess.list2cmdline(clean_cmd), shell=True)
             except subprocess.CalledProcessError as exception:
-                print(exception.output.decode())
+                console_logger.error(exception.output.decode())
                 raise
 
         # Only Linux and Windows are supported.
         else:
-            raise RuntimeError(f"--ERROR: Unsupported OS '{OS_NAME}'. Expected one of ['Linux', 'Windows']")
+            exception = RuntimeError(f"Unsupported OS '{OS_NAME}'. Expected one of ['Linux', 'Windows']")
+            console_logger.error(str(exception))
+            raise exception
