@@ -28,8 +28,8 @@ VS_VSDEVCMD_BAT_PATH: str = r"C:\Program Files (x86)\Microsoft Visual Studio\201
 
 KVZ_GIT_REPO_PATH: str = os.path.join(SOURCES_DIR_PATH, "kvazaar")
 KVZ_GIT_DIR_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, ".git")
-KVZ_COMPILE_SCRIPT_LINUX_PATH: str = os.path.join(TESTER_ROOT_PATH, "encoders", "kvazaar_compile_linux.sh")
-KVZ_COMPILE_SCRIPT_WINDOWS_PATH: str = os.path.join(TESTER_ROOT_PATH, "encoders", "kvazaar_compile_windows.ps1")
+KVZ_COMPILE_SCRIPT_PATH_LINUX: str = os.path.join(TESTER_ROOT_PATH, "encoders", "kvazaar_compile_linux.sh")
+KVZ_COMPILE_SCRIPT_PATH_WINDOWS: str = os.path.join(TESTER_ROOT_PATH, "encoders", "kvazaar_compile_windows.ps1")
 KVZ_GITHUB_REPO_SSH_URL: str = "git@github.com:ultravideo/kvazaar.git"
 KVZ_GITLAB_REPO_SSH_URL: str = "git@gitlab.tut.fi:TIE/ultravideo/kvazaar.git"
 KVZ_EXE_SRC_NAME: str = f"kvazaar{'.exe' if OS_NAME == 'Windows' else ''}"
@@ -39,18 +39,22 @@ KVZ_MSBUILD_CONFIGURATION: str = "Release"
 KVZ_MSBUILD_PLATFORM: str = "x64"
 KVZ_MSBUILD_PLATFORMTOOLSET: str = "v142"
 KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION: str = "10.0"
-KVZ_MSBUILD_ARGS: list = [f"/p:Configuration={KVZ_MSBUILD_CONFIGURATION}",
-                          f"/p:Platform={KVZ_MSBUILD_PLATFORM}",
-                          f"/p:PlatformToolset={KVZ_MSBUILD_PLATFORMTOOLSET}",
-                          f"/p:WindowsTargetPlatformVersion={KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION}"]
+KVZ_MSBUILD_ARGS: list = [
+    f"/p:Configuration={KVZ_MSBUILD_CONFIGURATION}",
+    f"/p:Platform={KVZ_MSBUILD_PLATFORM}",
+    f"/p:PlatformToolset={KVZ_MSBUILD_PLATFORMTOOLSET}",
+    f"/p:WindowsTargetPlatformVersion={KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION}",]
 KVZ_VS_SOLUTION_NAME: str = "kvazaar_VS2015.sln"
 KVZ_VS_SOLUTION_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "build", KVZ_VS_SOLUTION_NAME)
 KVZ_AUTOGEN_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "autogen.sh")
 KVZ_CONFIGURE_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "configure")
-KVZ_CONFIGURE_ARGS: list = ["--disable-shared", "--enable-static",]
+KVZ_CONFIGURE_ARGS: list = [
+    "--disable-shared",
+    "--enable-static",
+]
 
-FILENAME_COMMIT_HASH_LEN: int = 16
-FILENAME_DEFINE_HASH_LEN: int = 8
+SHORT_COMMIT_HASH_LEN: int = 16
+SHORT_DEFINE_HASH_LEN: int = 8
 
 class TestInstance():
     """
@@ -60,12 +64,14 @@ class TestInstance():
     def __init__(self, revision: str, defines: list):
         self.git_repo: core.GitRepo = core.GitRepo(KVZ_GIT_REPO_PATH)
         self.defines: list = sorted(set(defines)) # ensure no duplicates
-        self.define_hash: str = hashlib.md5(str(self.defines).encode()).digest().hex()[:FILENAME_DEFINE_HASH_LEN]
+        self.define_hash: str = hashlib.md5(str(self.defines).encode()).digest().hex()
+        self.short_define_hash: str = self.define_hash[:SHORT_DEFINE_HASH_LEN]
         self.revision: str = revision
         # These have to be evaluated once the existence of the repository is certain.
         self.exe_name: str = ""
         self.exe_dest_path: str = ""
         self.commit_hash: str = ""
+        self.short_commit_hash: str = ""
         self.build_log_name: str = ""
         self.build_log_path: str = ""
 
@@ -73,7 +79,8 @@ class TestInstance():
         core.console_logger.info(f"Building Kvazaar (revision '{self.revision}')")
 
         # The build log isn't initialized yet because the filename is based on the git commit hash
-        # and that is only found out after the repo has been cloned.
+        # and that is only found out after the repo has been cloned, so buffer messages
+        # until the logger is actually created.
         build_log_buffer: list = []
 
         # Clone the remote if the local repo doesn't exist yet.
@@ -87,10 +94,12 @@ class TestInstance():
                 core.console_logger.error(exception.output.decode())
                 raise exception
 
+        # These can now be evaluated because the repo exists for certain.
         self.commit_hash = self.git_repo.rev_parse(self.revision)[1].decode().strip()
-        self.exe_name = f"kvazaar_{self.commit_hash[:FILENAME_COMMIT_HASH_LEN]}_{self.define_hash}{'.exe' if OS_NAME == 'Windows' else ''}"
+        self.short_commit_hash = self.commit_hash[:SHORT_COMMIT_HASH_LEN]
+        self.exe_name = f"kvazaar_{self.short_commit_hash}_{self.short_define_hash}{'.exe' if OS_NAME == 'Windows' else ''}"
         self.exe_dest_path = os.path.join(BINARIES_DIR_PATH, self.exe_name)
-        self.build_log_name = f"kvazaar_{self.commit_hash[:FILENAME_COMMIT_HASH_LEN]}_{self.define_hash}_build_log.txt"
+        self.build_log_name = f"kvazaar_{self.short_commit_hash}_{self.short_define_hash}_build_log.txt"
         self.build_log_path = os.path.join(BINARIES_DIR_PATH, self.build_log_name)
 
         core.console_logger.info(f"Kvazaar revision '{self.revision}' maps to commit hash '{self.commit_hash}'")
@@ -124,16 +133,21 @@ class TestInstance():
             assert os.path.exists(KVZ_VS_SOLUTION_PATH)
 
             # Add defines to msbuild arguments.
+            # Semicolons cannot be used as literals, so use %3B instead. Read these for reference:
+            # https://docs.microsoft.com/en-us/visualstudio/msbuild/how-to-escape-special-characters-in-msbuild
+            # https://docs.microsoft.com/en-us/visualstudio/msbuild/msbuild-special-characters
             MSBUILD_SEMICOLON_ESCAPE = "%3B"
-            KVZ_MSBUILD_ARGS.append("/p:DefineConstants={}".format(MSBUILD_SEMICOLON_ESCAPE.join(self.defines)))
+            KVZ_MSBUILD_ARGS.append(f"/p:DefineConstants={MSBUILD_SEMICOLON_ESCAPE.join(self.defines)}")
 
             # Run VsDevCmd.bat, then msbuild. Return 0 on success, 1 on failure.
             # KVZ_MSBUILD_ARGS has to be a list/tuple so the syntax below is pretty stupid.
-            # TODO: Find a less idiotic and more readable way to do this.
-            compile_cmd: tuple = ("(", "call", VS_VSDEVCMD_BAT_PATH,
-                                       "&&", "msbuild", KVZ_VS_SOLUTION_PATH) + tuple(KVZ_MSBUILD_ARGS) + (
-                                       "&&", "exit", "0",
-                                  ")", "||", "exit", "1")
+            # TODO: Find a less stupid and more readable way to do this.
+            compile_cmd: tuple = (
+                "(", "call", VS_VSDEVCMD_BAT_PATH,
+                     "&&", "msbuild", KVZ_VS_SOLUTION_PATH) + tuple(KVZ_MSBUILD_ARGS) + (
+                     "&&", "exit", "0",
+                ")", "||", "exit", "1",
+            )
             build_logger.info(subprocess.list2cmdline(compile_cmd))
             try:
                 output: bytes = subprocess.check_output(compile_cmd, shell=True)
@@ -161,7 +175,7 @@ class TestInstance():
             KVZ_CONFIGURE_ARGS.append(cflags_str.strip())
 
             # Run autogen.sh, then configure, then make. Return 0 on success, 1 on failure.
-            # TODO: Find a better way to do this (KVZ_CONFIGURE_ARGS is a tuple).
+            # TODO: Find a better way to do this.
             compile_cmd = (
                 "(", "cd", KVZ_GIT_REPO_PATH,
                      "&&", KVZ_AUTOGEN_SCRIPT_PATH,
@@ -195,11 +209,12 @@ class TestInstance():
 
             # Clean the build so that Kvazaar binaries of different versions
             # can be built without problems if desired. This is not logged.
+            # Go to Kvazaar git repo, then run make clean. Return 0 on success, 1 on failure.
             clean_cmd = (
                 "(", "cd", KVZ_GIT_REPO_PATH,
                      "&&", "make", "clean",
                      "&&", "exit", "0",
-                ")", "||", "exit", "1"
+                ")", "||", "exit", "1",
             )
             try:
                 subprocess.check_output(subprocess.list2cmdline(clean_cmd), shell=True)
