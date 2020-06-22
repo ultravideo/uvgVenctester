@@ -49,22 +49,51 @@ KVZ_AUTOGEN_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "autogen.sh")
 KVZ_CONFIGURE_SCRIPT_PATH: str = os.path.join(KVZ_GIT_REPO_PATH, "configure")
 KVZ_CONFIGURE_ARGS: list = ["--disable-shared", "--enable-static",]
 
+FILENAME_COMMIT_HASH_LEN: int = 16
+FILENAME_DEFINE_HASH_LEN: int = 8
+
 class TestInstance():
     """
     This class defines all Kvazaar-specific functionality.
     """
 
     def __init__(self, revision: str, defines: list):
+        self.git_repo: core.GitRepo = core.GitRepo(KVZ_GIT_REPO_PATH)
         self.defines: list = sorted(set(defines)) # ensure no duplicates
-        self.define_hash: str = hashlib.md5(str(self.defines).encode()).digest().hex()[:16] # first 16 digits of MD5
+        self.define_hash: str = hashlib.md5(str(self.defines).encode()).digest().hex()[:FILENAME_DEFINE_HASH_LEN]
         self.revision: str = revision
-        self.exe_name: str = f"kvazaar_{self.revision}_{self.define_hash}{'.exe' if OS_NAME == 'Windows' else ''}"
-        self.exe_dest_path: str = os.path.join(BINARIES_DIR_PATH, self.exe_name)
-        self.build_log_name: str = f"kvazaar_{self.revision}_{self.define_hash}_build_log.txt"
-        self.build_log_path: str = os.path.join(BINARIES_DIR_PATH, self.build_log_name)
+        # These have to be evaluated once the existence of the repository is certain.
+        self.exe_name: str = ""
+        self.exe_dest_path: str = ""
+        self.commit_hash: str = ""
+        self.build_log_name: str = ""
+        self.build_log_path: str = ""
 
     def build(self):
         core.console_logger.info(f"Building Kvazaar (revision '{self.revision}')")
+
+        # The build log isn't initialized yet because the filename is based on the git commit hash
+        # and that is only found out after the repo has been cloned.
+        build_log_buffer: list = []
+
+        # Clone the remote if the local repo doesn't exist yet.
+        if not os.path.exists(KVZ_GIT_REPO_PATH):
+            cmd_str, output, exception = self.git_repo.clone(KVZ_GITLAB_REPO_SSH_URL)
+            if not exception:
+                build_log_buffer.append(cmd_str)
+                build_log_buffer.append(output.decode())
+            else:
+                core.console_logger.error(cmd_str)
+                core.console_logger.error(exception.output.decode())
+                raise exception
+
+        self.commit_hash = self.git_repo.rev_parse(self.revision)[1].decode().strip()
+        self.exe_name = f"kvazaar_{self.commit_hash[:FILENAME_COMMIT_HASH_LEN]}_{self.define_hash}{'.exe' if OS_NAME == 'Windows' else ''}"
+        self.exe_dest_path = os.path.join(BINARIES_DIR_PATH, self.exe_name)
+        self.build_log_name = f"kvazaar_{self.commit_hash[:FILENAME_COMMIT_HASH_LEN]}_{self.define_hash}_build_log.txt"
+        self.build_log_path = os.path.join(BINARIES_DIR_PATH, self.build_log_name)
+
+        core.console_logger.info(f"Kvazaar revision '{self.revision}' maps to commit hash '{self.commit_hash}'")
 
         # Don't build unnecessarily.
         if (os.path.exists(self.exe_dest_path)):
@@ -72,35 +101,24 @@ class TestInstance():
             return
 
         if not os.path.exists(BINARIES_DIR_PATH):
+            build_log_buffer.append(f"Creating directory '{BINARIES_DIR_PATH}'")
             os.makedirs(BINARIES_DIR_PATH)
 
-        build_logger: logging.Logger = core.setup_build_logger(self.exe_name, self.build_log_path)
-
-        # Clone the remote if the local repo doesn't exist yet.
-        if not os.path.exists(KVZ_GIT_REPO_PATH):
-            try:
-                clone_command: tuple = ("git", "clone", KVZ_GITLAB_REPO_SSH_URL, KVZ_GIT_REPO_PATH)
-                build_logger.info(subprocess.list2cmdline(clone_command))
-                output: bytes = subprocess.check_output(clone_command)
-                build_logger.info(output.decode())
-            except subprocess.CalledProcessError as exception:
-                build_logger.error(exception.output.decode())
-                core.console_logger.error(exception.output.decode())
-                raise
+        # Set up build logger now that the necessary information is known.
+        build_logger: logging.Logger = core.setup_build_logger(self.build_log_path)
+        for message in build_log_buffer:
+            build_logger.info(message)
 
         # Checkout to the desired version.
-        try:
-            checkout_command: tuple = ("git",
-                                       "--work-tree", KVZ_GIT_REPO_PATH,
-                                       "--git-dir", KVZ_GIT_DIR_PATH,
-                                       "checkout", self.revision)
-            build_logger.info(subprocess.list2cmdline(checkout_command))
-            output: bytes = subprocess.check_output(checkout_command, stderr=subprocess.STDOUT)
+        cmd_str, output, exception = self.git_repo.checkout(self.commit_hash)
+        if not exception:
+            build_logger.info(cmd_str)
             build_logger.info(output.decode())
-        except subprocess.CalledProcessError as exception:
+        else:
+            build_logger.info(cmd_str)
+            build_logger.info(exception.output.decode())
             core.console_logger.error(exception.output.decode())
-            build_logger.error(exception.output.decode())
-            raise
+            raise exception
 
         if OS_NAME == "Windows":
             assert os.path.exists(KVZ_VS_SOLUTION_PATH)
