@@ -6,12 +6,11 @@ This module defines all Kvazaar-specific functionality.
 """
 
 import core
-from core import cfg
+from core.cfg import *
 
 import hashlib
 import logging
 import os
-import platform
 import shutil
 import subprocess
 
@@ -21,10 +20,10 @@ class TestInstance():
     """
 
     def __init__(self, revision: str, defines: list):
-        self.git_repo: core.GitRepo = core.GitRepo(cfg.KVZ_GIT_REPO_PATH)
+        self.git_repo: core.GitRepo = core.GitRepo(cfg.kvz_git_repo_path)
         self.defines: list = sorted(set(defines)) # ensure no duplicates
         self.define_hash: str = hashlib.md5(str(self.defines).encode()).digest().hex()
-        self.short_define_hash: str = self.define_hash[:cfg.SHORT_DEFINE_HASH_LEN]
+        self.short_define_hash: str = self.define_hash[:cfg.short_define_hash_len]
         self.revision: str = revision
         # These have to be evaluated once the existence of the repository is certain.
         self.exe_name: str = ""
@@ -43,8 +42,8 @@ class TestInstance():
         build_log_buffer: list = []
 
         # Clone the remote if the local repo doesn't exist yet.
-        if not os.path.exists(cfg.KVZ_GIT_REPO_PATH):
-            cmd_str, output, exception = self.git_repo.clone(cfg.KVZ_GITLAB_REPO_SSH_URL)
+        if not os.path.exists(cfg.kvz_git_repo_path):
+            cmd_str, output, exception = self.git_repo.clone(cfg.kvz_git_repo_ssh_url)
             if not exception:
                 build_log_buffer.append(cmd_str)
                 build_log_buffer.append(output.decode())
@@ -55,11 +54,11 @@ class TestInstance():
 
         # These can now be evaluated because the repo exists for certain.
         self.commit_hash = self.git_repo.rev_parse(self.revision)[1].decode().strip()
-        self.short_commit_hash = self.commit_hash[:cfg.SHORT_COMMIT_HASH_LEN]
-        self.exe_name = f"kvazaar_{self.short_commit_hash}_{self.short_define_hash}{'.exe' if cfg.OS_NAME == 'Windows' else ''}"
-        self.exe_dest_path = os.path.join(cfg.BINARIES_DIR_PATH, self.exe_name)
+        self.short_commit_hash = self.commit_hash[:cfg.short_commit_hash_len]
+        self.exe_name = f"kvazaar_{self.short_commit_hash}_{self.short_define_hash}{'.exe' if cfg.os_name == 'Windows' else ''}"
+        self.exe_dest_path = os.path.join(cfg.binaries_dir_path, self.exe_name)
         self.build_log_name = f"kvazaar_{self.short_commit_hash}_{self.short_define_hash}_build_log.txt"
-        self.build_log_path = os.path.join(cfg.BINARIES_DIR_PATH, self.build_log_name)
+        self.build_log_path = os.path.join(cfg.binaries_dir_path, self.build_log_name)
 
         core.console_logger.info(f"Kvazaar revision '{self.revision}' maps to commit hash '{self.commit_hash}'")
 
@@ -68,9 +67,9 @@ class TestInstance():
             core.console_logger.info(f"Executable '{self.exe_dest_path}' already exists - aborting build")
             return
 
-        if not os.path.exists(cfg.BINARIES_DIR_PATH):
-            build_log_buffer.append(f"Creating directory '{cfg.BINARIES_DIR_PATH}'")
-            os.makedirs(cfg.BINARIES_DIR_PATH)
+        if not os.path.exists(cfg.binaries_dir_path):
+            build_log_buffer.append(f"Creating directory '{cfg.binaries_dir_path}'")
+            os.makedirs(cfg.binaries_dir_path)
 
         # Set up build logger now that the necessary information is known.
         build_logger: logging.Logger = core.setup_build_logger(self.build_log_path)
@@ -88,8 +87,8 @@ class TestInstance():
             core.console_logger.error(exception.output.decode())
             raise exception
 
-        if cfg.OS_NAME == "Windows":
-            assert os.path.exists(cfg.KVZ_VS_SOLUTION_PATH)
+        if cfg.os_name == "Windows":
+            assert os.path.exists(cfg.kvz_vs_solution_path)
 
             # Add defines to msbuild arguments.
             # Semicolons cannot be used as literals, so use %3B instead. Read these for reference:
@@ -103,8 +102,8 @@ class TestInstance():
             # KVZ_MSBUILD_ARGS has to be a list/tuple so the syntax below is pretty stupid.
             # TODO: Find a less stupid and more readable way to do this.
             compile_cmd: tuple = (
-                "(", "call", cfg.VS_VSDEVCMD_BAT_PATH,
-                     "&&", "msbuild", cfg.KVZ_VS_SOLUTION_PATH) + tuple(msbuild_args) + (
+                "(", "call", cfg.vs_vsdevcmd_bat_path,
+                     "&&", "msbuild", cfg.kvz_vs_solution_path) + tuple(msbuild_args) + (
                      "&&", "exit", "0",
                 ")", "||", "exit", "1",
             )
@@ -119,17 +118,17 @@ class TestInstance():
                 raise
 
             # Copy the executable to its destination.
-            assert os.path.exists(cfg.KVZ_EXE_SRC_PATH_WINDOWS)
+            assert os.path.exists(cfg.kvz_exe_src_path_windows)
             try:
-                build_logger.info(f"Copying file '{cfg.KVZ_EXE_SRC_PATH_WINDOWS}' to '{self.exe_dest_path}'")
-                shutil.copy(cfg.KVZ_EXE_SRC_PATH_WINDOWS, self.exe_dest_path)
+                build_logger.info(f"Copying file '{cfg.kvz_exe_src_path_windows}' to '{self.exe_dest_path}'")
+                shutil.copy(cfg.kvz_exe_src_path_windows, self.exe_dest_path)
 
             except FileNotFoundError as exception:
                 core.console_logger.error(str(exception))
                 build_logger.error(str(exception))
                 raise
 
-        elif cfg.OS_NAME == "Linux":
+        elif cfg.os_name == "Linux":
             # Add defines to configure arguments.
             cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self.defines])}"
             kvz_configure_args = cfg.KVZ_CONFIGURE_ARGS
@@ -138,9 +137,9 @@ class TestInstance():
             # Run autogen.sh, then configure, then make. Return 0 on success, 1 on failure.
             # TODO: Find a better way to do this.
             compile_cmd = (
-                "(", "cd", cfg.KVZ_GIT_REPO_PATH,
-                     "&&", cfg.KVZ_AUTOGEN_SCRIPT_PATH,
-                     "&&", cfg.KVZ_CONFIGURE_SCRIPT_PATH,) + tuple(kvz_configure_args) + (
+                "(", "cd", cfg.kvz_git_repo_path,
+                     "&&", cfg.kvz_autogen_script_path,
+                     "&&", cfg.kvz_configure_script_path,) + tuple(kvz_configure_args) + (
                      "&&", "make",
                      "&&", "exit", "0",
                 ")", "||", "exit", "1",
@@ -159,10 +158,10 @@ class TestInstance():
                 raise
 
             # Copy the executable to its destination.
-            assert os.path.exists(cfg.KVZ_EXE_SRC_PATH_LINUX)
-            build_logger.info(f"Copying file '{cfg.KVZ_EXE_SRC_PATH_LINUX}' to '{self.exe_dest_path}'")
+            assert os.path.exists(cfg.kvz_exe_src_path_linux)
+            build_logger.info(f"Copying file '{cfg.kvz_exe_src_path_linux}' to '{self.exe_dest_path}'")
             try:
-                shutil.copy(cfg.KVZ_EXE_SRC_PATH_LINUX, self.exe_dest_path)
+                shutil.copy(cfg.kvz_exe_src_path_linux, self.exe_dest_path)
             except FileNotFoundError as exception:
                 core.console_logger.error(str(exception))
                 build_logger.error(str(exception))
@@ -172,7 +171,7 @@ class TestInstance():
             # can be built without problems if desired. This is not logged.
             # Go to Kvazaar git repo, then run make clean. Return 0 on success, 1 on failure.
             clean_cmd = (
-                "(", "cd", cfg.KVZ_GIT_REPO_PATH,
+                "(", "cd", cfg.kvz_git_repo_path,
                      "&&", "make", "clean",
                      "&&", "exit", "0",
                 ")", "||", "exit", "1",
@@ -185,6 +184,6 @@ class TestInstance():
 
         # Only Linux and Windows are supported.
         else:
-            exception = RuntimeError(f"Unsupported OS '{cfg.OS_NAME}'. Expected one of ['Linux', 'Windows']")
+            exception = RuntimeError(f"Unsupported OS '{cfg.os_name}'. Expected one of ['Linux', 'Windows']")
             core.console_logger.error(str(exception))
             raise exception
