@@ -3,7 +3,8 @@
 
 """
 This module defines configuration variables that affect the global state
-and execution flow of the tester.
+and execution flow of the tester. The user may set up a userconfig.py
+to override the default values.
 """
 
 from core.singleton import *
@@ -11,6 +12,12 @@ from core.log import *
 import os
 import platform
 import re
+
+# Import user's configuration file if it exists.
+try:
+    import userconfig
+except ImportError:
+    userconfig = None
 
 
 class Config(metaclass=Singleton):
@@ -22,6 +29,26 @@ class Config(metaclass=Singleton):
     __VALID_PROPERTY_PATTERN = re.compile(r"^[a-z][0-9a-z_]+$")
 
     def __init__(self):
+        # Read userconfig.
+        if userconfig:
+            console_logger.debug("Reading userconfig")
+
+            # Set and print values of variables with valid names.
+            for variable_name in self.user_variable_names():
+                if hasattr(self, variable_name):
+                    value = getattr(userconfig, variable_name)
+                    console_logger.debug(f"Userconfig: cfg.{variable_name} = {value}")
+                    setattr(self, variable_name, value)
+
+            # Print and warn of invalid variables.
+            for variable_name in self.user_variable_names():
+                if not hasattr(self, variable_name):
+                    console_logger.warning(f"Userconfig: Unknown variable '{variable_name}' - is the spelling correct?")
+        else:
+            console_logger.warning("Userconfig not found")
+
+        console_logger.debug("Listing all configuration variables:")
+
         # Print variable values.
         for variable_name in self.variable_names():
             console_logger.debug(f"cfg.{variable_name} = {getattr(self, variable_name)}")
@@ -38,7 +65,7 @@ class Config(metaclass=Singleton):
 
     def property_names(self) -> list:
         properties = []
-        for property_name in self.__dir__():
+        for property_name in dir(self):
             is_property = isinstance(getattr(type(self), property_name, None), property)
             if is_property:
                 properties.append(property_name)
@@ -46,10 +73,17 @@ class Config(metaclass=Singleton):
 
     def variable_names(self) -> list:
         variables: list = []
-        for variable_name in self.__dir__():
+        for variable_name in dir(self):
             if self.__VALID_VARIABLE_PATTERN.fullmatch(variable_name):
                 variables.append(variable_name)
-        return variables
+        return sorted(variables)
+
+    def user_variable_names(self) -> list:
+        user_variables: list = []
+        for variable_name in dir(userconfig):
+            if variable_name.isupper():
+                user_variables.append(variable_name)
+        return sorted(user_variables)
 
     ##########################################################################
     # ACTUAL CONFIGURATION VARIABLES
@@ -227,5 +261,4 @@ class Config(metaclass=Singleton):
     def build_log_level(self) -> int:
         return self.BUILD_LOG_LEVEL
 
-# TODO: This is done twice for some reason.
 cfg = Config()
