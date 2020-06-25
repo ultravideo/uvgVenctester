@@ -20,7 +20,7 @@ except ImportError:
     userconfig = None
 
 
-class Config(metaclass=Singleton):
+class Cfg(metaclass=Singleton):
 
     # Normal variable naming, but must start with a letter
     # and uppercase only for variables, lowercase only for
@@ -29,6 +29,9 @@ class Config(metaclass=Singleton):
     __VALID_PROPERTY_PATTERN = re.compile(r"^[a-z][0-9a-z_]+$")
 
     def __init__(self):
+        pass
+
+    def read_userconfig(self):
         # Read userconfig.
         if userconfig:
             console_logger.debug("Reading userconfig")
@@ -47,8 +50,7 @@ class Config(metaclass=Singleton):
         else:
             console_logger.warning("Userconfig not found")
 
-        console_logger.debug("Listing all configuration variables:")
-
+    def validate_all(self):
         # Print variable values.
         for variable_name in self.variable_names():
             console_logger.debug(f"cfg.{variable_name} = {getattr(self, variable_name)}")
@@ -260,5 +262,3 @@ class Config(metaclass=Singleton):
     @property
     def build_log_level(self) -> int:
         return self.BUILD_LOG_LEVEL
-
-cfg = Config()
