@@ -9,18 +9,21 @@ from core.cfg import *
 from core.git import *
 from core.log import *
 
+from encoders.testinstancebase import *
+
 import hashlib
 import logging
 import os
 import shutil
 import subprocess
 
-class TestInstance():
+class TestInstance(TestInstanceBase):
     """
     This class defines all Kvazaar-specific functionality.
     """
 
     def __init__(self, revision: str, defines: list):
+        super().__init__()
         self.git_repo: GitRepo = GitRepo(Cfg().kvz_git_repo_path)
         self.defines: list = sorted(set(defines)) # ensure no duplicates
         self.define_hash: str = hashlib.md5(str(self.defines).encode()).digest().hex()
