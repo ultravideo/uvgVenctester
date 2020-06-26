@@ -16,48 +16,172 @@ import logging
 import os
 import shutil
 import subprocess
+import typing
 
 class TestInstance(TestInstanceBase):
     """
     This class defines all Kvazaar-specific functionality.
     """
 
-    def __init__(self, revision: str, defines: list):
+    def __init__(self, name: str, revision: str, defines: list, cl_args: str):
         super().__init__()
+        self.name: str = name
         self.git_repo: GitRepo = GitRepo(Cfg().kvz_git_repo_path)
         self.defines: list = sorted(set(defines)) # ensure no duplicates
         self.define_hash: str = hashlib.md5(str(self.defines).encode()).digest().hex()
         self.short_define_hash: str = self.define_hash[:Cfg().short_define_hash_len]
         self.revision: str = revision
-        # These have to be evaluated once the existence of the repository is certain.
+        self.cl_args: str = self.prepare_cl_args(cl_args)
+        # These are evaluated in TestInstance.prepare_sources.
         self.exe_name: str = ""
         self.exe_dest_path: str = ""
         self.commit_hash: str = ""
         self.short_commit_hash: str = ""
         self.build_log_name: str = ""
         self.build_log_path: str = ""
+        self.prepare_sources()
 
-    def build(self):
-        console_logger.info(f"Building Kvazaar (revision '{self.revision}')")
+        console_logger.debug(f"Initialized Kvazaar instance '{self.name}' with"
+                             f" revision='{self.revision}',"
+                             f" commit_hash='{self.commit_hash}',"
+                             f" defines={self.defines},"
+                             f" cl_args={self.cl_args}")
 
-        # The build log isn't initialized yet because the filename is based on the git commit hash
-        # and that is only found out after the repo has been cloned, so buffer messages
-        # until the logger is actually created.
-        build_log_buffer: list = []
+    def __eq__(self, other):
+        return self.get_encoder_name() == other.get_encoder_name()\
+                and self.commit_hash == other.commit_hash\
+                and self.define_hash == other.define_hash\
+                and self.cl_args == other.cl_args
+
+    def get_encoder_name(self):
+        return "Kvazaar"
+
+    def get_name(self):
+        return self.name
+
+    def get_defines(self):
+        return self.defines
+
+    def get_revision(self):
+        return self.revision
+
+    def get_cl_args(self):
+        return self.cl_args
+
+    def prepare_cl_args(self, cl_args: str) -> str:
+        """Reorders command line arguments such that --preset is first, --gop second and all
+        the rest last. Returns the arguments as a string."""
+
+        def is_long_option(candidate: str):
+            return candidate.startswith("--")
+        def is_short_option(candidate: str):
+            return not is_long_option(candidate) and candidate.startswith("-")
+        def is_option(candidate: str):
+            return is_long_option(candidate) or is_short_option(candidate)
+        def is_value(candidate: str):
+            return not is_option(candidate)
+
+        split_args: list = []
+
+        # Split the arguments such that each option and its value, if any, are separated.
+        for item in cl_args.split():
+            if is_short_option(item):
+                # A short option is of the form -<short form><value> or -<short form> <value>,
+                # so split after the second character.
+                option_name: str = item[:2]
+                option_value: str = item[2:].strip()
+                split_args.append(option_name)
+                if option_value:
+                    split_args.append(option_value)
+            else:
+                for item in item.split("="):
+                    split_args.append(item)
+
+        # Put the options and their values into this dict. Value None indicates that the option
+        # is a boolean with no explicit value.
+        option_values: dict = {}
+        i: int = 0
+        i_max: int = len(split_args)
+        while i < i_max:
+            option_name = split_args[i]
+            if is_option(option_name) and i + 1 < i_max and is_value(split_args[i + 1]):
+                option_value = split_args[i + 1]
+                i += 2
+            else:
+                option_value = None
+                i += 1
+
+            if option_name in option_values:
+                raise RuntimeError(f"Kvazaar: Duplicate option {option_name}")
+
+            option_values[option_name] = option_value
+
+        # Check that no option is specified as both no-<option> and <option>.
+        for option_name in option_values.keys():
+            option_name = option_name.strip("--")
+            if f"--no-{option_name}" in option_values.keys():
+                raise RuntimeError(f"Kvazaar: Conflicting options '{option_name}' and 'no-{option_name}'")
+
+        # Reorder the options. --preset and --gop must be the first, in this order. The order
+        # of the rest doesn't matter.
+
+        # Handle --preset and --gop.
+        reordered_cl_args: list = []
+        for option_name in ("--preset", "--gop"):
+            if option_name in option_values:
+                option_value = option_values[option_name]
+                reordered_cl_args.append(option_name)
+                if option_value:
+                    reordered_cl_args.append(option_value)
+                del option_values[option_name]
+
+        # Handle option flags with implicit boolean values (for example --no-wpp).
+        for option_name in sorted(option_values.keys()):
+            option_value = option_values[option_name]
+            if option_value is None:
+                reordered_cl_args.append(option_name)
+                del option_values[option_name]
+
+        # Handle long options with explicit values (for example --frames 256)
+        for option_name in sorted(option_values.keys()):
+            option_value = option_values[option_name]
+            if is_long_option(option_name):
+                reordered_cl_args.append(option_name)
+                reordered_cl_args.append(option_value)
+
+        # Handle short options with explicit values (for example -n 256).
+        for option_name in sorted(option_values.keys()):
+            option_value = option_values[option_name]
+            if is_short_option(option_name):
+                reordered_cl_args.append(option_name)
+                reordered_cl_args.append(option_value)
+
+        return " ".join(reordered_cl_args)
+
+    def prepare_sources(self):
+        """Clones the Kvazaar repository from remote if it doesn't exist. Checks that the specified
+        revision exists. Sets attributes that depend on the commit hash."""
+        console_logger.info(f"Preparing Kvazaar (revision '{self.revision}') sources")
 
         # Clone the remote if the local repo doesn't exist yet.
         if not os.path.exists(Cfg().kvz_git_repo_path):
             cmd_str, output, exception = self.git_repo.clone(Cfg().kvz_git_repo_ssh_url)
             if not exception:
-                build_log_buffer.append(cmd_str)
-                build_log_buffer.append(output.decode())
+                pass
             else:
                 console_logger.error(cmd_str)
                 console_logger.error(exception.output.decode())
                 raise exception
+        else:
+            console_logger.info(f"Repository '{Cfg().kvz_git_repo_path}' already exists")
 
         # These can now be evaluated because the repo exists for certain.
-        self.commit_hash = self.git_repo.rev_parse(self.revision)[1].decode().strip()
+        cmd, output, exception = self.git_repo.rev_parse(self.revision)
+        if not exception:
+            self.commit_hash = output.decode().strip()
+        else:
+            console_logger.error(f"Invalid Kvazaar revision '{self.revision}'")
+            raise exception
         self.short_commit_hash = self.commit_hash[:Cfg().short_commit_hash_len]
         self.exe_name = f"kvazaar_{self.short_commit_hash}_{self.short_define_hash}{'.exe' if Cfg().os_name == 'Windows' else ''}"
         self.exe_dest_path = os.path.join(Cfg().binaries_dir_path, self.exe_name)
@@ -66,19 +190,20 @@ class TestInstance(TestInstanceBase):
 
         console_logger.info(f"Kvazaar revision '{self.revision}' maps to commit hash '{self.commit_hash}'")
 
+    def build(self):
+        console_logger.info(f"Building Kvazaar (revision '{self.revision}')")
+
+        # Set up build logger now that the necessary information is known.
+        build_logger: logging.Logger = setup_build_logger(self.build_log_path)
+
         # Don't build unnecessarily.
         if (os.path.exists(self.exe_dest_path)):
             console_logger.info(f"Executable '{self.exe_dest_path}' already exists - aborting build")
             return
 
         if not os.path.exists(Cfg().binaries_dir_path):
-            build_log_buffer.append(f"Creating directory '{Cfg().binaries_dir_path}'")
+            build_logger.info(f"Creating directory '{Cfg().binaries_dir_path}'")
             os.makedirs(Cfg().binaries_dir_path)
-
-        # Set up build logger now that the necessary information is known.
-        build_logger: logging.Logger = setup_build_logger(self.build_log_path)
-        for message in build_log_buffer:
-            build_logger.info(message)
 
         # Checkout to the desired version.
         cmd_str, output, exception = self.git_repo.checkout(self.commit_hash)
