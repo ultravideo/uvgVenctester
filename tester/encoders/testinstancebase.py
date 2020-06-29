@@ -31,3 +31,6 @@ class TestInstanceBase:
 
     def build(self):
         raise NotImplementedError
+
+    def cl_args_are_valid(self):
+        raise NotImplementedError

@@ -18,6 +18,11 @@ class Tester:
             for instance in tests:
                 instance.build()
 
+            for instance in tests:
+                if not instance.cl_args_are_valid():
+                    console_logger.error("Aborting test run")
+                    return False
+
             return True
         except:
             raise

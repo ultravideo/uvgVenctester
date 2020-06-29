@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import typing
 
+
 class TestInstance(TestInstanceBase):
     """
     This class defines all Kvazaar-specific functionality.
@@ -74,10 +75,13 @@ class TestInstance(TestInstanceBase):
 
         def is_long_option(candidate: str):
             return candidate.startswith("--")
+
         def is_short_option(candidate: str):
             return not is_long_option(candidate) and candidate.startswith("-")
+
         def is_option(candidate: str):
             return is_long_option(candidate) or is_short_option(candidate)
+
         def is_value(candidate: str):
             return not is_option(candidate)
 
@@ -193,17 +197,17 @@ class TestInstance(TestInstanceBase):
     def build(self):
         console_logger.info(f"Building Kvazaar (revision '{self.revision}')")
 
-        # Set up build logger now that the necessary information is known.
-        build_logger: logging.Logger = setup_build_logger(self.build_log_path)
-
         # Don't build unnecessarily.
         if (os.path.exists(self.exe_dest_path)):
             console_logger.info(f"Executable '{self.exe_dest_path}' already exists - aborting build")
             return
 
         if not os.path.exists(Cfg().binaries_dir_path):
-            build_logger.info(f"Creating directory '{Cfg().binaries_dir_path}'")
+            console_logger.debug(f"Creating directory '{Cfg().binaries_dir_path}'")
             os.makedirs(Cfg().binaries_dir_path)
+
+        # Set up build logger.
+        build_logger: logging.Logger = setup_build_logger(self.build_log_path)
 
         # Checkout to the desired version.
         cmd_str, output, exception = self.git_repo.checkout(self.commit_hash)
@@ -316,3 +320,27 @@ class TestInstance(TestInstanceBase):
             exception = RuntimeError(f"Unsupported OS '{Cfg().os_name}'. Expected one of ['Linux', 'Windows']")
             console_logger.error(str(exception))
             raise exception
+
+    def cl_args_are_valid(self) -> bool:
+        console_logger.debug(
+            f"Test configuration '{self.name}': Executing dummy run to validate command line arguments")
+
+        dummy_cmd: tuple = ()
+        cl_args_as_tuple: tuple = tuple(self.cl_args.split())
+        if Cfg().os_name == "Windows":
+            dummy_cmd = (
+                self.exe_dest_path,) + cl_args_as_tuple + ("-i", "NUL", "--input-res", "2x2", "-o", "NUL",
+            )
+        elif Cfg().os_name == "Linux":
+            dummy_cmd = (
+                self.exe_dest_path,) + cl_args_as_tuple + ("-i", "/dev/null", "--input-res", "2x2", "-o", "/dev/null",
+            )
+
+        try:
+            subprocess.check_output(dummy_cmd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as exception:
+            console_logger.error(f"Invalid test configuration '{self.name}' (cl_args='{self.cl_args}')")
+            console_logger.error(f"{exception.output.decode().strip()}")
+            return False
+        console_logger.debug(f"Valid test configuration '{self.name}'")
+        return True
