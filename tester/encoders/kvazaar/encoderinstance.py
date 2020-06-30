@@ -9,31 +9,30 @@ from core.cfg import *
 from core.git import *
 from core.log import *
 
-from encoders.testinstancebase import *
+from .encodingparamset import *
+
+import test
+from encoders import *
 
 import hashlib
 import logging
 import os
 import shutil
 import subprocess
-import typing
 
-
-class TestInstance(TestInstanceBase):
+class EncoderInstance(test.EncoderInstanceBase):
     """
     This class defines all Kvazaar-specific functionality.
     """
 
-    def __init__(self, name: str, revision: str, defines: list, cl_args: str):
+    def __init__(self, revision: str, defines: list):
         super().__init__()
-        self.name: str = name
         self.git_repo: GitRepo = GitRepo(Cfg().kvz_git_repo_path)
         self.defines: list = sorted(set(defines)) # ensure no duplicates
         self.define_hash: str = hashlib.md5(str(self.defines).encode()).digest().hex()
         self.short_define_hash: str = self.define_hash[:Cfg().short_define_hash_len]
         self.revision: str = revision
-        self.cl_args: str = self.prepare_cl_args(cl_args)
-        # These are evaluated in TestInstance.prepare_sources.
+
         self.exe_name: str = ""
         self.exe_dest_path: str = ""
         self.commit_hash: str = ""
@@ -42,125 +41,27 @@ class TestInstance(TestInstanceBase):
         self.build_log_path: str = ""
         self.prepare_sources()
 
-        console_logger.debug(f"Initialized Kvazaar instance '{self.name}' with"
+        console_logger.debug(f"Initialized Kvazaar instance with"
                              f" revision='{self.revision}',"
                              f" commit_hash='{self.commit_hash}',"
-                             f" defines={self.defines},"
-                             f" cl_args={self.cl_args}")
+                             f" defines={self.defines}")
 
     def __eq__(self, other):
         return self.get_encoder_name() == other.get_encoder_name()\
                 and self.commit_hash == other.commit_hash\
-                and self.define_hash == other.define_hash\
-                and self.cl_args == other.cl_args
+                and self.define_hash == other.define_hash
 
-    def get_encoder_name(self):
+    def get_encoder_id(self) -> test.EncoderId:
+        return test.EncoderId.KVAZAAR
+
+    def get_encoder_name(self) -> str:
         return "Kvazaar"
 
-    def get_name(self):
-        return self.name
-
-    def get_defines(self):
+    def get_defines(self) -> list:
         return self.defines
 
-    def get_revision(self):
+    def get_revision(self) -> str:
         return self.revision
-
-    def get_cl_args(self):
-        return self.cl_args
-
-    def prepare_cl_args(self, cl_args: str) -> str:
-        """Reorders command line arguments such that --preset is first, --gop second and all
-        the rest last. Returns the arguments as a string."""
-
-        def is_long_option(candidate: str):
-            return candidate.startswith("--")
-
-        def is_short_option(candidate: str):
-            return not is_long_option(candidate) and candidate.startswith("-")
-
-        def is_option(candidate: str):
-            return is_long_option(candidate) or is_short_option(candidate)
-
-        def is_value(candidate: str):
-            return not is_option(candidate)
-
-        split_args: list = []
-
-        # Split the arguments such that each option and its value, if any, are separated.
-        for item in cl_args.split():
-            if is_short_option(item):
-                # A short option is of the form -<short form><value> or -<short form> <value>,
-                # so split after the second character.
-                option_name: str = item[:2]
-                option_value: str = item[2:].strip()
-                split_args.append(option_name)
-                if option_value:
-                    split_args.append(option_value)
-            else:
-                for item in item.split("="):
-                    split_args.append(item)
-
-        # Put the options and their values into this dict. Value None indicates that the option
-        # is a boolean with no explicit value.
-        option_values: dict = {}
-        i: int = 0
-        i_max: int = len(split_args)
-        while i < i_max:
-            option_name = split_args[i]
-            if is_option(option_name) and i + 1 < i_max and is_value(split_args[i + 1]):
-                option_value = split_args[i + 1]
-                i += 2
-            else:
-                option_value = None
-                i += 1
-
-            if option_name in option_values:
-                raise RuntimeError(f"Kvazaar: Duplicate option {option_name}")
-
-            option_values[option_name] = option_value
-
-        # Check that no option is specified as both no-<option> and <option>.
-        for option_name in option_values.keys():
-            option_name = option_name.strip("--")
-            if f"--no-{option_name}" in option_values.keys():
-                raise RuntimeError(f"Kvazaar: Conflicting options '{option_name}' and 'no-{option_name}'")
-
-        # Reorder the options. --preset and --gop must be the first, in this order. The order
-        # of the rest doesn't matter.
-
-        # Handle --preset and --gop.
-        reordered_cl_args: list = []
-        for option_name in ("--preset", "--gop"):
-            if option_name in option_values:
-                option_value = option_values[option_name]
-                reordered_cl_args.append(option_name)
-                if option_value:
-                    reordered_cl_args.append(option_value)
-                del option_values[option_name]
-
-        # Handle option flags with implicit boolean values (for example --no-wpp).
-        for option_name in sorted(option_values.keys()):
-            option_value = option_values[option_name]
-            if option_value is None:
-                reordered_cl_args.append(option_name)
-                del option_values[option_name]
-
-        # Handle long options with explicit values (for example --frames 256)
-        for option_name in sorted(option_values.keys()):
-            option_value = option_values[option_name]
-            if is_long_option(option_name):
-                reordered_cl_args.append(option_name)
-                reordered_cl_args.append(option_value)
-
-        # Handle short options with explicit values (for example -n 256).
-        for option_name in sorted(option_values.keys()):
-            option_value = option_values[option_name]
-            if is_short_option(option_name):
-                reordered_cl_args.append(option_name)
-                reordered_cl_args.append(option_value)
-
-        return " ".join(reordered_cl_args)
 
     def prepare_sources(self):
         """Clones the Kvazaar repository from remote if it doesn't exist. Checks that the specified
@@ -321,26 +222,42 @@ class TestInstance(TestInstanceBase):
             console_logger.error(str(exception))
             raise exception
 
-    def cl_args_are_valid(self) -> bool:
+    def dummy_run(self, param_set: EncodingParamSet) -> bool:
         console_logger.debug(
-            f"Test configuration '{self.name}': Executing dummy run to validate command line arguments")
+            f"Kvazaar: Executing dummy run to validate command line arguments")
 
         dummy_cmd: tuple = ()
-        cl_args_as_tuple: tuple = tuple(self.cl_args.split())
         if Cfg().os_name == "Windows":
-            dummy_cmd = (
-                self.exe_dest_path,) + cl_args_as_tuple + ("-i", "NUL", "--input-res", "2x2", "-o", "NUL",
-            )
+            dummy_cmd = (self.exe_dest_path, "-i", "NUL", "--input-res", "2x2", "-o", "NUL",)\
+                        + param_set.to_cmdline_tuple()
         elif Cfg().os_name == "Linux":
-            dummy_cmd = (
-                self.exe_dest_path,) + cl_args_as_tuple + ("-i", "/dev/null", "--input-res", "2x2", "-o", "/dev/null",
-            )
+            dummy_cmd = (self.exe_dest_path, "-i", "/dev/null", "--input-res", "2x2", "-o", "/dev/null",)\
+                        + param_set.to_cmdline_tuple()
 
         try:
             subprocess.check_output(dummy_cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as exception:
-            console_logger.error(f"Invalid test configuration '{self.name}' (cl_args='{self.cl_args}')")
-            console_logger.error(f"{exception.output.decode().strip()}")
+            console_logger.error(f"Kvazaar: Invalid arguments")
+            console_logger.error(exception.output.decode().strip())
             return False
-        console_logger.debug(f"Valid test configuration '{self.name}'")
         return True
+
+    def encode(self,
+               input: test.VideoSequence,
+               param_set: EncodingParamSet,
+               output_filepath: str):
+        console_logger.debug(f"Kvazaar: Encoding file '{input.filepath}'")
+
+        encode_cmd: tuple = (
+            self.exe_dest_path,
+            "-i", input.get_filepath(),
+            "--input-res", f"{input.get_width()}x{input.get_width()}",
+            "-o", output_filepath)\
+            + param_set.to_cmdline_tuple()
+
+        try:
+            subprocess.check_output(encode_cmd, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as exception:
+            console_logger.error(f"Kvazaar: Failed to encode file '{input}'")
+            console_logger.error(exception.output.decode().strip())
+            raise

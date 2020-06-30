@@ -1,1 +1,1 @@
-from . import kvazaar, testinstancebase
+from . import kvazaar

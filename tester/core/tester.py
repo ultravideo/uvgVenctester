@@ -1,44 +1,48 @@
 from .cfg import *
+import test
 
 class Tester:
     def __init__(self):
         pass
 
-    def run(self, tests: list) -> int:
+    def run(self, configs: list, input_sequence_filepaths: list) -> bool:
         """Runs all tests. Returns True on success, False otherwise."""
+
+        input_sequences = [test.VideoSequence(filepath) for filepath in input_sequence_filepaths]
 
         try:
             Cfg().read_userconfig()
             Cfg().validate_all()
 
-            if not self.tests_are_unique(tests):
+            if not self.configs_are_unique(configs):
                 console_logger.error("Aborting test run")
                 return False
 
-            for instance in tests:
-                instance.build()
+            for config in configs:
+                config.get_encoder_instance().build()
 
-            for instance in tests:
-                if not instance.cl_args_are_valid():
-                    console_logger.error("Aborting test run")
-                    return False
+            for config in configs:
+                for param_set in config.get_encoding_param_sets():
+                    if not config.get_encoder_instance().dummy_run(param_set):
+                        console_logger.error(f"Test configuration '{config.get_name()}' is invalid")
+                        console_logger.error("Aborting test run")
+                        return False
+
+            for config in configs:
+                for param_set in config.get_encoding_param_sets():
+                    for sequence in input_sequences:
+                        config.get_encoder_instance().encode(sequence, param_set, "out.hevc")
 
             return True
         except:
             raise
 
-    def tests_are_unique(self, tests: list):
-        """Checks that no two test instances are the same. Returns True if so, False otherwise."""
-        for instance1 in tests:
-            for instance2 in tests:
-                if instance1 == instance2 and not instance1 is instance2:
-                    console_logger.error(f"Duplicate test configuration: '{instance1.get_name()}', '{instance2.get_name()}'")
-                    for instance in instance1, instance2:
-                        console_logger.error(f"Configuration '{instance.get_name()}':"
-                                             f" encoder_name='{instance.get_encoder_name()}',"
-                                             f" revision='{instance.get_revision()}',"
-                                             f" cl_args='{instance.get_cl_args()}',"
-                                             f" defines={instance.get_defines()}")
+    def configs_are_unique(self, configs: list):
+        """Checks that no two test configurations are the same. Returns True if not, False otherwise."""
+        for config1 in configs:
+            for config2 in configs:
+                if config1 == config2 and not config1 is config2:
+                    console_logger.error(f"Tester: Duplicate test configurations:"
+                                         f" '{config1.get_name()}', '{config2.get_name()}'")
                     return False
-
         return True
