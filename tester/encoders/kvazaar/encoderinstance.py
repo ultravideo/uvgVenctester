@@ -51,6 +51,9 @@ class EncoderInstance(test.EncoderInstanceBase):
                 and self.commit_hash == other.commit_hash\
                 and self.define_hash == other.define_hash
 
+    def get_exe_path(self):
+        return self.exe_dest_path
+
     def get_encoder_id(self) -> test.EncoderId:
         return test.EncoderId.KVAZAAR
 
@@ -242,13 +245,25 @@ class EncoderInstance(test.EncoderInstanceBase):
 
     def encode(self,
                input: test.VideoSequence,
-               param_set: EncodingParamSet,
-               output_filepath: str):
-        console_logger.debug(f"Kvazaar: Encoding file '{input.filepath}'")
+               param_set: EncodingParamSet,):
+        console_logger.debug(f"Kvazaar: Encoding file '{input.input_filepath}'")
+
+        qp_name = param_set.get_quality_param_name()
+        qp_value = param_set.get_quality_param_value()
+        base_filename = f"{input.get_input_filename(include_extension=False)}"
+        ext_filename = f"{base_filename}_{qp_name.lower()}{qp_value}.hevc"
+        output_filepath = os.path.join(
+            Cfg().encoding_output_dir_path,
+            self.exe_name.strip(".exe"),
+            param_set.to_cmdline_str(include_quality_param=False),
+            ext_filename)
+
+        if not os.path.exists(os.path.dirname(output_filepath)):
+            os.makedirs(os.path.dirname(output_filepath))
 
         encode_cmd: tuple = (
             self.exe_dest_path,
-            "-i", input.get_filepath(),
+            "-i", input.get_input_filepath(),
             "--input-res", f"{input.get_width()}x{input.get_width()}",
             "-o", output_filepath)\
             + param_set.to_cmdline_tuple()

@@ -23,7 +23,7 @@ class EncodingParamSet(test.EncodingParamSetBase):
                and self.quality_param_value == other.quality_param_value\
                and self.cl_args == other.cl_args
 
-    def to_cmdline_str(self) -> str:
+    def to_cmdline_str(self, include_quality_param: bool = True) -> str:
         """Reorders command line arguments such that --preset is first, --gop second and all the rest last.
         Also checks that the args are syntactically valid. Returns the arguments as a string."""
 
@@ -40,10 +40,12 @@ class EncodingParamSet(test.EncodingParamSetBase):
             return not is_option(candidate)
 
         cl_args = self.cl_args
-        if self.quality_param_type == test.encodingparamsetbase.QualityParamType.QP:
-            cl_args += f" --qp {self.quality_param_value}"
-        elif self.quality_param_type == test.encodingparamsetbase.QualityParamType.BITRATE:
-            cl_args += f" --bitrate {self.quality_param_value}"
+
+        if include_quality_param:
+            if self.quality_param_type == test.encodingparamsetbase.QualityParamType.QP:
+                cl_args += f" --qp {self.quality_param_value}"
+            elif self.quality_param_type == test.encodingparamsetbase.QualityParamType.BITRATE:
+                cl_args += f" --bitrate {self.quality_param_value}"
 
         split_args: list = []
 

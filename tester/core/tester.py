@@ -1,5 +1,8 @@
 from .cfg import *
+from .metricsfile import *
 import test
+
+import time
 
 class Tester:
     def __init__(self):
@@ -39,8 +42,11 @@ class Tester:
             for config in configs:
                 for param_set in config.get_encoding_param_sets():
                     for sequence in input_sequences:
-                        config.get_encoder_instance().encode(sequence, param_set, "out.hevc")
-
+                        start_time: float = time.perf_counter()
+                        config.get_encoder_instance().encode(sequence, param_set)
+                        seconds: float = round(time.perf_counter() - start_time, 6)
+                        metrics_file = MetricsFile(config.get_encoder_instance(), param_set, sequence)
+                        metrics_file.set_encoding_time(seconds)
             return True
         except:
             raise
