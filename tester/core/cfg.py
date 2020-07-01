@@ -262,3 +262,12 @@ class Cfg(metaclass=Singleton):
     @property
     def build_log_level(self) -> int:
         return self.BUILD_LOG_LEVEL
+
+    ENCODING_OUTPUT_DIR_NAME: str = "_output"
+    @property
+    def encoding_output_dir_name(self) -> str:
+        return self.ENCODING_OUTPUT_DIR_NAME
+
+    @property
+    def encoding_output_dir_path(self) -> str:
+        return os.path.join(self.tester_root_path, self.encoding_output_dir_name)

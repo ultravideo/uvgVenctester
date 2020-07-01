@@ -3,16 +3,24 @@ import test
 
 class Tester:
     def __init__(self):
-        pass
+        Cfg().read_userconfig()
+        Cfg().validate_all()
+        self.create_directories()
+
+    def create_directories(self):
+        for path in Cfg().binaries_dir_path,\
+                    Cfg().encoding_output_dir_path,\
+                    Cfg().reports_dir_path,\
+                    Cfg().sources_dir_path:
+            if not os.path.exists(path):
+                console_logger.debug(f"Tester: Creating directory '{path}'")
+                os.makedirs(path)
 
     def run(self, configs: list, input_sequence_filepaths: list) -> bool:
         """Runs all tests. Returns True on success, False otherwise."""
-
         input_sequences = [test.VideoSequence(filepath) for filepath in input_sequence_filepaths]
-
         try:
-            Cfg().read_userconfig()
-            Cfg().validate_all()
+            self.create_directories()
 
             if not self.configs_are_unique(configs):
                 console_logger.error("Aborting test run")

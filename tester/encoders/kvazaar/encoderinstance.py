@@ -103,9 +103,7 @@ class EncoderInstance(test.EncoderInstanceBase):
             console_logger.info(f"Executable '{self.exe_dest_path}' already exists - aborting build")
             return
 
-        if not os.path.exists(Cfg().binaries_dir_path):
-            console_logger.debug(f"Creating directory '{Cfg().binaries_dir_path}'")
-            os.makedirs(Cfg().binaries_dir_path)
+        assert os.path.exists(Cfg().binaries_dir_path)
 
         # Set up build logger.
         build_logger: logging.Logger = setup_build_logger(self.build_log_path)
