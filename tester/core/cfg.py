@@ -179,7 +179,7 @@ class Cfg(metaclass=Singleton):
     def kvz_git_dir_path(self) -> str:
         return os.path.join(self.kvz_git_repo_path, ".git")
 
-    KVZ_GIT_REPO_SSH_URL: str = "git@github.com:ultravideo/kvazaar.git"
+    KVZ_GIT_REPO_SSH_URL: str = "git@gitlab.tut.fi:TIE/ultravideo/kvazaar.git"
     @property
     def kvz_git_repo_ssh_url(self) -> str:
         return self.KVZ_GIT_REPO_SSH_URL
