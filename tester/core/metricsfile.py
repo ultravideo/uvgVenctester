@@ -29,41 +29,125 @@ class MetricsFile:
             ext_filename
         )
 
-        tmp: dict = {}
+        self.data: dict = {}
         if os.path.exists(self.filepath):
-            tmp = self.read_in()
-        tmp["ENCODER_NAME"] = encoder_instance.get_encoder_name()
-        tmp["ENCODER_REVISION"] = encoder_instance.get_user_revision()
-        tmp["ENCODER_DEFINES"] = encoder_instance.get_defines()
-        tmp["ENCODER_CMDLINE"] = encoding_param_set.to_cmdline_str()
-        tmp["ENCODING_INPUT"] = input_sequence.input_filename
-        tmp["ENCODING_OUTPUT"] = f"{input_sequence.get_input_filename(include_extension=False)}.hevc"
-        tmp["ENCODING_RESOLUTION"] = f"{input_sequence.width}x{input_sequence.height}"
-        self.write_out(tmp)
+            self.data = self.read_in()
+
+    def get_data(self) -> dict:
+        return self.data
+
+    def exists(self) -> bool:
+        return os.path.exists(self.filepath)
+
+    def get_filepath(self) -> str:
+        return self.filepath
+
+    def get_directory(self) -> str:
+        return self.directory
+
+    def get_encoder_name(self) -> str:
+        if self.exists():
+            self.read_in()
+        return self.data["ENCODER_NAME"]
+
+    def set_encoder_name(self, encoder_name: str):
+        if self.exists():
+            self.read_in()
+        self.data["ENCODER_NAME"] = encoder_name
+        self.write_out()
+
+    def get_encoder_revision(self) -> str:
+        if self.exists():
+            self.read_in()
+        return self.data["ENCODER_REVISION"]
+
+    def set_encoder_revision(self, encoder_revision: str):
+        if self.exists():
+            self.read_in()
+        self.data["ENCODER_REVISION"] = encoder_revision
+        self.write_out()
+
+    def get_encoder_defines(self) -> list:
+        if self.exists():
+            self.read_in()
+        return self.data["ENCODER_DEFINES"]
+
+    def set_encoder_defines(self, encoder_defines: list):
+        if self.exists():
+            self.read_in()
+        self.data["ENCODER_DEFINES"] = encoder_defines
+        self.write_out()
+
+    def get_encoder_cmdline(self) -> str:
+        if self.exists():
+            self.read_in()
+        return self.data["ENCODER_CMDLINE"]
+
+    def set_encoder_cmdline(self, encoder_cmdline: str):
+        if self.exists():
+            self.read_in()
+        self.data["ENCODER_CMDLINE"] = encoder_cmdline
+        self.write_out()
+
+    def get_encoding_input(self) -> str:
+        if self.exists():
+            self.read_in()
+        return self.data["ENCODING_INPUT"]
+
+    def set_encoding_input(self, encoding_input: str):
+        if self.exists():
+            self.read_in()
+        self.data["ENCODING_INPUT"] = encoding_input
+        self.write_out()
+
+    def get_encoding_output(self) -> str:
+        if self.exists():
+            self.read_in()
+        return self.data["ENCODING_OUTPUT"]
+
+    def set_encoding_output(self, encoding_output: str):
+        if self.exists():
+            self.read_in()
+        self.data["ENCODING_OUTPUT"] = encoding_output
+        self.write_out()
+
+    def get_encoding_resolution(self) -> str:
+        if self.exists():
+            self.read_in()
+        return self.data["ENCODING_RESOLUTION"]
+
+    def set_encoding_resolution(self, encoding_resolution: str):
+        if self.exists():
+            self.read_in()
+        self.data["ENCODING_RESOLUTION"] = encoding_resolution
+        self.write_out()
 
     def get_encoding_time(self) -> float:
-        return self.read_in()["ENCODING_TIME_SECONDS"]
+        if self.exists():
+            self.read_in()
+        return self.data["ENCODING_TIME_SECONDS"]
 
     def set_encoding_time(self, time_as_seconds: float):
-        tmp: dict = self.read_in()
-        tmp["ENCODING_TIME_SECONDS"] = time_as_seconds
-        self.write_out(tmp)
+        if self.exists():
+            self.read_in()
+        self.data["ENCODING_TIME_SECONDS"] = time_as_seconds
+        self.write_out()
 
-    def write_out(self, metrics: dict):
+    def write_out(self):
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)
         try:
             with open(self.filepath, "w") as file:
-                json.dump(metrics, file)
+                json.dump(self.data, file)
         except:
             console_logger.error(f"Couldn't write metrics to file '{self.filepath}'")
             raise
 
-    def read_in(self) -> dict:
+    def read_in(self):
         if os.path.exists(self.filepath):
             try:
                 with open(self.filepath, "r") as file:
-                    return json.load(file)
+                    self.data = json.load(file)
             except:
                 console_logger.error(f"Couldn't read metrics from file '{self.filepath}'")
                 raise

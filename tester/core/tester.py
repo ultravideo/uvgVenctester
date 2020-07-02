@@ -44,11 +44,25 @@ class Tester:
             for config in configs:
                 for param_set in config.get_encoding_param_sets():
                     for sequence in sequences:
-                        start_time: float = time.perf_counter()
-                        config.get_encoder_instance().encode(sequence, param_set)
-                        seconds: float = round(time.perf_counter() - start_time, 6)
+                        console_logger.debug(f"Encoding sequence '{sequence.get_input_filename()}'"
+                                             f" with configuration '{config.get_name()}'")
                         metrics_file = MetricsFile(config.get_encoder_instance(), param_set, sequence)
-                        metrics_file.set_encoding_time(seconds)
+                        if not os.path.exists(metrics_file.get_filepath()):
+                            start_time: float = time.perf_counter()
+                            config.get_encoder_instance().encode(sequence, param_set)
+                            seconds: float = round(time.perf_counter() - start_time, 6)
+                            metrics_file.set_encoder_name(config.get_encoder_instance().get_encoder_name())
+                            metrics_file.set_encoder_revision(config.get_encoder_instance().get_revision())
+                            metrics_file.set_encoder_defines(config.get_encoder_instance().get_defines())
+                            metrics_file.set_encoder_cmdline(param_set.to_cmdline_str())
+                            metrics_file.set_encoding_input(sequence.get_input_filename())
+                            metrics_file.set_encoding_output(f"{sequence.get_input_filename(include_extension=False)}.hevc")
+                            metrics_file.set_encoding_resolution(f"{sequence.width}x{sequence.height}")
+                            metrics_file.set_encoding_time(seconds)
+                        else:
+                            console_logger.info(f"Sequence '{sequence.get_input_filename()}'"
+                                                f" has already been encoded with configuration '{config.get_name()}'"
+                                                f" - aborting encoding")
             return True
         except:
             raise
