@@ -10,23 +10,23 @@ class EncoderInstanceBase:
     def __eq__(self, other):
         raise NotImplementedError
 
-    def get_exe_path(self):
+    def get_exe_path(self) -> str:
         raise NotImplementedError
 
-    def get_name(self):
+    def get_encoder_name(self) -> str:
         raise NotImplementedError
 
-    def get_encoder_name(self):
+    def get_defines(self) -> list:
         raise NotImplementedError
 
-    def get_defines(self):
+    def get_user_revision(self) -> str:
         raise NotImplementedError
 
-    def get_revision(self):
+    def get_revision(self) -> str:
         raise NotImplementedError
 
     def build(self):
         raise NotImplementedError
 
-    def dummy_run(self, params: EncodingParamSetBase):
+    def dummy_run(self, params: EncodingParamSetBase) -> bool:
         raise NotImplementedError

@@ -63,8 +63,11 @@ class EncoderInstance(test.EncoderInstanceBase):
     def get_defines(self) -> list:
         return self.defines
 
-    def get_revision(self) -> str:
+    def get_user_revision(self) -> str:
         return self.revision
+
+    def get_revision(self) -> str:
+        return self.commit_hash
 
     def prepare_sources(self):
         """Clones the Kvazaar repository from remote if it doesn't exist. Checks that the specified

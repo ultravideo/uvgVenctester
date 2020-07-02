@@ -1,4 +1,5 @@
 from .cfg import *
+from .csvfile import *
 from .metricsfile import *
 import test
 
@@ -21,7 +22,8 @@ class Tester:
 
     def run(self, configs: list, input_sequence_filepaths: list) -> bool:
         """Runs all tests. Returns True on success, False otherwise."""
-        input_sequences = [test.VideoSequence(filepath) for filepath in input_sequence_filepaths]
+
+        sequences = [test.VideoSequence(filepath) for filepath in input_sequence_filepaths]
         try:
             self.create_directories()
 
@@ -41,7 +43,7 @@ class Tester:
 
             for config in configs:
                 for param_set in config.get_encoding_param_sets():
-                    for sequence in input_sequences:
+                    for sequence in sequences:
                         start_time: float = time.perf_counter()
                         config.get_encoder_instance().encode(sequence, param_set)
                         seconds: float = round(time.perf_counter() - start_time, 6)
@@ -50,6 +52,46 @@ class Tester:
             return True
         except:
             raise
+
+    def generate_csv(self, configs: list, input_sequence_filepaths: list, csv_filepath: str):
+
+        sequences = [test.VideoSequence(filepath) for filepath in input_sequence_filepaths]
+        try:
+            csvfile = CsvFile(csv_filepath)
+            csvfile.set_header_names([
+                "Sequence",
+                "Seq class",
+                "Config name",
+                "Encoder",
+                "Revision",
+                "Defines",
+                "Command line",
+                "Quality parameter",
+                "Quality parameter value",
+                "Time (s)",
+            ])
+            for sequence in sequences:
+                for config in configs:
+                    for param_set in config.get_encoding_param_sets():
+                        metrics_file = MetricsFile(config.get_encoder_instance(),
+                                                   param_set,
+                                                   sequence)
+                        csvfile.add_entry([
+                            sequence.get_input_filename(),
+                            sequence.get_class(),
+                            config.get_name(),
+                            config.get_encoder_instance().get_encoder_name(),
+                            config.get_encoder_instance().get_revision(),
+                            config.get_encoder_instance().get_defines(),
+                            param_set.to_cmdline_str(),
+                            param_set.get_quality_param_name(),
+                            param_set.get_quality_param_value(),
+                            metrics_file.get_encoding_time()
+                        ])
+        except:
+            console_logger.error(f"Failed to write metrics to file '{csv_filepath}'")
+            raise
+
 
     def configs_are_unique(self, configs: list):
         """Checks that no two test configurations are the same. Returns True if not, False otherwise."""

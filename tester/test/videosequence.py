@@ -35,6 +35,13 @@ class VideoSequence:
     def get_height(self) -> int:
         return self.height
 
+    def get_class(self) -> str:
+        for letter in "A", "B", "C", "D", "E", "F":
+            sequence_class: str = f"hevc-{letter}"
+            if sequence_class in self.input_filepath:
+                return sequence_class
+        return "-"
+
     def guess_resolution(self) -> (int, int):
         # The following pattern is equal to "<width>x<height> preceded by non-integers".
         resolution_pattern: re.Pattern = re.compile(r"^[^0-9]+([0-9]+)x([0-9]+).*$")

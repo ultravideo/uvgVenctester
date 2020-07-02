@@ -29,34 +29,41 @@ class MetricsFile:
             ext_filename
         )
 
-        self.results: dict = {}
-        self.results["ENCODER_NAME"] = encoder_instance.get_encoder_name()
-        self.results["ENCODER_REVISION"] = encoder_instance.get_revision()
-        self.results["ENCODER_DEFINES"] = encoder_instance.get_defines()
-        self.results["ENCODER_CMDLINE"] = encoding_param_set.to_cmdline_str()
-        self.results["ENCODING_INPUT"] = input_sequence.input_filename
-        self.results["ENCODING_OUTPUT"] = f"{input_sequence.get_input_filename(include_extension=False)}.hevc"
-        self.results["ENCODING_RESOLUTION"] = f"{input_sequence.width}x{input_sequence.height}"
-        self.write_out()
+        tmp: dict = {}
+        if os.path.exists(self.filepath):
+            tmp = self.read_in()
+        tmp["ENCODER_NAME"] = encoder_instance.get_encoder_name()
+        tmp["ENCODER_REVISION"] = encoder_instance.get_user_revision()
+        tmp["ENCODER_DEFINES"] = encoder_instance.get_defines()
+        tmp["ENCODER_CMDLINE"] = encoding_param_set.to_cmdline_str()
+        tmp["ENCODING_INPUT"] = input_sequence.input_filename
+        tmp["ENCODING_OUTPUT"] = f"{input_sequence.get_input_filename(include_extension=False)}.hevc"
+        tmp["ENCODING_RESOLUTION"] = f"{input_sequence.width}x{input_sequence.height}"
+        self.write_out(tmp)
+
+    def get_encoding_time(self) -> float:
+        return self.read_in()["ENCODING_TIME_SECONDS"]
 
     def set_encoding_time(self, time_as_seconds: float):
-        self.results["ENCODING_TIME_SECONDS"] = time_as_seconds
-        self.write_out()
+        tmp: dict = self.read_in()
+        tmp["ENCODING_TIME_SECONDS"] = time_as_seconds
+        self.write_out(tmp)
 
-    def write_out(self):
+    def write_out(self, metrics: dict):
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)
         try:
             with open(self.filepath, "w") as file:
-                json.dump(self.results, file)
+                json.dump(metrics, file)
         except:
             console_logger.error(f"Couldn't write metrics to file '{self.filepath}'")
             raise
 
-    def read_in(self):
+    def read_in(self) -> dict:
         if os.path.exists(self.filepath):
             try:
                 with open(self.filepath, "r") as file:
-                    self.results = json.load(file)
+                    return json.load(file)
             except:
                 console_logger.error(f"Couldn't read metrics from file '{self.filepath}'")
+                raise
