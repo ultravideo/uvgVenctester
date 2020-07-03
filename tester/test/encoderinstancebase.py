@@ -10,6 +10,9 @@ class EncoderInstanceBase:
     def __eq__(self, other):
         raise NotImplementedError
 
+    def __hash__(self):
+        raise NotImplementedError
+
     def get_exe_path(self) -> str:
         raise NotImplementedError
 

@@ -1,6 +1,8 @@
 import test
 from core.log import console_logger
 
+import hashlib
+
 class EncodingParamSet(test.EncodingParamSetBase):
 
     POSITIONAL_ARGS = ("--preset", "--gop")
@@ -18,10 +20,19 @@ class EncodingParamSet(test.EncodingParamSetBase):
         # Check integrity. TODO: Refactor to state intent.
         self.to_cmdline_str()
 
+        hash = hashlib.md5()
+        hash.update(str(quality_param_type).encode())
+        hash.update(str(quality_param_value).encode())
+        hash.update(cl_args.encode())
+        self.hash = int(hash.hexdigest(), 16)
+
     def __eq__(self, other: test.EncodingParamSetBase):
         return self.quality_param_type == other.quality_param_type\
                and self.quality_param_value == other.quality_param_value\
                and self.cl_args == other.cl_args
+
+    def __hash__(self):
+        return self.hash
 
     def to_cmdline_str(self, include_quality_param: bool = True) -> str:
         """Reorders command line arguments such that --preset is first, --gop second and all the rest last.

@@ -1,5 +1,6 @@
 from core.log import console_logger
 
+import hashlib
 import re
 import os
 
@@ -15,6 +16,14 @@ class VideoSequence:
 
         if not self.width and not self.height:
             self.width, self.height = self.guess_resolution()
+
+        hash = hashlib.md5()
+        hash.update(self.input_filepath.encode())
+        hash.update(self.output_filename.encode())
+        self.hash = int(hash.hexdigest(), 16)
+
+    def __hash__(self):
+        return self.hash
 
     def get_input_filepath(self) -> str:
         return self.input_filepath

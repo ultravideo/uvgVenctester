@@ -2,11 +2,11 @@ import test
 from core.cfg import *
 from core.log import *
 
+import hashlib
 import json
 import os
-import pathlib
 
-class MetricsFile:
+class Metrics:
     def __init__(self,
                  encoder_instance: test.EncoderInstanceBase,
                  encoding_param_set: test.EncodingParamSetBase,
@@ -18,7 +18,8 @@ class MetricsFile:
         self.directory = os.path.join(
             Cfg().encoding_output_dir_path,
             os.path.basename(encoder_instance.get_exe_path()).strip(".exe"),
-            encoding_param_set.to_cmdline_str(include_quality_param=False))
+            encoding_param_set.to_cmdline_str(include_quality_param=False)
+        )
 
         base_filename: str = f"{input_sequence.get_input_filename(include_extension=False)}"
         qp_name: str = encoding_param_set.get_quality_param_name()
@@ -32,6 +33,9 @@ class MetricsFile:
         self.data: dict = {}
         if os.path.exists(self.filepath):
             self.data = self.read_in()
+
+    def __hash__(self):
+        return hashlib.md5(self.filepath)
 
     def get_data(self) -> dict:
         return self.data
@@ -132,6 +136,11 @@ class MetricsFile:
             self.read_in()
         self.data["ENCODING_TIME_SECONDS"] = time_as_seconds
         self.write_out()
+
+    def get_speedup_relative_to(self, anchor):
+        own_time = self.get_encoding_time()
+        anchor_time = anchor.get_encoding_time()
+        return anchor_time / own_time
 
     def write_out(self):
         if not os.path.exists(self.directory):

@@ -51,6 +51,11 @@ class EncoderInstance(test.EncoderInstanceBase):
                 and self.commit_hash == other.commit_hash\
                 and self.define_hash == other.define_hash
 
+    def __hash__(self):
+        return hashlib.md5(self.get_encoder_name())\
+               + hashlib.md5(self.commit_hash)\
+               + hashlib.md5(self.define_hash)
+
     def get_exe_path(self):
         return self.exe_dest_path
 
