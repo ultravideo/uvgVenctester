@@ -40,7 +40,7 @@ class Metrics:
     def get_data(self) -> dict:
         return self.data
 
-    def exists(self) -> bool:
+    def file_exists(self) -> bool:
         return os.path.exists(self.filepath)
 
     def get_filepath(self) -> str:
@@ -50,89 +50,89 @@ class Metrics:
         return self.directory
 
     def get_encoder_name(self) -> str:
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         return self.data["ENCODER_NAME"]
 
     def set_encoder_name(self, encoder_name: str):
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         self.data["ENCODER_NAME"] = encoder_name
         self.write_out()
 
     def get_encoder_revision(self) -> str:
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         return self.data["ENCODER_REVISION"]
 
     def set_encoder_revision(self, encoder_revision: str):
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         self.data["ENCODER_REVISION"] = encoder_revision
         self.write_out()
 
     def get_encoder_defines(self) -> list:
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         return self.data["ENCODER_DEFINES"]
 
     def set_encoder_defines(self, encoder_defines: list):
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         self.data["ENCODER_DEFINES"] = encoder_defines
         self.write_out()
 
     def get_encoder_cmdline(self) -> str:
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         return self.data["ENCODER_CMDLINE"]
 
     def set_encoder_cmdline(self, encoder_cmdline: str):
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         self.data["ENCODER_CMDLINE"] = encoder_cmdline
         self.write_out()
 
     def get_encoding_input(self) -> str:
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         return self.data["ENCODING_INPUT"]
 
     def set_encoding_input(self, encoding_input: str):
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         self.data["ENCODING_INPUT"] = encoding_input
         self.write_out()
 
     def get_encoding_output(self) -> str:
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         return self.data["ENCODING_OUTPUT"]
 
     def set_encoding_output(self, encoding_output: str):
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         self.data["ENCODING_OUTPUT"] = encoding_output
         self.write_out()
 
     def get_encoding_resolution(self) -> str:
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         return self.data["ENCODING_RESOLUTION"]
 
     def set_encoding_resolution(self, encoding_resolution: str):
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         self.data["ENCODING_RESOLUTION"] = encoding_resolution
         self.write_out()
 
     def get_encoding_time(self) -> float:
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         return self.data["ENCODING_TIME_SECONDS"]
 
     def set_encoding_time(self, time_as_seconds: float):
-        if self.exists():
+        if self.file_exists():
             self.read_in()
         self.data["ENCODING_TIME_SECONDS"] = time_as_seconds
         self.write_out()

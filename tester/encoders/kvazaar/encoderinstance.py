@@ -74,6 +74,9 @@ class EncoderInstance(test.EncoderInstanceBase):
     def get_revision(self) -> str:
         return self.commit_hash
 
+    def get_short_revision(self) -> str:
+        return self.short_commit_hash
+
     def prepare_sources(self):
         """Clones the Kvazaar repository from remote if it doesn't exist. Checks that the specified
         revision exists. Sets attributes that depend on the commit hash."""
