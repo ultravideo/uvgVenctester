@@ -139,6 +139,12 @@ class Tester:
                             anchor_param_set = anchor_config.get_encoding_param_sets()[param_set_index]
                             metrics = context.metrics[(config, param_set, sequence)]
                             anchor_metrics = context.metrics[(anchor_config), anchor_param_set, sequence]
+
+                            encoding_time = metrics.get_encoding_time()
+                            encoding_time = str(encoding_time).replace(".", Cfg().csv_decimal_point)
+                            speedup = round(metrics.get_speedup_relative_to(anchor_metrics), 3)
+                            speedup = str(speedup).replace(".", Cfg().csv_decimal_point)
+
                             csvfile.add_entry([
                                 sequence.get_input_filename(),
                                 sequence.get_class(),
@@ -150,8 +156,8 @@ class Tester:
                                 param_set.get_quality_param_value(),
                                 config.get_name(),
                                 anchor_name if anchor_name != config.get_name() else "-",
-                                metrics.get_encoding_time(),
-                                str(round(metrics.get_speedup_relative_to(anchor_metrics), 3))
+                                encoding_time,
+                                speedup,
                             ])
         except Exception as exception:
             console_logger.error(f"Tester: Failed to create CSV file '{csv_filepath}'")

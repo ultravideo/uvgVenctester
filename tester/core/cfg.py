@@ -271,3 +271,13 @@ class Cfg(metaclass=Singleton):
     @property
     def encoding_output_dir_path(self) -> str:
         return os.path.join(self.tester_root_path, self.encoding_output_dir_name)
+
+    CSV_FIELD_SEPARATOR: str = ";"
+    @property
+    def csv_field_separator(self) -> str:
+        return self.CSV_FIELD_SEPARATOR
+
+    CSV_DECIMAL_POINT: str = "."
+    @property
+    def csv_decimal_point(self) -> str:
+        return self.CSV_DECIMAL_POINT

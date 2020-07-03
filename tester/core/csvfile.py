@@ -1,3 +1,4 @@
+from core.cfg import *
 import os
 
 class CsvFile():
@@ -15,10 +16,10 @@ class CsvFile():
     def set_header_names(self, header_names: list):
         self.header_names = header_names
         with open(self.filepath, "w") as file:
-            file.write(f"{';'.join(self.header_names)}\n")
+            file.write(f"{Cfg().csv_field_separator.join(self.header_names)}\n")
 
     def add_entry(self, fields: list):
         assert(len(fields) == len(self.header_names))
         fields = [str(field) for field in fields]
         with open(self.filepath, "a") as file:
-            file.write(f"{';'.join(fields)}\n")
+            file.write(f"{Cfg().csv_field_separator.join(fields)}\n")
