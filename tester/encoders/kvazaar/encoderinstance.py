@@ -56,7 +56,7 @@ class EncoderInstance(test.EncoderInstanceBase):
                + hashlib.md5(self.commit_hash)\
                + hashlib.md5(self.define_hash)
 
-    def get_exe_path(self):
+    def get_exe_path(self) -> str:
         return self.exe_dest_path
 
     def get_encoder_id(self) -> test.EncoderId:
@@ -76,6 +76,18 @@ class EncoderInstance(test.EncoderInstanceBase):
 
     def get_short_revision(self) -> str:
         return self.short_commit_hash
+
+    def get_output_base_dir(self) -> str:
+        return os.path.join(
+            Cfg().encoding_output_dir_path,
+            self.exe_name.strip(".exe"),
+        )
+
+    def get_output_subdir(self, param_set: EncodingParamSet) -> str:
+        return os.path.join(
+            self.get_output_base_dir(),
+            param_set.to_cmdline_str(include_quality_param=False),
+        )
 
     def prepare_sources(self):
         """Clones the Kvazaar repository from remote if it doesn't exist. Checks that the specified
@@ -263,11 +275,7 @@ class EncoderInstance(test.EncoderInstanceBase):
         qp_value = param_set.get_quality_param_value()
         base_filename = f"{input.get_input_filename(include_extension=False)}"
         ext_filename = f"{base_filename}_{qp_name.lower()}{qp_value}.hevc"
-        output_filepath = os.path.join(
-            Cfg().encoding_output_dir_path,
-            self.exe_name.strip(".exe"),
-            param_set.to_cmdline_str(include_quality_param=False),
-            ext_filename)
+        output_filepath = os.path.join(self.get_output_subdir(param_set), ext_filename)
 
         if not os.path.exists(os.path.dirname(output_filepath)):
             os.makedirs(os.path.dirname(output_filepath))

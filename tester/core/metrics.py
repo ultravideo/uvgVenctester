@@ -142,6 +142,17 @@ class Metrics:
         anchor_time = anchor.get_encoding_time()
         return anchor_time / own_time
 
+    def set_psnr_avg(self, psnr_avg: float):
+        if self.file_exists():
+            self.read_in()
+        self.data["PSNR_AVG"] = psnr_avg
+        self.write_out()
+
+    def get_psnr_avg(self):
+        if self.file_exists():
+            self.read_in()
+        return self.data["PSNR_AVG"]
+
     def write_out(self):
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)

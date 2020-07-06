@@ -4,6 +4,7 @@ from .metrics import *
 from .testercontext import *
 import test
 
+import subprocess
 import time
 import traceback
 
@@ -112,6 +113,60 @@ class Tester:
             self.log_exception(exception)
             exit(1)
 
+    def compute_results(self, context: TesterContext):
+        for sequence in context.sequences:
+            for config in context.configs:
+                for param_set_index in range(len(config.get_encoding_param_sets())):
+                    param_set = config.get_encoding_param_sets()[param_set_index]
+                    encoder_instance: test.EncoderInstanceBase = config.get_encoder_instance()
+                    metrics: Metrics = context.metrics[(config, param_set, sequence)]
+                    ffmpeg_command: tuple = (
+                        "(", "cd", encoder_instance.get_output_subdir(param_set),
+                             "&&", "ffmpeg",
+                                   "-pix_fmt", "yuv420p",
+                                   "-r", "25",
+                                   "-s:v", f"{sequence.get_width()}x{sequence.get_height()}",
+                                   "-i", sequence.get_input_filepath(),
+                                   "-r", "25",
+                                   "-i", sequence.get_output_filepath(encoder_instance, param_set),
+                                   "-c:v", "rawvideo",
+                                   "-filter_complex", f"[0:v]split=2[in1_1][in1_2];"
+                                                      f"[1:v]split=2[in2_1][in2_2];"
+                                                      f"[in2_1][in1_1]ssim=stats_file={sequence.get_ssim_log_filename(encoder_instance, param_set)};"
+                                                      f"[in2_2][in1_2]psnr=stats_file={sequence.get_psnr_log_filename(encoder_instance, param_set)}",
+                                   "-f",  "null", "-",
+                             "&&", "exit", "0"
+                        ")", "||", "exit", "1"
+                    )
+
+                    try:
+                        console_logger.debug(f"Tester: Computing metrics for configuration"
+                                             f" '{config.get_name()}'/"
+                                             f"{param_set.get_quality_param_name()} {param_set.get_quality_param_value()}")
+                        subprocess.check_output(ffmpeg_command, stderr=subprocess.STDOUT, shell=True)
+
+                        psnr_log_filepath: str = sequence.get_psnr_log_filepath(encoder_instance, param_set)
+
+                        with open(psnr_log_filepath, "r") as psnr_log_file:
+                            psnr_avg: float = 0
+                            line_count: int = 0
+                            pattern = re.compile(r".*psnr_avg:([0-9]+.[0-9]+).*", re.DOTALL)
+                            for line in psnr_log_file.readlines():
+                                line_count += 1
+                                for item in pattern.fullmatch(line).groups():
+                                    psnr_avg += float(item)
+                            psnr_avg /= line_count
+                            metrics.set_psnr_avg(psnr_avg)
+
+                    except Exception as exception:
+                        console_logger.error(f"Tester: Failed to compute metrics for configuration"
+                                             f" '{config.get_name()}'/"
+                                             f"{param_set.get_quality_param_name()} {param_set.get_quality_param_value()}")
+                        if isinstance(exception, subprocess.CalledProcessError):
+                            console_logger.error(exception.output.decode())
+                        self.log_exception(exception)
+                        exit(1)
+
     def generate_csv(self, context: TesterContext, csv_filepath: str):
         console_logger.info(f"Generating CSV output file '{csv_filepath}'")
         try:
@@ -129,6 +184,7 @@ class Tester:
                 "Anchor name",
                 "Time (s)",
                 "Speedup",
+                "PSNR average",
             ])
             for sequence in context.sequences:
                 for config in context.configs:
@@ -144,6 +200,8 @@ class Tester:
                             encoding_time = str(encoding_time).replace(".", Cfg().csv_decimal_point)
                             speedup = round(metrics.get_speedup_relative_to(anchor_metrics), 3)
                             speedup = str(speedup).replace(".", Cfg().csv_decimal_point)
+                            psnr_avg = round(metrics.get_psnr_avg(), 3)
+                            psnr_avg = str(psnr_avg).replace(".", Cfg().csv_decimal_point)
 
                             csvfile.add_entry([
                                 sequence.get_input_filename(),
@@ -158,6 +216,7 @@ class Tester:
                                 anchor_name if anchor_name != config.get_name() else "-",
                                 encoding_time,
                                 speedup,
+                                psnr_avg
                             ])
         except Exception as exception:
             console_logger.error(f"Tester: Failed to create CSV file '{csv_filepath}'")

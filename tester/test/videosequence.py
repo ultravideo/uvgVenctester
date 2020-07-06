@@ -1,4 +1,6 @@
 from core.log import console_logger
+from .encoderinstancebase import *
+from .encodingparamsetbase import *
 
 import hashlib
 import re
@@ -10,7 +12,7 @@ class VideoSequence:
         assert os.path.exists(filepath)
         self.input_filepath = filepath
         self.input_filename = os.path.basename(self.input_filepath)
-        self.output_filename = self.input_filename + ".hevc"
+        self.base_filename = self.input_filename.strip(".yuv")
         self.width = width
         self.height = height
 
@@ -19,11 +21,13 @@ class VideoSequence:
 
         hash = hashlib.md5()
         hash.update(self.input_filepath.encode())
-        hash.update(self.output_filename.encode())
         self.hash = int(hash.hexdigest(), 16)
 
     def __hash__(self):
         return self.hash
+
+    def get_base_filename(self) -> str:
+        return self.base_filename
 
     def get_input_filepath(self) -> str:
         return self.input_filepath
@@ -37,6 +41,33 @@ class VideoSequence:
                 return ".".join(split_parts[:len(split_parts) - 1])
             else:
                 return self.input_filename
+
+    def get_output_filename(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+        return f"{self.get_base_filename()}_{param_set.get_quality_param_name().lower()}{param_set.get_quality_param_value()}.hevc"
+
+    def get_output_filepath(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+        return os.path.join(
+            encoder_instance.get_output_subdir(param_set),
+            self.get_output_filename(encoder_instance, param_set)
+        )
+
+    def get_psnr_log_filename(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+        return self.get_output_filename(encoder_instance, param_set).replace(".hevc", "_psnr_log.txt")
+
+    def get_ssim_log_filename(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+        return self.get_output_filename(encoder_instance, param_set).replace(".hevc", "_ssim_log.txt")
+
+    def get_psnr_log_filepath(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+        return os.path.join(
+            encoder_instance.get_output_subdir(param_set),
+            self.get_psnr_log_filename(encoder_instance, param_set)
+        )
+
+    def get_ssim_log_filepath(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+        return os.path.join(
+            encoder_instance.get_output_subdir(param_set),
+            self.get_ssim_log_filename(encoder_instance, param_set)
+        )
 
     def get_width(self) -> int:
         return self.width

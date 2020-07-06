@@ -28,6 +28,15 @@ class EncoderInstanceBase:
     def get_revision(self) -> str:
         raise NotImplementedError
 
+    def get_short_revision(self) -> str:
+        raise NotImplementedError
+
+    def get_output_base_dir(self) -> str:
+        raise NotImplementedError
+
+    def get_output_subdir(self, param_set: EncodingParamSetBase) -> str:
+        raise NotImplementedError
+
     def build(self):
         raise NotImplementedError
 
