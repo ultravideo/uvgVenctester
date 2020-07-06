@@ -275,7 +275,7 @@ class EncoderInstance(test.EncoderInstanceBase):
         encode_cmd: tuple = (
             self.exe_dest_path,
             "-i", input.get_input_filepath(),
-            "--input-res", f"{input.get_width()}x{input.get_width()}",
+            "--input-res", f"{input.get_width()}x{input.get_height()}",
             "-o", output_filepath)\
             + param_set.to_cmdline_tuple()
 
