@@ -120,6 +120,8 @@ class Tester:
                     param_set = config.get_encoding_param_sets()[param_set_index]
                     encoder_instance: test.EncoderInstanceBase = config.get_encoder_instance()
                     metrics: Metrics = context.metrics[(config, param_set, sequence)]
+                    ssim_log_filename = sequence.get_ssim_log_filename(encoder_instance, param_set)
+                    psnr_log_filename = sequence.get_psnr_log_filename(encoder_instance, param_set)
                     ffmpeg_command: tuple = (
                         "(", "cd", encoder_instance.get_output_subdir(param_set),
                              "&&", "ffmpeg",
@@ -130,10 +132,11 @@ class Tester:
                                    "-r", "25",
                                    "-i", sequence.get_output_filepath(encoder_instance, param_set),
                                    "-c:v", "rawvideo",
+
                                    "-filter_complex", f"[0:v]split=2[in1_1][in1_2];"
                                                       f"[1:v]split=2[in2_1][in2_2];"
-                                                      f"[in2_1][in1_1]ssim=stats_file={sequence.get_ssim_log_filename(encoder_instance, param_set)};"
-                                                      f"[in2_2][in1_2]psnr=stats_file={sequence.get_psnr_log_filename(encoder_instance, param_set)}",
+                                                      f"[in2_1][in1_1]ssim=stats_file={ssim_log_filename};"
+                                                      f"[in2_2][in1_2]psnr=stats_file={psnr_log_filename}",
                                    "-f",  "null", "-",
                              "&&", "exit", "0"
                         ")", "||", "exit", "1"
@@ -146,6 +149,9 @@ class Tester:
                         subprocess.check_output(ffmpeg_command, stderr=subprocess.STDOUT, shell=True)
 
                         psnr_log_filepath: str = sequence.get_psnr_log_filepath(encoder_instance, param_set)
+                        ssim_log_filepath: str = sequence.get_ssim_log_filepath(encoder_instance, param_set)
+
+                        # TODO: Eliminate duplicate code?
 
                         with open(psnr_log_filepath, "r") as psnr_log_file:
                             psnr_avg: float = 0
@@ -157,6 +163,17 @@ class Tester:
                                     psnr_avg += float(item)
                             psnr_avg /= line_count
                             metrics.set_psnr_avg(psnr_avg)
+
+                        with open(ssim_log_filepath, "r") as ssim_log_file:
+                            ssim_avg: float = 0
+                            line_count: int = 0
+                            pattern = re.compile(r".*All:([0-9]+.[0-9]+).*", re.DOTALL)
+                            for line in ssim_log_file.readlines():
+                                line_count += 1
+                                for item in pattern.fullmatch(line).groups():
+                                    ssim_avg += float(item)
+                            ssim_avg /= line_count
+                            metrics.set_ssim_avg(ssim_avg)
 
                     except Exception as exception:
                         console_logger.error(f"Tester: Failed to compute metrics for configuration"
@@ -185,6 +202,7 @@ class Tester:
                 "Time (s)",
                 "Speedup",
                 "PSNR average",
+                "SSIM average",
             ])
             for sequence in context.sequences:
                 for config in context.configs:
@@ -202,6 +220,8 @@ class Tester:
                             speedup = str(speedup).replace(".", Cfg().csv_decimal_point)
                             psnr_avg = round(metrics.get_psnr_avg(), 3)
                             psnr_avg = str(psnr_avg).replace(".", Cfg().csv_decimal_point)
+                            ssim_avg = round(metrics.get_ssim_avg(), 3)
+                            ssim_avg = str(ssim_avg).replace(".", Cfg().csv_decimal_point)
 
                             csvfile.add_entry([
                                 sequence.get_input_filename(),
@@ -216,7 +236,8 @@ class Tester:
                                 anchor_name if anchor_name != config.get_name() else "-",
                                 encoding_time,
                                 speedup,
-                                psnr_avg
+                                psnr_avg,
+                                ssim_avg
                             ])
         except Exception as exception:
             console_logger.error(f"Tester: Failed to create CSV file '{csv_filepath}'")

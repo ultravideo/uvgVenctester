@@ -153,6 +153,17 @@ class Metrics:
             self.read_in()
         return self.data["PSNR_AVG"]
 
+    def set_ssim_avg(self, ssim_avg: float):
+        if self.file_exists():
+            self.read_in()
+        self.data["SSIM_AVG"] = ssim_avg
+        self.write_out()
+
+    def get_ssim_avg(self):
+        if self.file_exists():
+            self.read_in()
+        return self.data["SSIM_AVG"]
+
     def write_out(self):
         if not os.path.exists(self.directory):
             os.makedirs(self.directory)
