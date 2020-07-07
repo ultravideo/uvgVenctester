@@ -225,7 +225,7 @@ class Tester:
 
                             csvfile.add_entry([
                                 sequence.get_input_filename(),
-                                sequence.get_class(),
+                                sequence.get_sequence_class(),
                                 config.get_encoder_instance().get_encoder_name(),
                                 config.get_encoder_instance().get_short_revision(),
                                 config.get_encoder_instance().get_defines(),
