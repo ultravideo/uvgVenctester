@@ -203,6 +203,8 @@ class Tester:
                 "Speedup",
                 "PSNR average",
                 "SSIM average",
+                "PSNR BD-BR",
+                "SSIM BD-BR",
             ])
             for sequence in context.sequences:
                 for config in context.configs:
@@ -222,6 +224,10 @@ class Tester:
                             psnr_avg = str(psnr_avg).replace(".", Cfg().csv_decimal_point)
                             ssim_avg = round(metrics.get_ssim_avg(), 3)
                             ssim_avg = str(ssim_avg).replace(".", Cfg().csv_decimal_point)
+                            psnr_bdbr = round(metrics.get_psnr_bdbr(config, anchor_config, sequence), 6)
+                            psnr_bdbr = str(psnr_bdbr).replace(".", Cfg().csv_decimal_point)
+                            ssim_bdbr = round(metrics.get_ssim_bdbr(config, anchor_config, sequence), 6)
+                            ssim_bdbr = str(ssim_bdbr).replace(".", Cfg().csv_decimal_point)
 
                             csvfile.add_entry([
                                 sequence.get_input_filename(),
@@ -237,8 +243,11 @@ class Tester:
                                 encoding_time,
                                 speedup,
                                 psnr_avg,
-                                ssim_avg
+                                ssim_avg,
+                                psnr_bdbr,
+                                ssim_bdbr,
                             ])
+
         except Exception as exception:
             console_logger.error(f"Tester: Failed to create CSV file '{csv_filepath}'")
             self.log_exception(exception)
