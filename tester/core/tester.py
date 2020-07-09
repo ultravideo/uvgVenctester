@@ -23,7 +23,7 @@ class Tester:
             context.configs_by_name[config.get_name()] = config
 
         for filepath in input_sequence_filepaths:
-            context.sequences.append(test.VideoSequence(filepath))
+            context.sequences.append(VideoSequence(filepath))
 
         for config in test_configurations:
             for param_set in config.get_encoding_param_sets():

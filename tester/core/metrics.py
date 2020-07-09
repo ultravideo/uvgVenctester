@@ -1,6 +1,9 @@
-import test
-from core.cfg import *
-from core.log import *
+from .cfg import *
+from .log import *
+from .encoderinstancebase import *
+from .encodingparamsetbase import *
+from .testconfiguration import *
+from .videosequence import *
 
 import functools
 import hashlib
@@ -10,9 +13,9 @@ from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
 class Metrics:
     def __init__(self,
-                 encoder_instance: test.EncoderInstanceBase,
-                 encoding_param_set: test.EncodingParamSetBase,
-                 input_sequence: test.VideoSequence):
+                 encoder_instance: EncoderInstanceBase,
+                 encoding_param_set: EncodingParamSetBase,
+                 input_sequence: VideoSequence):
         self.encoder_instance = encoder_instance
         self.encoding_param_set = encoding_param_set
         self.input_sequence = input_sequence
@@ -166,7 +169,7 @@ class Metrics:
             self.read_in()
         return self.data["SSIM_AVG"]
 
-    def get_psnr_bdbr(self, parent_config: test.TestConfiguration, anchor_config: test.TestConfiguration, sequence: test.VideoSequence):
+    def get_psnr_bdbr(self, parent_config: TestConfiguration, anchor_config: TestConfiguration, sequence: VideoSequence):
 
         if parent_config is anchor_config:
             return 0
@@ -201,8 +204,8 @@ class Metrics:
             sorted(anchor_bitrate_ssim_list, key=sort_key)
         )
 
-    def get_ssim_bdbr(self, parent_config: test.TestConfiguration, anchor_config: test.TestConfiguration,
-                          sequence: test.VideoSequence):
+    def get_ssim_bdbr(self, parent_config: TestConfiguration, anchor_config: TestConfiguration,
+                          sequence: VideoSequence):
 
         if parent_config is anchor_config:
             return 0

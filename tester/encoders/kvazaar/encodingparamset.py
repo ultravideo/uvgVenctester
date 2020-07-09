@@ -1,20 +1,19 @@
-import test
-from core.log import console_logger
+import core
 
 import hashlib
 
-class EncodingParamSet(test.EncodingParamSetBase):
+class EncodingParamSet(core.EncodingParamSetBase):
 
     POSITIONAL_ARGS = ("--preset", "--gop")
 
     def __init__(self,
-                 quality_param_type: test.QualityParamType,
+                 quality_param_type: core.QualityParamType,
                  quality_param_value: int,
                  cl_args: str):
         super().__init__(quality_param_type, quality_param_value, cl_args)
 
-        if not self.quality_param_type in (test.QualityParamType.QP, test.QualityParamType.BITRATE):
-            console_logger.error(f"Kvazaar: Invalid quality_param_type '{str(self.quality_param_type)}'")
+        if not self.quality_param_type in (core.QualityParamType.QP, core.QualityParamType.BITRATE):
+            core.console_logger.error(f"Kvazaar: Invalid quality_param_type '{str(self.quality_param_type)}'")
             raise RuntimeError
 
         # Check integrity. TODO: Refactor to state intent.
@@ -26,7 +25,7 @@ class EncodingParamSet(test.EncodingParamSetBase):
         hash.update(cl_args.encode())
         self.hash = int(hash.hexdigest(), 16)
 
-    def __eq__(self, other: test.EncodingParamSetBase):
+    def __eq__(self, other: core.EncodingParamSetBase):
         return self.quality_param_type == other.quality_param_type\
                and self.quality_param_value == other.quality_param_value\
                and self.cl_args == other.cl_args
@@ -53,9 +52,9 @@ class EncodingParamSet(test.EncodingParamSetBase):
         cl_args = self.cl_args
 
         if include_quality_param:
-            if self.quality_param_type == test.encodingparamsetbase.QualityParamType.QP:
+            if self.quality_param_type == core.encodingparamsetbase.QualityParamType.QP:
                 cl_args += f" --qp {self.quality_param_value}"
-            elif self.quality_param_type == test.encodingparamsetbase.QualityParamType.BITRATE:
+            elif self.quality_param_type == core.encodingparamsetbase.QualityParamType.BITRATE:
                 cl_args += f" --bitrate {self.quality_param_value}"
 
         split_args: list = []
