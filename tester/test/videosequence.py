@@ -142,7 +142,7 @@ class VideoSequence:
     def guess_sequence_class(filepath: str) -> str:
         for letter in "A", "B", "C", "D", "E", "F":
             sequence_class = f"hevc-{letter}"
-            if sequence_class in filepath.lower():
+            if sequence_class.lower() in filepath.lower():
                 return sequence_class
         console_logger.warning(f"VideoSequence: Could not guess the sequence class from '{filepath}'")
         return "-"
