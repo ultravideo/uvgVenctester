@@ -113,7 +113,7 @@ class Tester:
             self.log_exception(exception)
             exit(1)
 
-    def compute_results(self, context: TesterContext):
+    def compute_metrics(self, context: TesterContext):
         for sequence in context.sequences:
             for config in context.configs:
                 for param_set_index in range(len(config.get_encoding_param_sets())):
@@ -191,6 +191,7 @@ class Tester:
             csvfile.set_header_names([
                 "Sequence",
                 "Sequence class",
+                "Frames",
                 "Encoder",
                 "Revision",
                 "Defines",
@@ -232,6 +233,7 @@ class Tester:
                             csvfile.add_entry([
                                 sequence.get_input_filename(),
                                 sequence.get_sequence_class(),
+                                sequence.get_framecount(),
                                 config.get_encoder_instance().get_encoder_name(),
                                 config.get_encoder_instance().get_short_revision(),
                                 config.get_encoder_instance().get_defines(),
