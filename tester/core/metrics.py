@@ -2,7 +2,6 @@ from .cfg import *
 from .log import *
 from .encoderinstancebase import *
 from .encodingparamsetbase import *
-from .testconfiguration import *
 from .videosequence import *
 
 import functools
@@ -11,7 +10,7 @@ import json
 import os
 from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
-class Metrics:
+class SubMetrics:
     def __init__(self,
                  encoder_instance: EncoderInstanceBase,
                  encoding_param_set: EncodingParamSetBase,
@@ -28,7 +27,7 @@ class Metrics:
 
         base_filename: str = f"{input_sequence.get_input_filename(include_extension=False)}"
         qp_name: str = encoding_param_set.get_quality_param_name()
-        qp_value: str = encoding_param_set.get_quality_param_value()
+        qp_value: int = encoding_param_set.get_quality_param_value()
         ext_filename = f"{base_filename}_{qp_name.lower()}{qp_value}_metrics.json"
         self.filepath = os.path.join(
             self.directory,
@@ -47,6 +46,15 @@ class Metrics:
 
     def file_exists(self) -> bool:
         return os.path.exists(self.filepath)
+
+    def get_encoder(self) -> EncoderInstanceBase:
+        return self.encoder_instance
+
+    def get_param_set(self) -> EncodingParamSetBase:
+        return self.encoding_param_set
+
+    def get_sequence(self) -> VideoSequence:
+        return self.input_sequence
 
     def get_filepath(self) -> str:
         return self.filepath
@@ -142,7 +150,7 @@ class Metrics:
         self.data["ENCODING_TIME_SECONDS"] = time_as_seconds
         self.write_out()
 
-    def get_speedup_relative_to(self, anchor):
+    def get_speedup_relative_to(self, anchor) -> float:
         own_time = self.get_encoding_time()
         anchor_time = anchor.get_encoding_time()
         return anchor_time / own_time
@@ -153,7 +161,7 @@ class Metrics:
         self.data["PSNR_AVG"] = psnr_avg
         self.write_out()
 
-    def get_psnr_avg(self):
+    def get_psnr_avg(self) -> float:
         if self.file_exists():
             self.read_in()
         return self.data["PSNR_AVG"]
@@ -164,81 +172,10 @@ class Metrics:
         self.data["SSIM_AVG"] = ssim_avg
         self.write_out()
 
-    def get_ssim_avg(self):
+    def get_ssim_avg(self) -> float:
         if self.file_exists():
             self.read_in()
         return self.data["SSIM_AVG"]
-
-    def get_psnr_bdbr(self, parent_config: TestConfiguration, anchor_config: TestConfiguration, sequence: VideoSequence):
-
-        if parent_config is anchor_config:
-            return 0
-
-        parent_bitrate_ssim_list = []
-        anchor_bitrate_ssim_list = []
-
-        parent_encoder_instance = parent_config.get_encoder_instance()
-        for parent_param_set in parent_config.get_encoding_param_sets():
-            parent_param_set_metrics = Metrics(parent_encoder_instance, parent_param_set, sequence)
-            ssim = parent_param_set_metrics.get_ssim_avg()
-            output_filepath = sequence.get_output_filepath(parent_encoder_instance, parent_param_set)
-            bitrate = (os.path.getsize(output_filepath) * 8) // sequence.get_duration_seconds()
-            parent_bitrate_ssim_list.append((bitrate, ssim))
-
-        anchor_encoder_instance = anchor_config.get_encoder_instance()
-        for anchor_param_set in anchor_config.get_encoding_param_sets():
-            anchor_param_set_metrics = Metrics(anchor_encoder_instance, anchor_param_set, sequence)
-            ssim = anchor_param_set_metrics.get_ssim_avg()
-            output_filepath = sequence.get_output_filepath(anchor_encoder_instance, anchor_param_set)
-            bitrate = (os.path.getsize(output_filepath) * 8) // sequence.get_duration_seconds()
-            anchor_bitrate_ssim_list.append((bitrate, ssim))
-
-        def bitrate_asc_sort(x, y):
-            return -1 if x[0] < y[0] else 1
-
-        sort_key = functools.cmp_to_key(bitrate_asc_sort)
-
-        bd_rate_calc = BDrateCalculator()
-        return bd_rate_calc.CalcBDRate(
-            sorted(parent_bitrate_ssim_list, key=sort_key),
-            sorted(anchor_bitrate_ssim_list, key=sort_key)
-        )
-
-    def get_ssim_bdbr(self, parent_config: TestConfiguration, anchor_config: TestConfiguration,
-                          sequence: VideoSequence):
-
-        if parent_config is anchor_config:
-            return 0
-
-        parent_bitrate_psnr_list = []
-        anchor_bitrate_psnr_list = []
-
-        parent_encoder_instance = parent_config.get_encoder_instance()
-        for parent_param_set in parent_config.get_encoding_param_sets():
-            parent_param_set_metrics = Metrics(parent_encoder_instance, parent_param_set, sequence)
-            psnr = parent_param_set_metrics.get_psnr_avg()
-            output_filepath = sequence.get_output_filepath(parent_encoder_instance, parent_param_set)
-            bitrate = (os.path.getsize(output_filepath) * 8) // sequence.get_duration_seconds()
-            parent_bitrate_psnr_list.append((bitrate, psnr))
-
-        anchor_encoder_instance = anchor_config.get_encoder_instance()
-        for anchor_param_set in anchor_config.get_encoding_param_sets():
-            anchor_param_set_metrics = Metrics(anchor_encoder_instance, anchor_param_set, sequence)
-            psnr = anchor_param_set_metrics.get_psnr_avg()
-            output_filepath = sequence.get_output_filepath(anchor_encoder_instance, anchor_param_set)
-            bitrate = (os.path.getsize(output_filepath) * 8) // sequence.get_duration_seconds()
-            anchor_bitrate_psnr_list.append((bitrate, psnr))
-
-        def bitrate_asc_sort(x, y):
-            return -1 if x[0] < y[0] else 1
-
-        sort_key = functools.cmp_to_key(bitrate_asc_sort)
-
-        bd_rate_calc = BDrateCalculator()
-        return bd_rate_calc.CalcBDRate(
-            sorted(parent_bitrate_psnr_list, key=sort_key),
-            sorted(anchor_bitrate_psnr_list, key=sort_key)
-        )
 
     def write_out(self):
         if not os.path.exists(self.directory):
@@ -258,3 +195,103 @@ class Metrics:
             except:
                 console_logger.error(f"Couldn't read metrics from file '{self.filepath}'")
                 raise
+
+
+
+class Metrics:
+    def __init__(self,
+                 encoder_instance: EncoderInstanceBase,
+                 param_sets: list,
+                 sequence: VideoSequence):
+        self.encoder: EncoderInstanceBase = encoder_instance
+        self.param_sets: list = param_sets
+        self.sequence: VideoSequence = sequence
+        self.submetrics: dict = {
+            param_set: SubMetrics(self.encoder, param_set, self.sequence) for param_set in param_sets
+        }
+
+    def __eq__(self, other):
+        for i in range(len(self.param_sets)):
+            if self.param_sets[i] != other.get_param_sets()[i]:
+                return False
+        return self.encoder == other.get_encoder() \
+               and self.sequence == other.sequence
+
+    def get_encoder(self) -> EncoderInstanceBase:
+        return self.encoder
+
+    def get_param_sets(self) -> list:
+        return self.param_sets
+
+    def get_sequence(self) -> VideoSequence:
+        return self.sequence
+
+    def get_submetrics_list(self) -> list:
+        return [value for key, value in self.submetrics.items()]
+
+    def get_submetrics_of(self, param_set: EncodingParamSetBase) -> SubMetrics:
+        return self.submetrics[param_set]
+
+    def get_bdbr_psnr_relative_to(self, anchor_metrics) -> float:
+
+        if self is anchor_metrics:
+            return 0
+
+        psnr_list = []
+        anchor_psnr_list = []
+
+        for submetrics in self.submetrics.values():
+            sequence = submetrics.get_sequence()
+            output_filepath = sequence.get_output_filepath(self.encoder, submetrics.get_param_set())
+            bitrate = (os.path.getsize(output_filepath) * 8) / sequence.get_duration_seconds()
+            psnr = submetrics.get_psnr_avg()
+            psnr_list.append((bitrate, psnr))
+
+        for anchor_submetrics in anchor_metrics.get_submetrics_list():
+            sequence = anchor_submetrics.get_sequence()
+            output_filepath = sequence.get_output_filepath(anchor_submetrics.get_encoder(), anchor_submetrics.get_param_set())
+            bitrate = (os.path.getsize(output_filepath) * 8) / sequence.get_duration_seconds()
+            psnr = anchor_submetrics.get_psnr_avg()
+            anchor_psnr_list.append((bitrate, psnr))
+
+        def bitrate_asc_sort(a, b):
+            return -1 if a[0] < b[0] else 1
+        sort_key = functools.cmp_to_key(bitrate_asc_sort)
+
+        bdbr_psnr = BDrateCalculator().CalcBDRate(
+            sorted(psnr_list, key=sort_key),
+            sorted(anchor_psnr_list, key=sort_key)
+        )
+        return bdbr_psnr
+
+    def get_bdbr_ssim_relative_to(self, anchor_metrics) -> float:
+
+        if self == anchor_metrics:
+            return 0
+
+        ssim_list = []
+        anchor_ssim_list = []
+
+        for submetrics in self.submetrics.values():
+            sequence = submetrics.get_sequence()
+            output_filepath = sequence.get_output_filepath(self.encoder, submetrics.get_param_set())
+            bitrate = (os.path.getsize(output_filepath) * 8) / sequence.get_duration_seconds()
+            ssim = submetrics.get_ssim_avg()
+            ssim_list.append((bitrate, ssim))
+
+        for anchor_submetrics in anchor_metrics.get_submetrics_list():
+            sequence = anchor_submetrics.get_sequence()
+            output_filepath = sequence.get_output_filepath(anchor_submetrics.get_encoder(), anchor_submetrics.get_param_set())
+            bitrate = (os.path.getsize(output_filepath) * 8) / sequence.get_duration_seconds()
+            ssim = anchor_submetrics.get_ssim_avg()
+            anchor_ssim_list.append((bitrate, ssim))
+
+        def bitrate_asc_sort(a, b):
+            return -1 if a[0] < b[0] else 1
+        sort_key = functools.cmp_to_key(bitrate_asc_sort)
+
+        bdbr_ssim = BDrateCalculator().CalcBDRate(
+            sorted(ssim_list, key=sort_key),
+            sorted(anchor_ssim_list, key=sort_key)
+        )
+        return bdbr_ssim

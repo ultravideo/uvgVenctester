@@ -6,5 +6,5 @@ from .git import *
 from .log import *
 from .singleton import *
 from .tester import *
-from .testconfiguration import *
+from .testconfig import *
 from .videosequence import *

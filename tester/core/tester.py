@@ -25,12 +25,6 @@ class Tester:
         for filepath in input_sequence_filepaths:
             context.sequences.append(VideoSequence(filepath))
 
-        for config in test_configurations:
-            for param_set in config.get_encoding_param_sets():
-                for sequence in context.sequences:
-                    context.metrics[(config, param_set, sequence)] = \
-                        Metrics(config.get_encoder_instance(), param_set, sequence)
-
         return context
 
     def log_exception(self, exception: Exception):
@@ -61,8 +55,8 @@ class Tester:
 
     def validate_context_top(self, context: TesterContext):
         for config in context.configs:
-            for param_set in config.get_encoding_param_sets():
-                if not config.get_encoder_instance().dummy_run(param_set):
+            for subconfig in config.get_subconfigs():
+                if not config.get_encoder().dummy_run(subconfig.get_param_set()):
                     console_logger.error(f"Tester: Configuration '{config.get_name()}' is invalid")
                     raise RuntimeError
 
@@ -81,33 +75,30 @@ class Tester:
             self.create_base_directories_if_not_exist()
 
             for config in context.configs:
-                config.get_encoder_instance().build()
+                config.get_encoder().build()
 
             self.validate_context_top(context)
 
             for config in context.configs:
-                for param_set_index in (range(len(config.get_encoding_param_sets()))):
-                    param_set = config.get_encoding_param_sets()[param_set_index]
+                for subconfig in config.get_subconfigs():
+                    param_set = subconfig.get_param_set()
                     for sequence in context.sequences:
-                        console_logger.debug(f"Tester: Encoding sequence '{sequence.get_input_filename()}'"
-                                             f" with configuration '{config.get_name()}'/"
-                                             f"{param_set.get_quality_param_name()} {param_set.get_quality_param_value()}")
-                        metrics = context.metrics[(config, param_set, sequence)]
-                        if not metrics.file_exists():
+                        console_logger.debug(f"Tester: Encoding sequence '{sequence.get_input_filename()}' with configuration '{subconfig.get_name()}'")
+                        submetrics = subconfig.get_sequence_metrics(sequence)
+                        if not submetrics.file_exists():
                             start_time: float = time.perf_counter()
-                            config.get_encoder_instance().encode(sequence, param_set)
+                            config.get_encoder().encode(sequence, param_set)
                             seconds: float = round(time.perf_counter() - start_time, 6)
-                            metrics.set_encoder_name(config.get_encoder_instance().get_encoder_name())
-                            metrics.set_encoder_revision(config.get_encoder_instance().get_revision())
-                            metrics.set_encoder_defines(config.get_encoder_instance().get_defines())
-                            metrics.set_encoder_cmdline(param_set.to_cmdline_str())
-                            metrics.set_encoding_input(sequence.get_input_filename())
-                            metrics.set_encoding_resolution(f"{sequence.width}x{sequence.height}")
-                            metrics.set_encoding_time(seconds)
+                            submetrics.set_encoder_name(config.get_encoder().get_encoder_name())
+                            submetrics.set_encoder_revision(config.get_encoder().get_revision())
+                            submetrics.set_encoder_defines(config.get_encoder().get_defines())
+                            submetrics.set_encoder_cmdline(param_set.to_cmdline_str())
+                            submetrics.set_encoding_input(sequence.get_input_filename())
+                            submetrics.set_encoding_resolution(f"{sequence.width}x{sequence.height}")
+                            submetrics.set_encoding_time(seconds)
                         else:
                             console_logger.info(f"Tester: Sequence '{sequence.get_input_filename()}'"
-                                                f" has already been encoded with configuration '{config.get_name()}'/"
-                                                f"{param_set.get_quality_param_name()} {param_set.get_quality_param_value()}"
+                                                f" has already been encoded with configuration '{subconfig.get_name()}'"
                                                 f" - skipping encoding")
         except Exception as exception:
             self.log_exception(exception)
@@ -116,36 +107,36 @@ class Tester:
     def compute_metrics(self, context: TesterContext):
         for sequence in context.sequences:
             for config in context.configs:
-                for param_set_index in range(len(config.get_encoding_param_sets())):
-                    param_set = config.get_encoding_param_sets()[param_set_index]
-                    encoder_instance: test.EncoderInstanceBase = config.get_encoder_instance()
-                    metrics: Metrics = context.metrics[(config, param_set, sequence)]
+                for subconfig_index in range(len(config.get_subconfigs())):
+                    subconfig = config.get_subconfigs()[subconfig_index]
+                    param_set = subconfig.get_param_set()
+                    metrics: SubMetrics = subconfig.get_sequence_metrics(sequence)
+                    encoder_instance: EncoderInstanceBase = config.get_encoder()
                     ssim_log_filename = sequence.get_ssim_log_filename(encoder_instance, param_set)
                     psnr_log_filename = sequence.get_psnr_log_filename(encoder_instance, param_set)
                     ffmpeg_command: tuple = (
                         "(", "cd", encoder_instance.get_output_subdir(param_set),
-                             "&&", "ffmpeg",
-                                   "-pix_fmt", "yuv420p",
-                                   "-r", "25",
-                                   "-s:v", f"{sequence.get_width()}x{sequence.get_height()}",
-                                   "-i", sequence.get_input_filepath(),
-                                   "-r", "25",
-                                   "-i", sequence.get_output_filepath(encoder_instance, param_set),
-                                   "-c:v", "rawvideo",
+                        "&&", "ffmpeg",
+                        "-pix_fmt", "yuv420p",
+                        "-r", "25",
+                        "-s:v", f"{sequence.get_width()}x{sequence.get_height()}",
+                        "-i", sequence.get_input_filepath(),
+                        "-r", "25",
+                        "-i", sequence.get_output_filepath(encoder_instance, param_set),
+                        "-c:v", "rawvideo",
 
-                                   "-filter_complex", f"[0:v]split=2[in1_1][in1_2];"
-                                                      f"[1:v]split=2[in2_1][in2_2];"
-                                                      f"[in2_1][in1_1]ssim=stats_file={ssim_log_filename};"
-                                                      f"[in2_2][in1_2]psnr=stats_file={psnr_log_filename}",
-                                   "-f",  "null", "-",
-                             "&&", "exit", "0"
-                        ")", "||", "exit", "1"
+                        "-filter_complex", f"[0:v]split=2[in1_1][in1_2];"
+                                           f"[1:v]split=2[in2_1][in2_2];"
+                                           f"[in2_1][in1_1]ssim=stats_file={ssim_log_filename};"
+                                           f"[in2_2][in1_2]psnr=stats_file={psnr_log_filename}",
+                        "-f",  "null", "-",
+                        "&&", "exit", "0"
+                                      ")", "||", "exit", "1"
                     )
 
                     try:
                         console_logger.debug(f"Tester: Computing metrics for configuration"
-                                             f" '{config.get_name()}'/"
-                                             f"{param_set.get_quality_param_name()} {param_set.get_quality_param_value()}")
+                                             f" '{subconfig.get_name()}'")
                         subprocess.check_output(ffmpeg_command, stderr=subprocess.STDOUT, shell=True)
 
                         psnr_log_filepath: str = sequence.get_psnr_log_filepath(encoder_instance, param_set)
@@ -177,8 +168,7 @@ class Tester:
 
                     except Exception as exception:
                         console_logger.error(f"Tester: Failed to compute metrics for configuration"
-                                             f" '{config.get_name()}'/"
-                                             f"{param_set.get_quality_param_name()} {param_set.get_quality_param_value()}")
+                                             f" '{subconfig.get_name()}'")
                         if isinstance(exception, subprocess.CalledProcessError):
                             console_logger.error(exception.output.decode())
                         self.log_exception(exception)
@@ -186,6 +176,7 @@ class Tester:
 
     def generate_csv(self, context: TesterContext, csv_filepath: str):
         console_logger.info(f"Generating CSV output file '{csv_filepath}'")
+
         try:
             csvfile = CsvFile(csv_filepath)
             csvfile.set_header_names([
@@ -209,34 +200,40 @@ class Tester:
             ])
             for sequence in context.sequences:
                 for config in context.configs:
+                    metrics = config.get_sequence_metrics(sequence)
                     for anchor_name in config.get_anchor_names():
                         anchor_config = context.configs_by_name[anchor_name]
-                        for param_set_index in range(len(config.get_encoding_param_sets())):
-                            param_set = config.get_encoding_param_sets()[param_set_index]
-                            anchor_param_set = anchor_config.get_encoding_param_sets()[param_set_index]
-                            metrics = context.metrics[(config, param_set, sequence)]
-                            anchor_metrics = context.metrics[(anchor_config), anchor_param_set, sequence]
+                        anchor_metrics = anchor_config.get_sequence_metrics(sequence)
+                        for subconfig_index in range(len(config.get_subconfigs())):
 
-                            encoding_time = metrics.get_encoding_time()
+                            subconfig = config.get_subconfigs()[subconfig_index]
+                            param_set = subconfig.get_param_set()
+                            submetrics = metrics.get_submetrics_of(param_set)
+
+                            anchor_subconfig =  anchor_config.get_subconfigs()[subconfig_index]
+                            anchor_submetrics = anchor_metrics.get_submetrics_of(anchor_subconfig.get_param_set())
+
+                            encoding_time = submetrics.get_encoding_time()
                             encoding_time = str(encoding_time).replace(".", Cfg().csv_decimal_point)
-                            speedup = round(metrics.get_speedup_relative_to(anchor_metrics), 3)
+                            speedup = round(submetrics.get_speedup_relative_to(anchor_submetrics), 3)
                             speedup = str(speedup).replace(".", Cfg().csv_decimal_point)
-                            psnr_avg = round(metrics.get_psnr_avg(), 3)
+                            psnr_avg = round(submetrics.get_psnr_avg(), 3)
                             psnr_avg = str(psnr_avg).replace(".", Cfg().csv_decimal_point)
-                            ssim_avg = round(metrics.get_ssim_avg(), 3)
+                            ssim_avg = round(submetrics.get_ssim_avg(), 3)
                             ssim_avg = str(ssim_avg).replace(".", Cfg().csv_decimal_point)
-                            psnr_bdbr = round(metrics.get_psnr_bdbr(config, anchor_config, sequence), 6)
+
+                            psnr_bdbr = round(metrics.get_bdbr_psnr_relative_to(anchor_metrics), 6)
                             psnr_bdbr = str(psnr_bdbr).replace(".", Cfg().csv_decimal_point)
-                            ssim_bdbr = round(metrics.get_ssim_bdbr(config, anchor_config, sequence), 6)
+                            ssim_bdbr = round(metrics.get_bdbr_ssim_relative_to(anchor_metrics), 6)
                             ssim_bdbr = str(ssim_bdbr).replace(".", Cfg().csv_decimal_point)
 
                             csvfile.add_entry([
                                 sequence.get_input_filename(),
                                 sequence.get_sequence_class(),
                                 sequence.get_framecount(),
-                                config.get_encoder_instance().get_encoder_name(),
-                                config.get_encoder_instance().get_short_revision(),
-                                config.get_encoder_instance().get_defines(),
+                                config.get_encoder().get_encoder_name(),
+                                config.get_encoder().get_short_revision(),
+                                config.get_encoder().get_defines(),
                                 param_set.to_cmdline_str(),
                                 param_set.get_quality_param_name(),
                                 param_set.get_quality_param_value(),
