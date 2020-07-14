@@ -10,8 +10,8 @@ import traceback
 
 class Tester:
     def __init__(self):
-        Cfg().read_userconfig()
-        Cfg().validate_all()
+        Cfg()._read_userconfig()
+        Cfg()._validate_all()
         self.create_base_directories_if_not_exist()
 
     def create_context(self, test_configurations: list, input_sequence_filepaths: list) -> TesterContext:
@@ -63,7 +63,6 @@ class Tester:
     def create_base_directories_if_not_exist(self):
         for path in Cfg().binaries_dir_path,\
                     Cfg().encoding_output_dir_path,\
-                    Cfg().reports_dir_path,\
                     Cfg().sources_dir_path:
             if not os.path.exists(path):
                 console_logger.debug(f"Tester: Creating directory '{path}'")
