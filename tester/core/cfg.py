@@ -7,8 +7,8 @@ and execution flow of the tester. The user may set up a userconfig.py
 to override the default values.
 """
 
-from core.singleton import *
-from core.log import *
+from .singleton import *
+from .log import *
 import os
 import platform
 import re
