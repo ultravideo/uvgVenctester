@@ -1,25 +1,38 @@
-from core.cfg import *
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+This module defines functionality related to creating a CSV file.
+"""
+
+from .cfg import *
 import os
 
 class CsvFile():
-    def __init__(self, filepath: str):
+    """Represents a single CSV file."""
+
+    def __init__(self, filepath: str, field_names: list):
+        """Creates a new CSV file and initializes it with the names of the fields.
+        If the file doesn't exist yet, it is created. If it already exists, the old file is
+        discarded and a new file is created. Field names are separated automatically.
+        @param filepath The absolute path of the CSV file.
+        @param field_names A list of the field names (i.e. the header), from left to right.
+        Must only contain strings."""
         self.directory = os.path.dirname(filepath)
         self.filepath = filepath
-        self.header_names = []
+        self.field_names = field_names
 
+        # Create the new CSV file.
         if self.directory and not os.path.exists(self.directory):
             os.makedirs(self.directory)
-
         with open(self.filepath, "w") as file:
-            pass
+            file.write(f"{Cfg().csv_field_separator.join(self.field_names)}\n")
 
-    def set_header_names(self, header_names: list):
-        self.header_names = header_names
-        with open(self.filepath, "w") as file:
-            file.write(f"{Cfg().csv_field_separator.join(self.header_names)}\n")
-
-    def add_entry(self, fields: list):
-        assert(len(fields) == len(self.header_names))
-        fields = [str(field) for field in fields]
+    def new_row(self, field_values: list):
+        """Adds a new row with the given values for each field. Values are separated automatically.
+        @param field_values: The values for each field, from left to right. The values can be any
+        objects that can be converted to strings."""
+        assert len(field_values) == len(self.field_names)
+        field_values = [str(field) for field in field_values]
         with open(self.filepath, "a") as file:
-            file.write(f"{Cfg().csv_field_separator.join(fields)}\n")
+            file.write(f"{Cfg().csv_field_separator.join(field_values)}\n")

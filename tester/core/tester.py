@@ -177,26 +177,28 @@ class Tester:
         console_logger.info(f"Generating CSV output file '{csv_filepath}'")
 
         try:
-            csvfile = CsvFile(csv_filepath)
-            csvfile.set_header_names([
-                "Sequence",
-                "Sequence class",
-                "Frames",
-                "Encoder",
-                "Revision",
-                "Defines",
-                "Command line",
-                "Quality parameter",
-                "Quality parameter value",
-                "Configuration name",
-                "Anchor name",
-                "Time (s)",
-                "Speedup",
-                "PSNR average",
-                "SSIM average",
-                "PSNR BD-BR",
-                "SSIM BD-BR",
-            ])
+            csvfile = CsvFile(filepath=csv_filepath,
+                              field_names=[
+                                  "Sequence",
+                                  "Sequence class",
+                                  "Frames",
+                                  "Encoder",
+                                  "Revision",
+                                  "Defines",
+                                  "Command line",
+                                  "Quality parameter",
+                                  "Quality parameter value",
+                                  "Configuration name",
+                                  "Anchor name",
+                                  "Time (s)",
+                                  "Speedup",
+                                  "PSNR average",
+                                  "SSIM average",
+                                  "PSNR BD-BR",
+                                  "SSIM BD-BR",
+                            ],
+            )
+
             for sequence in context.sequences:
                 for config in context.configs:
                     metrics = config.get_sequence_metrics(sequence)
@@ -226,7 +228,7 @@ class Tester:
                             ssim_bdbr = round(metrics.get_bdbr_ssim_relative_to(anchor_metrics), 6)
                             ssim_bdbr = str(ssim_bdbr).replace(".", Cfg().csv_decimal_point)
 
-                            csvfile.add_entry([
+                            csvfile.new_row([
                                 sequence.get_input_filename(),
                                 sequence.get_sequence_class(),
                                 sequence.get_framecount(),
