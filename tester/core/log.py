@@ -8,10 +8,11 @@ This module defines functionality related to logging.
 import logging
 import sys
 
+# For printing colored text.
 import colorama
 colorama.init()
 
-# Custom formatter
+
 class ColoredFormatter(logging.Formatter):
     """A formatter that adds color to log messages based on the logging level.
     Meant to be used with the console logger so the user can more easily
@@ -37,7 +38,7 @@ class ColoredFormatter(logging.Formatter):
         self._style._fmt = original_format
         return result
 
-# Set up global console logger.
+# Set up the global console logger.
 formatter = ColoredFormatter("--%(levelname)s: %(message)s")
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
@@ -46,11 +47,16 @@ console_logger.addHandler(handler)
 console_logger.setLevel(logging.DEBUG)
 
 
+UNAVAILABLE_LOG_FILENAMES: list = []
 def setup_build_logger(log_filename: str) -> logging.Logger:
     """Initializes and returns a Logger object with the given filename.
     The returned object is intended to be used for build logging.
     NOTE: Make sure this function is always called with a different log_filename
     because it also identifies the logger object!"""
+
+    assert log_filename not in UNAVAILABLE_LOG_FILENAMES
+    UNAVAILABLE_LOG_FILENAMES.append(log_filename)
+
     formatter = logging.Formatter("%(message)s")
     handler = logging.FileHandler(log_filename, "w")
     handler.setFormatter(formatter)
