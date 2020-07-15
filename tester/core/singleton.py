@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""
-This module defines the Singleton class that classes meant to be singletons
-should inherit.
-Don't ask how it works, it just works.
-"""
+"""This module defines the Singleton class that singletons should use as their metaclass.
+Don't ask how it works, it just works."""
 
 class Singleton(type):
+    """Singleton class that singletons should use as their metaclass."""
     _instances = {}
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
