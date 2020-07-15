@@ -21,7 +21,7 @@ class EncoderInstance(core.EncoderInstanceBase):
 
     def __init__(self, revision: str, defines: list):
         super().__init__()
-        self.git_repo: core.GitRepo = core.GitRepo(core.Cfg().kvz_git_repo_path)
+        self.git_repo: core.GitRepository = core.GitRepository(core.Cfg().kvz_git_repo_path)
         self.defines: list = sorted(set(defines)) # ensure no duplicates
         self.define_hash: str = hashlib.md5(str(self.defines).encode()).digest().hex()
         self.short_define_hash: str = self.define_hash[:core.Cfg().short_define_hash_len]
