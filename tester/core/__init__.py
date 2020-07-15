@@ -2,6 +2,7 @@ from .cfg import *
 from .csvfile import *
 from .encoderinstancebase import *
 from .encodingparamsetbase import *
+from .ffmpeg import *
 from .git import *
 from .log import *
 from .singleton import *

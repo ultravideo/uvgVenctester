@@ -2,6 +2,7 @@ from .cfg import *
 from .csvfile import *
 from .metrics import *
 from .testercontext import *
+from . import ffmpeg
 import test
 
 import subprocess
@@ -109,64 +110,24 @@ class Tester:
                 for param_set_index in range(len(config.get_param_sets())):
                     param_set = config.get_param_sets()[param_set_index]
                     metrics_file = metrics.get_metrics_file(param_set)
-                    encoder_instance: EncoderInstanceBase = config.get_encoder()
-                    ssim_log_filename = sequence.get_ssim_log_filename(encoder_instance, param_set)
-                    psnr_log_filename = sequence.get_psnr_log_filename(encoder_instance, param_set)
-                    ffmpeg_command: tuple = (
-                        "(", "cd", encoder_instance.get_output_subdir(param_set),
-                        "&&", "ffmpeg",
-                        "-pix_fmt", "yuv420p",
-                        "-r", "25",
-                        "-s:v", f"{sequence.get_width()}x{sequence.get_height()}",
-                        "-i", sequence.get_input_filepath(),
-                        "-r", "25",
-                        "-i", sequence.get_output_filepath(encoder_instance, param_set),
-                        "-c:v", "rawvideo",
 
-                        "-filter_complex", f"[0:v]split=2[in1_1][in1_2];"
-                                           f"[1:v]split=2[in2_1][in2_2];"
-                                           f"[in2_1][in1_1]ssim=stats_file={ssim_log_filename};"
-                                           f"[in2_2][in1_2]psnr=stats_file={psnr_log_filename}",
-                        "-f",  "null", "-",
-                        "&&", "exit", "0"
-                                      ")", "||", "exit", "1"
-                    )
+                    console_logger.debug(f"Tester: Computing metrics for configuration"
+                                         f" '{config.get_long_name(param_set)}'")
 
                     try:
-                        console_logger.debug(f"Tester: Computing metrics for configuration"
-                                             f" '{config.get_long_name(param_set)}'")
-                        subprocess.check_output(ffmpeg_command, stderr=subprocess.STDOUT, shell=True)
+                        psnr, ssim = ffmpeg.compute_psnr_and_ssim(
+                            sequence.get_input_filepath(),
+                            sequence.get_output_filepath(config.get_encoder(), param_set),
+                            sequence.get_width(),
+                            sequence.get_height(),
+                        )
 
-                        psnr_log_filepath: str = sequence.get_psnr_log_filepath(encoder_instance, param_set)
-                        ssim_log_filepath: str = sequence.get_ssim_log_filepath(encoder_instance, param_set)
-
-                        # TODO: Eliminate duplicate code?
-
-                        with open(psnr_log_filepath, "r") as psnr_log_file:
-                            psnr_avg: float = 0
-                            line_count: int = 0
-                            pattern = re.compile(r".*psnr_avg:([0-9]+.[0-9]+).*", re.DOTALL)
-                            for line in psnr_log_file.readlines():
-                                line_count += 1
-                                for item in pattern.fullmatch(line).groups():
-                                    psnr_avg += float(item)
-                            psnr_avg /= line_count
-                            metrics_file.set_psnr_avg(psnr_avg)
-
-                        with open(ssim_log_filepath, "r") as ssim_log_file:
-                            ssim_avg: float = 0
-                            line_count: int = 0
-                            pattern = re.compile(r".*All:([0-9]+.[0-9]+).*", re.DOTALL)
-                            for line in ssim_log_file.readlines():
-                                line_count += 1
-                                for item in pattern.fullmatch(line).groups():
-                                    ssim_avg += float(item)
-                            ssim_avg /= line_count
-                            metrics_file.set_ssim_avg(ssim_avg)
+                        metrics_file.set_psnr_avg(psnr)
+                        metrics_file.set_ssim_avg(ssim)
 
                     except Exception as exception:
                         console_logger.error(f"Tester: Failed to compute metrics for configuration"
-                                             f" '{config.get_long_name()}'")
+                                             f" '{config.get_long_name(param_set)}'")
                         if isinstance(exception, subprocess.CalledProcessError):
                             console_logger.error(exception.output.decode())
                         self.log_exception(exception)

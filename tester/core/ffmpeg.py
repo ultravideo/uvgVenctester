@@ -14,6 +14,7 @@ def compute_psnr_and_ssim(yuv_filepath: str,
     # so the easiest solution is to change the working directory and
     # use relative filepaths.
     work_dir = os.path.dirname(hevc_filepath)
+    yuv_filename = os.path.basename(yuv_filepath)
     hevc_filename = os.path.basename(hevc_filepath)
     psnr_log_filename = os.path.splitext(hevc_filename)[0] + "_psnr_log.txt"
     ssim_log_filename = os.path.splitext(hevc_filename)[0] + "_ssim_log.txt"
@@ -41,11 +42,11 @@ def compute_psnr_and_ssim(yuv_filepath: str,
     )
 
     try:
-        console_logger.debug(f"Ffmpeg: Computing PSNR and SSIM with YUV '{yuv_filepath}'"
-                             f" and HEVC '{hevc_filepath}'")
+        console_logger.debug(f"ffmpeg: Computing PSNR and SSIM from input '{yuv_filename}'"
+                             f" and output '{hevc_filename}'")
         subprocess.check_output(ffmpeg_command, stderr=subprocess.STDOUT, shell=True)
 
-        # TODO: Eliminate duplicate code?
+        # Ugly but simple.
 
         psnr_avg = 0.0
         with open(psnr_log_filepath, "r") as psnr_log_file:
@@ -70,8 +71,8 @@ def compute_psnr_and_ssim(yuv_filepath: str,
         return psnr_avg, ssim_avg
 
     except Exception as exception:
-        console_logger.error(f"Ffmpeg: Failed to compute PSNR and SSIM with YUV '{yuv_filepath}'"
-                             f" and HEVC '{hevc_filepath}'")
+        console_logger.error(f"ffmpeg: Failed to compute PSNR and SSIM from input '{yuv_filename}'"
+                             f" and output '{hevc_filename}'")
         if isinstance(exception, subprocess.CalledProcessError):
             console_logger.error(exception.output.decode())
         raise
