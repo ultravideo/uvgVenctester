@@ -1,4 +1,10 @@
-from core.log import console_logger
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""This module defines functionality related to test configurations. A test configuration is
+essentially a combination of encoder version and encoding parameters."""
+
+from .log import console_logger
 from .encodingparamsetbase import *
 from .metrics import *
 from .videosequence import *
@@ -8,12 +14,16 @@ from enum import Enum
 import hashlib
 
 class EncoderId(Enum):
+    """An enumeration to identify different encoders."""
     NONE: int = 0
     KVAZAAR: int = 1
 
 
 
 class SubTestConfig:
+    """Represents a subtest configuration (or a test subconfiguration). Every configuration
+    consists of as many subconfigurations as there are quality parameter values in the
+    configuration."""
     def __init__(self,
                  parent_config_name: str,
                  encoder_instance: EncoderInstanceBase,
@@ -34,20 +44,26 @@ class SubTestConfig:
                + int(hashlib.md5(self.param_set).hexdigest(), 16)
 
     def get_name(self):
+        """Returns the name of the object."""
         return self.name
 
     def get_encoder_instance(self):
+        """Returns the encoder instance tied to the object."""
         return self.encoder_instance
 
     def get_param_set(self):
+        """Returns the parameter set tied to the object."""
         return self.param_set
 
     def get_sequence_metrics(self, sequence: VideoSequence):
+        """Returns the metrics tied to the object."""
         return SubMetrics(self.get_encoder_instance(), self.get_param_set(), sequence)
 
 
 
 class TestConfig:
+    """Represents a test configuration. A test configuration is a combination of encoder version
+    and sets of encoding parameters."""
     def __init__(self,
                  name: str,
                  quality_param_type: QualityParamType,
@@ -82,18 +98,23 @@ class TestConfig:
         return int(hashlib.md5(self.name.encode()).hexdigest(), 16)
 
     def get_name(self):
+        """Returns the name of the object."""
         return self.name
 
     def get_subconfigs(self):
+        """Returns the list of subconfigurations tied to the object."""
         return self.subconfigs
 
     def get_encoder(self):
+        """Returns the encoder instance tied to the object."""
         return self.encoder
 
     def get_anchor_names(self):
+        """Returns the names of the anchor configurations. Empty list if none."""
         return self.anchor_names
 
     def get_sequence_metrics(self, sequence: VideoSequence):
+        """Returns the metrics tied to the object."""
         return Metrics(
             self.encoder,
             [subconfig.get_param_set() for subconfig in self.subconfigs],
