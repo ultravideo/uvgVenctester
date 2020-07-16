@@ -1,6 +1,5 @@
-from core.log import *
-from .encoderinstancebase import *
-from .encodingparamsetbase import *
+from tester.encoders.base import *
+from tester.core.log import *
 
 import hashlib
 import re

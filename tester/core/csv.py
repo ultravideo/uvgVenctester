@@ -3,7 +3,8 @@
 
 """This module defines functionality related to creating the tester output CSV file."""
 
-from . import cfg # To avoid circular import
+from tester.core import cfg
+
 import os
 
 from enum import *

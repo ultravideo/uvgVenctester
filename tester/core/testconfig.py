@@ -4,19 +4,11 @@
 """This module defines functionality related to test configurations. A test configuration is
 essentially a combination of encoder version and encoding parameters."""
 
-from .log import console_logger
-from .encodingparamsetbase import *
-from .metrics import *
-from .videosequence import *
-from encoders import kvazaar
+from tester.core.videosequence import *
+from tester.core.metrics import *
+import tester.encoders.kvazaar
 
-from enum import Enum
 import hashlib
-
-class EncoderId(Enum):
-    """An enumeration to identify different encoders."""
-    NONE: int = 0
-    KVAZAAR: int = 1
 
 
 class TestConfig:
@@ -38,9 +30,9 @@ class TestConfig:
         self.param_sets: list = []
 
         if encoder_id == EncoderId.KVAZAAR:
-            self.encoder = kvazaar.EncoderInstance(encoder_revision, encoder_defines)
+            self.encoder = tester.encoders.kvazaar.EncoderInstance(encoder_revision, encoder_defines)
             self.param_sets = [
-                kvazaar.EncodingParamSet(quality_param_type, quality_param_value, cl_args)
+                tester.encoders.kvazaar.EncodingParamSet(quality_param_type, quality_param_value, cl_args)
                     for quality_param_value in quality_param_list
             ]
         else:

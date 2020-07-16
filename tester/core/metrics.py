@@ -5,11 +5,9 @@
 
 from __future__ import annotations
 
-from .cfg import *
-from .log import *
-from .encoderinstancebase import *
-from .encodingparamsetbase import *
-from .videosequence import *
+from tester.core.cfg import *
+from tester.core.videosequence import *
+from tester.encoders.base import *
 
 import functools
 import hashlib

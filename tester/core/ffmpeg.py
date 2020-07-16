@@ -1,4 +1,4 @@
-from .log import *
+from tester.core.log import *
 
 import os
 import re
