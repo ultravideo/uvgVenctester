@@ -1,5 +1,5 @@
 from .cfg import *
-from .csvfile import *
+from .csv import *
 from .metrics import *
 from .testconfig import *
 from . import ffmpeg
@@ -151,27 +151,7 @@ class Tester:
         console_logger.info(f"Tester: Generating CSV file '{csv_filepath}'")
 
         try:
-            csvfile = CsvFile(filepath=csv_filepath,
-                              field_names=[
-                                  "Sequence",
-                                  "Sequence class",
-                                  "Frames",
-                                  "Encoder",
-                                  "Revision",
-                                  "Defines",
-                                  "Command line",
-                                  "Quality parameter",
-                                  "Quality parameter value",
-                                  "Configuration name",
-                                  "Anchor name",
-                                  "Time (s)",
-                                  "Speedup",
-                                  "PSNR average",
-                                  "SSIM average",
-                                  "PSNR BD-BR",
-                                  "SSIM BD-BR",
-                            ],
-            )
+            csvfile = CsvFile(filepath=csv_filepath)
 
             for sequence in context.get_sequences():
                 for config in context.get_configs():
@@ -187,39 +167,25 @@ class Tester:
                             anchor_param_set = anchor_config.get_param_sets()[param_set_index]
                             anchor_metrics_file = anchor_metrics.get_metrics_file(anchor_param_set)
 
-                            encoding_time = metrics_file.get_encoding_time()
-                            encoding_time = str(encoding_time).replace(".", Cfg().csv_decimal_point)
-                            speedup = round(metrics_file.get_speedup_relative_to(anchor_metrics_file), 3)
-                            speedup = str(speedup).replace(".", Cfg().csv_decimal_point)
-                            psnr_avg = round(metrics_file.get_psnr_avg(), 3)
-                            psnr_avg = str(psnr_avg).replace(".", Cfg().csv_decimal_point)
-                            ssim_avg = round(metrics_file.get_ssim_avg(), 3)
-                            ssim_avg = str(ssim_avg).replace(".", Cfg().csv_decimal_point)
-
-                            psnr_bdbr = round(metrics.get_bdbr_psnr(anchor_metrics), 6)
-                            psnr_bdbr = str(psnr_bdbr).replace(".", Cfg().csv_decimal_point)
-                            ssim_bdbr = round(metrics.get_bdbr_ssim(anchor_metrics), 6)
-                            ssim_bdbr = str(ssim_bdbr).replace(".", Cfg().csv_decimal_point)
-
-                            csvfile.new_row([
-                                sequence.get_input_filename(),
-                                sequence.get_sequence_class(),
-                                sequence.get_framecount(),
-                                config.get_encoder().get_encoder_name(),
-                                config.get_encoder().get_short_revision(),
-                                config.get_encoder().get_defines(),
-                                param_set.to_cmdline_str(),
-                                param_set.get_quality_param_name(),
-                                param_set.get_quality_param_value(),
-                                config.get_short_name(),
-                                anchor_name if anchor_name != config.get_short_name() else "-",
-                                encoding_time,
-                                speedup,
-                                psnr_avg,
-                                ssim_avg,
-                                psnr_bdbr,
-                                ssim_bdbr,
-                            ])
+                            csvfile.add_entry({
+                                CsvFieldId.SEQUENCE_NAME: sequence.get_input_filename(),
+                                CsvFieldId.SEQUENCE_CLASS: sequence.get_sequence_class(),
+                                CsvFieldId.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
+                                CsvFieldId.ENCODER_NAME: config.get_encoder().get_encoder_name(),
+                                CsvFieldId.ENCODER_REVISION: config.get_encoder().get_short_revision(),
+                                CsvFieldId.ENCODER_DEFINES: config.get_encoder().get_defines(),
+                                CsvFieldId.ENCODER_CMDLINE: param_set.to_cmdline_str(),
+                                CsvFieldId.QUALITY_PARAM_NAME: param_set.get_quality_param_name(),
+                                CsvFieldId.QUALITY_PARAM_VALUE: param_set.get_quality_param_value(),
+                                CsvFieldId.CONFIG_NAME: config.get_short_name(),
+                                CsvFieldId.ANCHOR_NAME: anchor_config.get_short_name(),
+                                CsvFieldId.TIME_SECONDS: metrics_file.get_encoding_time(),
+                                CsvFieldId.SPEEDUP: metrics_file.get_speedup_relative_to(anchor_metrics_file),
+                                CsvFieldId.PSNR_AVG: metrics_file.get_psnr_avg(),
+                                CsvFieldId.SSIM_AVG: metrics_file.get_ssim_avg(),
+                                CsvFieldId.BDBR_PSNR: metrics.get_bdbr_psnr(anchor_metrics),
+                                CsvFieldId.BDBR_SSIM: metrics.get_bdbr_ssim(anchor_metrics),
+                            })
 
         except Exception as exception:
             console_logger.error(f"Tester: Failed to generate CSV file '{csv_filepath}'")

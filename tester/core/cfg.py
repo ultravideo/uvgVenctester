@@ -9,6 +9,7 @@ the default values and customize the functionality of the tester.
 
 from .log import *
 from .singleton import *
+from . import csv # To avoid circular import
 
 import os
 import platform
@@ -330,3 +331,59 @@ class Cfg(metaclass=Singleton):
     def csv_decimal_point(self) -> str:
         """Returns the character to be used as the decimal point when generating CSV files."""
         return self.CSV_DECIMAL_POINT
+
+    CSV_ENABLED_FIELDS: list = [
+        csv.CsvFieldId.SEQUENCE_NAME,
+        csv.CsvFieldId.SEQUENCE_CLASS,
+        csv.CsvFieldId.SEQUENCE_FRAMECOUNT,
+        csv.CsvFieldId.ENCODER_NAME,
+        csv.CsvFieldId.ENCODER_REVISION,
+        csv.CsvFieldId.ENCODER_DEFINES,
+        csv.CsvFieldId.ENCODER_CMDLINE,
+        csv.CsvFieldId.QUALITY_PARAM_NAME,
+        csv.CsvFieldId.QUALITY_PARAM_VALUE,
+        csv.CsvFieldId.CONFIG_NAME,
+        csv.CsvFieldId.TIME_SECONDS,
+        csv.CsvFieldId.PSNR_AVG,
+        csv.CsvFieldId.SSIM_AVG,
+        csv.CsvFieldId.ANCHOR_NAME,
+        csv.CsvFieldId.SPEEDUP,
+        csv.CsvFieldId.BDBR_PSNR,
+        csv.CsvFieldId.BDBR_SSIM,
+    ]
+    @property
+    def csv_enabled_fields(self) -> list:
+        """Returns the CSV field IDs in the order they will appear in the CSV file."""
+        return self.CSV_ENABLED_FIELDS
+
+    CSV_FIELD_NAMES: dict = {
+        csv.CsvFieldId.SEQUENCE_NAME: "Sequence name",
+        csv.CsvFieldId.SEQUENCE_CLASS: "Sequence class",
+        csv.CsvFieldId.SEQUENCE_FRAMECOUNT: "Frames",
+        csv.CsvFieldId.ENCODER_NAME: "Encoder",
+        csv.CsvFieldId.ENCODER_REVISION: "Revision",
+        csv.CsvFieldId.ENCODER_DEFINES: "Defines",
+        csv.CsvFieldId.ENCODER_CMDLINE: "Command",
+        csv.CsvFieldId.QUALITY_PARAM_NAME: "Quality parameter",
+        csv.CsvFieldId.QUALITY_PARAM_VALUE: "Quality parameter value",
+        csv.CsvFieldId.CONFIG_NAME: "Configuration name",
+        csv.CsvFieldId.ANCHOR_NAME: "Anchor name",
+        csv.CsvFieldId.TIME_SECONDS: "Encoding time (s)",
+        csv.CsvFieldId.SPEEDUP: "Speedup",
+        csv.CsvFieldId.PSNR_AVG: "PSNR (avg)",
+        csv.CsvFieldId.SSIM_AVG: "SSIM (avg)",
+        csv.CsvFieldId.BDBR_PSNR: "BD-BR (PSNR)",
+        csv.CsvFieldId.BDBR_SSIM: "BD-BR (SSIM)",
+    }
+    @property
+    def csv_field_names(self) -> dict:
+        """Returns the CSV field names in a dict where the key is the field ID and the value
+        is the name of the field as a string."""
+        return self.CSV_FIELD_NAMES
+
+    CSV_FLOAT_ROUNDING_ACCURACY: int = 6
+    @property
+    def csv_float_rounding_accuracy(self) -> int:
+        """Returns the number that will be used as the parameter to round() when rounding floats
+        during CSV file generation."""
+        return self.CSV_FLOAT_ROUNDING_ACCURACY
