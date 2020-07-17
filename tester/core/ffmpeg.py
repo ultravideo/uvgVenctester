@@ -21,30 +21,37 @@ def compute_psnr_and_ssim(yuv_filepath: str,
     psnr_log_filepath = os.path.join(work_dir, psnr_log_filename)
     ssim_log_filepath = os.path.join(work_dir, ssim_log_filename)
 
-    ffmpeg_command: tuple = (
+    ffmpeg_command = (
         "(", "cd", work_dir,
-        "&&", "ffmpeg",
-        "-pix_fmt", "yuv420p",
-        "-r", "25",
-        "-s:v", f"{sequence_width}x{sequence_height}",
-        "-i", yuv_filepath,
-        "-r", "25",
-        "-i", hevc_filename,
-        "-c:v", "rawvideo",
-
-        "-filter_complex", f"[0:v]split=2[in1_1][in1_2];"
-                           f"[1:v]split=2[in2_1][in2_2];"
-                           f"[in2_1][in1_1]ssim=stats_file={ssim_log_filename};"
-                           f"[in2_2][in1_2]psnr=stats_file={psnr_log_filename}",
-        "-f", "null", "-",
-        "&&", "exit", "0"
-                      ")", "||", "exit", "1"
+             "&&", "ffmpeg",
+                   "-pix_fmt", "yuv420p",
+                   "-r", "25",
+                   "-s:v", f"{sequence_width}x{sequence_height}",
+                   "-i", yuv_filepath,
+                   "-r", "25",
+                   "-i", hevc_filename,
+                   "-c:v", "rawvideo",
+                   "-filter_complex", f"[0:v]split=2[in1_1][in1_2];"
+                                      f"[1:v]split=2[in2_1][in2_2];"
+                                      f"[in2_1][in1_1]ssim=stats_file={ssim_log_filename};"
+                                      f"[in2_2][in1_2]psnr=stats_file={psnr_log_filename}",
+                   "-f", "null", "-",
+             "&&", "exit", "0"
+        ")", "||", "exit", "1"
     )
 
     try:
-        console_logger.debug(f"ffmpeg: Computing PSNR and SSIM from input '{yuv_filename}'"
-                             f" and output '{hevc_filename}'")
-        subprocess.check_output(ffmpeg_command, stderr=subprocess.STDOUT, shell=True)
+        console_logger.debug(f"ffmpeg: Computing metrics")
+        console_logger.debug(f"ffmpeg: Input: '{yuv_filename}'")
+        console_logger.debug(f"ffmpeg: Output: '{hevc_filename}'")
+        console_logger.debug(f"ffmpeg: PSNR log: '{psnr_log_filename}'")
+        console_logger.debug(f"ffmpeg: SSIM log: '{ssim_log_filename}'")
+
+        if not os.path.exists(psnr_log_filepath) and not os.path.exists(ssim_log_filepath):
+            subprocess.check_output(ffmpeg_command, stderr=subprocess.STDOUT, shell=True)
+        else:
+            console_logger.debug(f"ffmpeg: Files '{psnr_log_filename}' "
+                                 f"and '{ssim_log_filename}' already exist")
 
         # Ugly but simple.
 
@@ -71,8 +78,7 @@ def compute_psnr_and_ssim(yuv_filepath: str,
         return psnr_avg, ssim_avg
 
     except Exception as exception:
-        console_logger.error(f"ffmpeg: Failed to compute PSNR and SSIM from input '{yuv_filename}'"
-                             f" and output '{hevc_filename}'")
+        console_logger.error(f"ffmpeg: Failed to compute metrics")
         if isinstance(exception, subprocess.CalledProcessError):
             console_logger.error(exception.output.decode())
         raise
