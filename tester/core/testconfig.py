@@ -25,14 +25,14 @@ class TestConfig:
                  encoder_defines: list,
                  anchor_names: list):
         self.name = name
-        self.encoder: EncoderInstanceBase = None
+        self.encoder: EncoderBase = None
         self.anchor_names: list = anchor_names
         self.param_sets: list = []
 
         if encoder_id == EncoderId.KVAZAAR:
-            self.encoder = tester.encoders.kvazaar.EncoderInstance(encoder_revision, encoder_defines)
+            self.encoder = tester.encoders.kvazaar.Kvazaar(encoder_revision, encoder_defines)
             self.param_sets = [
-                tester.encoders.kvazaar.EncodingParamSet(quality_param_type, quality_param_value, cl_args)
+                tester.encoders.kvazaar.KvazaarParamSet(quality_param_type, quality_param_value, cl_args)
                     for quality_param_value in quality_param_list
             ]
         else:
@@ -51,7 +51,7 @@ class TestConfig:
     def get_short_name(self):
         return self.name
 
-    def get_long_name(self, param_set: EncodingParamSetBase):
+    def get_long_name(self, param_set: ParamSetBase):
         return f"{self.name}\\{param_set.get_quality_param_name()}{param_set.get_quality_param_value()}"
 
     def get_encoder(self):

@@ -30,7 +30,7 @@ class QualityParamType(Enum):
             raise RuntimeError
 
 
-class EncodingParamSetBase():
+class ParamSetBase():
     """An interface representing a set of parameters to be passed to an encoder when encoding.
     The purpose of the class is to provide an interface through which the parameter sets
     of different encoders can be used in a generic manner. Each encoder must implement an
@@ -76,7 +76,7 @@ class EncodingParamSetBase():
         raise NotImplementedError
 
 
-class EncoderInstanceBase:
+class EncoderBase:
     """An interface representing an encoder. Each encoder module must implement a class that
     inherits this class. The purpose of the class is to provide an interface through
     which the tester can interact with each encoder in a generic manner."""
@@ -126,7 +126,7 @@ class EncoderInstanceBase:
         be placed."""
         raise NotImplementedError
 
-    def get_output_subdir(self, param_set: EncodingParamSetBase) -> str:
+    def get_output_subdir(self, param_set: ParamSetBase) -> str:
         """Returns the subdirectory (within the base directory) in which video files encoded with
         the given parameter set will be placed.
         @param param_set The set of parameters to be used in the encoding."""
@@ -136,13 +136,13 @@ class EncoderInstanceBase:
         """Builds the executable."""
         raise NotImplementedError
 
-    def dummy_run(self, param_set: EncodingParamSetBase) -> bool:
+    def dummy_run(self, param_set: ParamSetBase) -> bool:
         """Executes a dummy run to validate command line arguments before any actual encoding runs.
         @param param_set The set of parameters to be used in the encoding."""
         raise NotImplementedError
 
     # Input_sequence should be of type VideoSequence, but there was a circular import issue.
-    def encode(self, input_sequence, param_set: EncodingParamSetBase):
+    def encode(self, input_sequence, param_set: ParamSetBase):
         """Encodes the given sequence with the given parameter set.
         @param input_sequence The sequence to encode.
         @param param_set The set of parameters to be used in the encoding."""

@@ -195,7 +195,7 @@ class Tester:
 
     def _run_subtest(self,
                      config: TestConfig,
-                     param_set: EncodingParamSetBase,
+                     param_set: ParamSetBase,
                      sequence: VideoSequence):
         console_logger.debug(f"Tester: Encoding sequence '{sequence.get_input_filename()}' "
                              f"with configuration '{config.get_long_name(param_set)}'")

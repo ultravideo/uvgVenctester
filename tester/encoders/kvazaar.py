@@ -17,7 +17,7 @@ import shutil
 import subprocess
 
 
-class EncodingParamSet(EncodingParamSetBase):
+class KvazaarParamSet(ParamSetBase):
 
     POSITIONAL_ARGS = ("--preset", "--gop")
 
@@ -40,7 +40,7 @@ class EncodingParamSet(EncodingParamSetBase):
         hash.update(cl_args.encode())
         self.hash = int(hash.hexdigest(), 16)
 
-    def __eq__(self, other: EncodingParamSetBase):
+    def __eq__(self, other: ParamSetBase):
         return self.quality_param_type == other.quality_param_type\
                and self.quality_param_value == other.quality_param_value\
                and self.cl_args == other.cl_args
@@ -150,7 +150,7 @@ class EncodingParamSet(EncodingParamSetBase):
         return " ".join(reordered_cl_args)
 
 
-class EncoderInstance(EncoderInstanceBase):
+class Kvazaar(EncoderBase):
     """
     This class defines all Kvazaar-specific functionality.
     """
@@ -213,7 +213,7 @@ class EncoderInstance(EncoderInstanceBase):
             self.exe_name.strip(".exe"),
         )
 
-    def get_output_subdir(self, param_set: EncodingParamSet) -> str:
+    def get_output_subdir(self, param_set: KvazaarParamSet) -> str:
         return os.path.join(
             self.get_output_base_dir(),
             param_set.to_cmdline_str(include_quality_param=False),
@@ -376,7 +376,7 @@ class EncoderInstance(EncoderInstanceBase):
             console_logger.error(str(exception))
             raise exception
 
-    def dummy_run(self, param_set: EncodingParamSet) -> bool:
+    def dummy_run(self, param_set: KvazaarParamSet) -> bool:
         console_logger.debug(
             f"Kvazaar: Executing dummy run to validate command line arguments")
 
@@ -398,7 +398,7 @@ class EncoderInstance(EncoderInstanceBase):
 
     def encode(self,
                input: tester.core.videosequence.VideoSequence,
-               param_set: EncodingParamSet,):
+               param_set: KvazaarParamSet, ):
         console_logger.debug(f"Kvazaar: Encoding file '{input.input_filepath}'")
 
         qp_name = param_set.get_quality_param_name()

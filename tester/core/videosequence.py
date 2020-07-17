@@ -81,30 +81,30 @@ class VideoSequence:
             else:
                 return self.input_filename
 
-    def get_output_filename(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+    def get_output_filename(self, encoder_instance: EncoderBase, param_set: ParamSetBase) -> str:
         quality_param_name = param_set.get_quality_param_name().lower()
         quality_param_value = param_set.get_quality_param_value()
         return f"{self.get_base_filename()}_{quality_param_name}{quality_param_value}.hevc"
 
-    def get_output_filepath(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+    def get_output_filepath(self, encoder_instance: EncoderBase, param_set: ParamSetBase) -> str:
         return os.path.join(
             encoder_instance.get_output_subdir(param_set),
             self.get_output_filename(encoder_instance, param_set)
         )
 
-    def get_psnr_log_filename(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+    def get_psnr_log_filename(self, encoder_instance: EncoderBase, param_set: ParamSetBase) -> str:
         return self.get_output_filename(encoder_instance, param_set).replace(".hevc", "_psnr_log.txt")
 
-    def get_ssim_log_filename(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+    def get_ssim_log_filename(self, encoder_instance: EncoderBase, param_set: ParamSetBase) -> str:
         return self.get_output_filename(encoder_instance, param_set).replace(".hevc", "_ssim_log.txt")
 
-    def get_psnr_log_filepath(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+    def get_psnr_log_filepath(self, encoder_instance: EncoderBase, param_set: ParamSetBase) -> str:
         return os.path.join(
             encoder_instance.get_output_subdir(param_set),
             self.get_psnr_log_filename(encoder_instance, param_set)
         )
 
-    def get_ssim_log_filepath(self, encoder_instance: EncoderInstanceBase, param_set: EncodingParamSetBase) -> str:
+    def get_ssim_log_filepath(self, encoder_instance: EncoderBase, param_set: ParamSetBase) -> str:
         return os.path.join(
             encoder_instance.get_output_subdir(param_set),
             self.get_ssim_log_filename(encoder_instance, param_set)

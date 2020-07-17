@@ -17,8 +17,8 @@ from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
 class MetricsFile:
     def __init__(self,
-                 encoder_instance: EncoderInstanceBase,
-                 encoding_param_set: EncodingParamSetBase,
+                 encoder_instance: EncoderBase,
+                 encoding_param_set: ParamSetBase,
                  input_sequence: VideoSequence):
         self.encoder_instance = encoder_instance
         self.encoding_param_set = encoding_param_set
@@ -49,10 +49,10 @@ class MetricsFile:
     def exists(self) -> bool:
         return os.path.exists(self.filepath)
 
-    def get_encoder(self) -> EncoderInstanceBase:
+    def get_encoder(self) -> EncoderBase:
         return self.encoder_instance
 
-    def get_param_set(self) -> EncodingParamSetBase:
+    def get_param_set(self) -> ParamSetBase:
         return self.encoding_param_set
 
     def get_sequence(self) -> VideoSequence:
@@ -201,10 +201,10 @@ class MetricsFile:
 
 class Metrics:
     def __init__(self,
-                 encoder_instance: EncoderInstanceBase,
+                 encoder_instance: EncoderBase,
                  param_sets: list,
                  sequence: VideoSequence):
-        self.encoder: EncoderInstanceBase = encoder_instance
+        self.encoder: EncoderBase = encoder_instance
         self.param_sets: list = param_sets
         self.sequence: VideoSequence = sequence
 
@@ -215,7 +215,7 @@ class Metrics:
         return self.encoder == other.get_encoder() \
                and self.sequence == other.sequence
 
-    def get_encoder(self) -> EncoderInstanceBase:
+    def get_encoder(self) -> EncoderBase:
         return self.encoder
 
     def get_param_sets(self) -> list:
@@ -224,7 +224,7 @@ class Metrics:
     def get_sequence(self) -> VideoSequence:
         return self.sequence
 
-    def get_metrics_file(self, param_set: EncodingParamSetBase) -> MetricsFile:
+    def get_metrics_file(self, param_set: ParamSetBase) -> MetricsFile:
         return MetricsFile(self.encoder, param_set, self.sequence)
 
     def get_bdbr_psnr(self, anchor: Metrics) -> float:
