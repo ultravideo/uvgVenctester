@@ -92,11 +92,12 @@ class Tester:
             exit(1)
 
     def run_tests(self, context:TesterContext):
-        console_logger.info(f"Tester: Running tests")
 
         try:
+            console_logger.info(f"Tester: Building encoders")
             context.validate_bottom()
             for config in context.get_configs():
+                console_logger.info(f"Tester: Building encoder for configuration '{config.get_short_name()}'")
                 config.get_encoder().build()
             context.validate_top()
 
@@ -111,7 +112,6 @@ class Tester:
             exit(1)
 
     def compute_metrics(self, context: TesterContext):
-        console_logger.info(f"Tester: Computing metrics")
 
         try:
             for sequence in context.get_sequences():
@@ -119,31 +119,27 @@ class Tester:
                     metrics = config.get_metrics(sequence)
                     for param_set_index in range(len(config.get_param_sets())):
                         param_set = config.get_param_sets()[param_set_index]
+
+                        console_logger.info(f"Tester: Computing metrics")
+                        console_logger.info(f"Tester: Sequence: '{sequence.get_input_filename()}'")
+                        console_logger.info(f"Tester: Test: '{config.get_long_name(param_set)}'")
+
                         metrics_file = metrics.get_metrics_file(param_set)
 
-                        console_logger.debug(f"Tester: Computing metrics for configuration"
-                                             f" '{config.get_long_name(param_set)}'")
+                        psnr, ssim = ffmpeg.compute_psnr_and_ssim(
+                            sequence.get_input_filepath(),
+                            sequence.get_output_filepath(config.get_encoder(), param_set),
+                            sequence.get_width(),
+                            sequence.get_height(),
+                        )
 
-                        try:
-                            psnr, ssim = ffmpeg.compute_psnr_and_ssim(
-                                sequence.get_input_filepath(),
-                                sequence.get_output_filepath(config.get_encoder(), param_set),
-                                sequence.get_width(),
-                                sequence.get_height(),
-                            )
+                        metrics_file.set_psnr_avg(psnr)
+                        metrics_file.set_ssim_avg(ssim)
 
-                            metrics_file.set_psnr_avg(psnr)
-                            metrics_file.set_ssim_avg(ssim)
-
-                        except Exception as exception:
-                            console_logger.error(f"Tester: Failed to compute metrics for "
-                                                 f"configuration '{config.get_long_name(param_set)}'")
-                            if isinstance(exception, subprocess.CalledProcessError):
-                                console_logger.error(exception.output.decode())
-                            self._log_exception(exception)
-                            exit(1)
         except Exception as exception:
             console_logger.error(f"Tester: Failed to compute metrics")
+            if isinstance(exception, subprocess.CalledProcessError):
+                console_logger.error(exception.output.decode())
             self._log_exception(exception)
             exit(1)
 
@@ -197,8 +193,8 @@ class Tester:
                      config: TestConfig,
                      param_set: ParamSetBase,
                      sequence: VideoSequence):
-        console_logger.debug(f"Tester: Encoding sequence '{sequence.get_input_filename()}' "
-                             f"with configuration '{config.get_long_name(param_set)}'")
+        console_logger.info(f"Tester: Running test '{config.get_long_name(param_set)}' "
+                            f"for sequence '{sequence.get_input_filename()}'")
 
         try:
             metrics_file = config.get_metrics(sequence).get_metrics_file(param_set)
@@ -216,15 +212,11 @@ class Tester:
                 metrics_file.set_encoding_resolution(f"{sequence.width}x{sequence.height}")
                 metrics_file.set_encoding_time(seconds)
             else:
-                console_logger.info(f"Tester: Sequence '{sequence.get_input_filename(param_set)}' "
-                                    f"has already been encoded with configuration "
-                                    f"'{config.get_long_name(param_set)}' "
-                                    f"- skipping encoding")
+                console_logger.info(f"Tester: File "
+                                    f"'{sequence.get_output_filename(config.get_encoder(), param_set)}' "
+                                    f"already exists")
         except Exception as exception:
-            console_logger.error(f"Tester: Failed to encode sequence "
-                                 f"'{sequence.get_input_filename()}' "
-                                 f"with configuration "
-                                 f"'{config.get_long_name(param_set)}'")
+            console_logger.error(f"Tester: Test failed")
             self._log_exception(exception)
             exit(1)
 
