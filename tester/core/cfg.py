@@ -41,7 +41,7 @@ class Cfg(metaclass=Singleton):
         presented in it. Meant to be called by the tester."""
 
         if userconfig:
-            console_logger.debug("Cfg: Reading userconfig")
+            console_logger.info("Cfg: Reading userconfig")
 
             # Set and print values of variables with valid names.
             for variable_name in self._user_variable_names():
