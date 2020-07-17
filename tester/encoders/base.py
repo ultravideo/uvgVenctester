@@ -105,7 +105,7 @@ class EncoderBase:
         compiling the encoder. The list must only contain strings."""
         raise NotImplementedError
 
-    def get_user_revision(self) -> str:
+    def get_user_given_revision(self) -> str:
         """Returns the (Git) revision as given by the user.
         Example: 'master' or 'a700f46'."""
         raise NotImplementedError

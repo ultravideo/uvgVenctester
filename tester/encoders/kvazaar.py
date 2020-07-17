@@ -3,22 +3,21 @@
 
 """This module defines all Kvazaar-specific functionality."""
 
-import tester.encoders.base
 from tester.core.git import *
 from tester.core.cfg import *
 from .base import *
-
-import tester.core.testconfig
+import tester.core.videosequence
 
 import hashlib
-import logging
 import os
 import shutil
 import subprocess
 
 
 class KvazaarParamSet(ParamSetBase):
+    """Represents the parameters passed to Kvazaar when encoding."""
 
+    # These have to be the first two arguments on the command line.
     POSITIONAL_ARGS = ("--preset", "--gop")
 
     def __init__(self,
@@ -90,15 +89,17 @@ class KvazaarParamSet(ParamSetBase):
 
         # Put the options and their values into this dict. Value None indicates that the option
         # is a boolean with no explicit value.
-        option_values: dict = {}
-        i: int = 0
-        i_max: int = len(split_args)
+        option_values = {}
+        i = 0
+        i_max = len(split_args)
         while i < i_max:
             option_name = split_args[i]
             if is_option(option_name) and i + 1 < i_max and is_value(split_args[i + 1]):
+                # Has an explicit value.
                 option_value = split_args[i + 1]
                 i += 2
             else:
+                # Has an implicit value (boolean).
                 option_value = None
                 i += 1
 
@@ -111,7 +112,8 @@ class KvazaarParamSet(ParamSetBase):
         for option_name in option_values.keys():
             option_name = option_name.strip("--")
             if f"--no-{option_name}" in option_values.keys():
-                raise RuntimeError(f"Kvazaar: Conflicting options '--{option_name}' and '--no-{option_name}'")
+                raise RuntimeError(f"Kvazaar: Conflicting options '--{option_name}' and "
+                                   f"'--no-{option_name}'")
 
         # Reorder the options. --preset and --gop must be the first, in this order. The order
         # of the rest doesn't matter.
@@ -151,30 +153,28 @@ class KvazaarParamSet(ParamSetBase):
 
 
 class Kvazaar(EncoderBase):
-    """
-    This class defines all Kvazaar-specific functionality.
-    """
+    """Represents an instance of Kvazaar."""
 
-    def __init__(self, revision: str, defines: list):
+    def __init__(self, user_given_revision: str, defines: list):
         super().__init__()
         self.git_repo: GitRepository = GitRepository(Cfg().kvz_git_repo_path)
         self.defines: list = sorted(set(defines)) # ensure no duplicates
         self.define_hash: str = hashlib.md5(str(self.defines).encode()).digest().hex()
-        self.short_define_hash: str = self.define_hash[:Cfg().short_define_hash_len]
-        self.revision: str = revision
+        self.define_hash_short: str = self.define_hash[:Cfg().short_define_hash_len]
+        self.user_given_revision: str = user_given_revision
 
         self.exe_name: str = ""
         self.exe_dest_path: str = ""
         self.commit_hash: str = ""
-        self.short_commit_hash: str = ""
+        self.commit_hash_short: str = ""
         self.build_log_name: str = ""
         self.build_log_path: str = ""
+        # Initializes the attributes above.
         self.prepare_sources()
 
-        console_logger.debug(f"Initialized Kvazaar instance with"
-                             f" revision='{self.revision}',"
-                             f" commit_hash='{self.commit_hash}',"
-                             f" defines={self.defines}")
+        console_logger.debug(f"Kvazaar: Initialized object:")
+        for attribute_name in sorted(self.__dict__):
+            console_logger.debug(f"Kvazaar: {attribute_name} = '{getattr(self, attribute_name)}'")
 
     def __eq__(self, other):
         return self.get_encoder_name() == other.get_encoder_name()\
@@ -198,14 +198,14 @@ class Kvazaar(EncoderBase):
     def get_defines(self) -> list:
         return self.defines
 
-    def get_user_revision(self) -> str:
-        return self.revision
+    def get_user_given_revision(self) -> str:
+        return self.user_given_revision
 
     def get_revision(self) -> str:
         return self.commit_hash
 
     def get_short_revision(self) -> str:
-        return self.short_commit_hash
+        return self.commit_hash_short
 
     def get_output_base_dir(self) -> str:
         return os.path.join(
@@ -222,7 +222,9 @@ class Kvazaar(EncoderBase):
     def prepare_sources(self):
         """Clones the Kvazaar repository from remote if it doesn't exist. Checks that the specified
         revision exists. Sets attributes that depend on the commit hash."""
-        console_logger.info(f"Preparing Kvazaar (revision '{self.revision}') sources")
+        console_logger.info(f"Kvazaar: Preparing sources")
+        console_logger.info(f"Kvazaar: Repository: '{self.git_repo.local_repo_path}'")
+        console_logger.info(f"Kvazaar: Revision: '{self.user_given_revision}'")
 
         # Clone the remote if the local repo doesn't exist yet.
         if not os.path.exists(Cfg().kvz_git_repo_path):
@@ -234,35 +236,38 @@ class Kvazaar(EncoderBase):
                 console_logger.error(exception.output.decode())
                 raise exception
         else:
-            console_logger.info(f"Repository '{Cfg().kvz_git_repo_path}' already exists")
+            console_logger.info(f"Kvazaar: Repository '{Cfg().kvz_git_repo_path}' already exists")
 
-        # These can now be evaluated because the repo exists for certain.
-        cmd, output, exception = self.git_repo.rev_parse(self.revision)
+        cmd, output, exception = self.git_repo.rev_parse(self.user_given_revision)
         if not exception:
             self.commit_hash = output.decode().strip()
         else:
-            console_logger.error(f"Invalid Kvazaar revision '{self.revision}'")
+            console_logger.error(f"Kvazaar: Invalid revision '{self.user_given_revision}'")
             raise exception
-        self.short_commit_hash = self.commit_hash[:Cfg().short_commit_hash_len]
-        self.exe_name = f"kvazaar_{self.short_commit_hash}_{self.short_define_hash}{'.exe' if Cfg().os_name == 'Windows' else ''}"
+        # These can now be evaluated because the repo exists for certain.
+        self.commit_hash_short = self.commit_hash[:Cfg().short_commit_hash_len]
+        self.exe_name = f"kvazaar_{self.commit_hash_short}_{self.define_hash_short}"\
+                        f"{'.exe' if Cfg().os_name == 'Windows' else ''}"
         self.exe_dest_path = os.path.join(Cfg().binaries_dir_path, self.exe_name)
-        self.build_log_name = f"kvazaar_{self.short_commit_hash}_{self.short_define_hash}_build_log.txt"
+        self.build_log_name = f"kvazaar_{self.commit_hash_short}_{self.define_hash_short}_build_log.txt"
         self.build_log_path = os.path.join(Cfg().binaries_dir_path, self.build_log_name)
 
-        console_logger.info(f"Kvazaar revision '{self.revision}' maps to commit hash '{self.commit_hash}'")
+        console_logger.info(f"Kvazaar: Revision '{self.user_given_revision}' maps to commit hash "
+                            f"'{self.commit_hash}'")
 
     def build(self):
-        console_logger.info(f"Building Kvazaar (revision '{self.revision}')")
+        console_logger.info(f"Kvazaar: Building executable '{self.exe_name}'")
 
         # Don't build unnecessarily.
         if (os.path.exists(self.exe_dest_path)):
-            console_logger.info(f"Executable '{self.exe_dest_path}' already exists - aborting build")
+            console_logger.info(f"Kvazaar: Executable '{self.exe_name}' already exists")
             return
 
         assert os.path.exists(Cfg().binaries_dir_path)
 
         # Set up build logger.
-        build_logger: logging.Logger = setup_build_logger(self.build_log_path)
+        build_logger = setup_build_logger(self.build_log_path)
+        console_logger.info(f"Kvazaar: Log: '{self.build_log_name}'")
 
         # Checkout to the desired version.
         cmd_str, output, exception = self.git_repo.checkout(self.commit_hash)
@@ -289,7 +294,7 @@ class Kvazaar(EncoderBase):
             # Run VsDevCmd.bat, then msbuild. Return 0 on success, 1 on failure.
             # KVZ_MSBUILD_ARGS has to be a list/tuple so the syntax below is pretty stupid.
             # TODO: Find a less stupid and more readable way to do this.
-            compile_cmd: tuple = (
+            compile_cmd = (
                 "(", "call", Cfg().vs_vsdevcmd_bat_path,
                      "&&", "msbuild", Cfg().kvz_vs_solution_path) + tuple(msbuild_args) + (
                      "&&", "exit", "0",
@@ -297,7 +302,7 @@ class Kvazaar(EncoderBase):
             )
             build_logger.info(subprocess.list2cmdline(compile_cmd))
             try:
-                output: bytes = subprocess.check_output(compile_cmd, shell=True)
+                output = subprocess.check_output(compile_cmd, shell=True)
                 # "cp1252" is the encoding the Windows shell uses.
                 build_logger.info(output.decode(encoding="cp1252"))
             except subprocess.CalledProcessError as exception:
@@ -308,7 +313,8 @@ class Kvazaar(EncoderBase):
             # Copy the executable to its destination.
             assert os.path.exists(Cfg().kvz_exe_src_path_windows)
             try:
-                build_logger.info(f"Copying file '{Cfg().kvz_exe_src_path_windows}' to '{self.exe_dest_path}'")
+                build_logger.debug(f"Kvazaar: Copying file '{Cfg().kvz_exe_src_path_windows}' "
+                                   f"to '{self.exe_dest_path}'")
                 shutil.copy(Cfg().kvz_exe_src_path_windows, self.exe_dest_path)
 
             except FileNotFoundError as exception:
@@ -336,9 +342,11 @@ class Kvazaar(EncoderBase):
             build_logger.info(subprocess.list2cmdline(compile_cmd))
             try:
                 # The shell command needs to be converted into a string.
-                output: bytes = subprocess.check_output(subprocess.list2cmdline(compile_cmd),
-                                                        shell=True,
-                                                        stderr=subprocess.STDOUT)
+                output = subprocess.check_output(
+                    subprocess.list2cmdline(compile_cmd),
+                    shell=True,
+                    stderr=subprocess.STDOUT
+                )
                 build_logger.info(output.decode())
             except subprocess.CalledProcessError as exception:
                 console_logger.error(exception.output.decode())
@@ -347,7 +355,8 @@ class Kvazaar(EncoderBase):
 
             # Copy the executable to its destination.
             assert os.path.exists(Cfg().kvz_exe_src_path_linux)
-            build_logger.info(f"Copying file '{Cfg().kvz_exe_src_path_linux}' to '{self.exe_dest_path}'")
+            build_logger.debug(f"Kvazaar: Copying file '{Cfg().kvz_exe_src_path_linux}' "
+                               f"to '{self.exe_dest_path}'")
             try:
                 shutil.copy(Cfg().kvz_exe_src_path_linux, self.exe_dest_path)
             except FileNotFoundError as exception:
@@ -372,54 +381,75 @@ class Kvazaar(EncoderBase):
 
         # Only Linux and Windows are supported.
         else:
-            exception = RuntimeError(f"Unsupported OS '{Cfg().os_name}'. Expected one of ['Linux', 'Windows']")
+            exception = RuntimeError(f"Kvazaar: Unsupported OS '{Cfg().os_name}'. "
+                                     f"Expected one of ['Linux', 'Windows']")
             console_logger.error(str(exception))
             raise exception
 
     def dummy_run(self, param_set: KvazaarParamSet) -> bool:
-        console_logger.debug(
-            f"Kvazaar: Executing dummy run to validate command line arguments")
+        console_logger.debug(f"Kvazaar: Dummy run with arguments '{param_set.to_cmdline_str()}'")
 
-        dummy_cmd: tuple = ()
+        dummy_cmd = ()
+
         if Cfg().os_name == "Windows":
-            dummy_cmd = (self.exe_dest_path, "-i", "NUL", "--input-res", "2x2", "-o", "NUL",)\
-                        + param_set.to_cmdline_tuple()
+            dummy_cmd = (
+                self.exe_dest_path,
+                "-i", "NUL",
+                "--input-res", "2x2",
+                "-o", "NUL",
+            ) + param_set.to_cmdline_tuple()
+
         elif Cfg().os_name == "Linux":
-            dummy_cmd = (self.exe_dest_path, "-i", "/dev/null", "--input-res", "2x2", "-o", "/dev/null",)\
-                        + param_set.to_cmdline_tuple()
+            dummy_cmd = (
+                self.exe_dest_path,
+                "-i", "/dev/null",
+                "--input-res", "2x2",
+                "-o", "/dev/null",
+            ) + param_set.to_cmdline_tuple()
 
         try:
             subprocess.check_output(dummy_cmd, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as exception:
-            console_logger.error(f"Kvazaar: Invalid arguments")
+            console_logger.error(f"Kvazaar: Invalid arguments: "
+                                 f"'{param_set.to_cmdline_str()}'")
             console_logger.error(exception.output.decode().strip())
             return False
         return True
 
     def encode(self,
                input: tester.core.videosequence.VideoSequence,
-               param_set: KvazaarParamSet, ):
-        console_logger.debug(f"Kvazaar: Encoding file '{input.input_filepath}'")
+               param_set: KvazaarParamSet):
+        console_logger.debug(f"Kvazaar: Encoding file '{input.get_input_filename()}'")
 
         qp_name = param_set.get_quality_param_name()
         qp_value = param_set.get_quality_param_value()
         base_filename = f"{input.get_input_filename(include_extension=False)}"
-        ext_filename = f"{base_filename}_{qp_name.lower()}{qp_value}.hevc"
-        output_filepath = os.path.join(self.get_output_subdir(param_set), ext_filename)
+        output_filename = f"{base_filename}_{qp_name.lower()}{qp_value}.hevc"
+        output_filepath = os.path.join(self.get_output_subdir(param_set), output_filename)
+        console_logger.debug(f"Kvazaar: Output: '{output_filename}'")
+
+        console_logger.debug(f"Kvazaar: Arguments: '{param_set.to_cmdline_str()}'")
+
+        encoding_log_filepath = output_filepath.strip(".hevc") + "_encoding_log.txt"
+        encoding_log_filename = os.path.basename(encoding_log_filepath)
+        console_logger.debug(f"Kvazaar: Log: '{encoding_log_filename}'")
 
         if not os.path.exists(os.path.dirname(output_filepath)):
             os.makedirs(os.path.dirname(output_filepath))
 
-        encode_cmd: tuple = (
+        encode_cmd = (
             self.exe_dest_path,
             "-i", input.get_input_filepath(),
             "--input-res", f"{input.get_width()}x{input.get_height()}",
-            "-o", output_filepath)\
-            + param_set.to_cmdline_tuple()
+            "-o", output_filepath
+        ) + param_set.to_cmdline_tuple()
 
         try:
-            subprocess.check_output(encode_cmd, stderr=subprocess.STDOUT)
+            output = subprocess.check_output(encode_cmd, stderr=subprocess.STDOUT)
+            with open(encoding_log_filepath, "w") as encoding_log:
+                encoding_log.write(output.decode())
         except subprocess.CalledProcessError as exception:
-            console_logger.error(f"Kvazaar: Failed to encode file '{input}'")
+            console_logger.error(f"Kvazaar: Encoding failed (input: '{input.input_filepath()}', "
+                                 f"output: '{output_filepath}')")
             console_logger.error(exception.output.decode().strip())
             raise
