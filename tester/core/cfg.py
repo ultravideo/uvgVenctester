@@ -36,7 +36,7 @@ class Cfg(metaclass=Singleton):
 
     # INTERNAL FUNCTIONS
 
-    def _read_userconfig(self):
+    def read_userconfig(self) -> None:
         """Reads userconfig.py if it exists and overrides default variable values with those
         presented in it. Meant to be called by the tester."""
 
@@ -58,7 +58,7 @@ class Cfg(metaclass=Singleton):
         else:
             console_logger.warning("Cfg: Userconfig not found")
 
-    def _validate_all(self):
+    def validate_all(self) -> None:
         """Validates configuration variables.
         - If a path does not exist, a warning is issued.
         Meant to be called by the tester."""

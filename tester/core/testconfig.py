@@ -39,31 +39,34 @@ class TestConfig:
             console_logger.error(f"TestConfig: '{self.name}': Unknown encoder '{self.encoder}'")
             raise RuntimeError
 
-    def __eq__(self, other):
+    def __eq__(self,
+               other) -> bool:
         return self.name == other.get_short_name() \
                and self.encoder == other.get_encoder() \
                and self.anchor_names == other.get_anchor_names() \
                and self.param_sets == other.param_sets
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return int(hashlib.md5(self.name.encode()).hexdigest(), 16)
 
-    def get_short_name(self):
+    def get_short_name(self) -> str:
         return self.name
 
-    def get_long_name(self, param_set: ParamSetBase):
+    def get_long_name(self,
+                      param_set: ParamSetBase) -> str:
         return f"{self.name}\\{param_set.get_quality_param_name()}{param_set.get_quality_param_value()}"
 
-    def get_encoder(self):
+    def get_encoder(self) -> EncoderBase:
         return self.encoder
 
-    def get_anchor_names(self):
+    def get_anchor_names(self) -> list:
         return self.anchor_names
 
-    def get_param_sets(self):
+    def get_param_sets(self) -> list:
         return self.param_sets
 
-    def get_metrics(self, sequence: VideoSequence):
+    def get_metrics(self,
+                    sequence: VideoSequence) -> Metrics:
         return Metrics(
             self.encoder,
             self.param_sets,

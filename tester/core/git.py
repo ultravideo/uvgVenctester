@@ -10,7 +10,8 @@ import os
 
 class GitRepository(object):
     """Represents a Git repository."""
-    def __init__(self, local_repo_path: str):
+    def __init__(self,
+                 local_repo_path: str):
         """@param local_repo_path The absolute path to the local repository
         (the directory doesn't need to exist)."""
         self.local_repo_path: str = local_repo_path
@@ -20,7 +21,8 @@ class GitRepository(object):
         """Returns True if the local repository exists."""
         return os.path.exists(self.local_repo_path)
 
-    def clone(self, remote_url: str) -> (str, bytes, subprocess.CalledProcessError):
+    def clone(self,
+              remote_url: str) -> (str, bytes, subprocess.CalledProcessError):
         """Clones the given remote. The repository will be placed in self.local_repo_path.
         @param remote_url The SSH URL of the remote repository.
         @return A tuple of three items:
@@ -38,7 +40,8 @@ class GitRepository(object):
         except subprocess.CalledProcessError as exception:
             return cmd_as_str, None, exception
 
-    def checkout(self, revision: str) -> (str, bytes, subprocess.CalledProcessError):
+    def checkout(self,
+                 revision: str) -> (str, bytes, subprocess.CalledProcessError):
         """Checks out to the given revision.
         @param revision The revision to checkout to. The revision can be any string that is a valid
         parameter to git checkout.
@@ -97,7 +100,8 @@ class GitRepository(object):
         except subprocess.CalledProcessError as exception:
             return cmd_as_str, None, exception
 
-    def rev_parse(self, revision: str) -> (str, bytes, subprocess.CalledProcessError):
+    def rev_parse(self,
+                  revision: str) -> (str, bytes, subprocess.CalledProcessError):
         """Executes git rev-parse to convert the user-given revision to a full commit hash.
         @param revision The user-given revision to rev-parse.
         @return A tuple of three items:

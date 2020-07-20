@@ -43,7 +43,7 @@ class MetricsFile:
         if os.path.exists(self.filepath):
             self.data = self._read_in()
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hashlib.md5(self.filepath)
 
     def exists(self) -> bool:
@@ -69,7 +69,8 @@ class MetricsFile:
             self._read_in()
         return self.data["ENCODER_NAME"]
 
-    def set_encoder_name(self, encoder_name: str):
+    def set_encoder_name(self,
+                         encoder_name: str) -> None:
         if self.exists():
             self._read_in()
         self.data["ENCODER_NAME"] = encoder_name
@@ -80,7 +81,8 @@ class MetricsFile:
             self._read_in()
         return self.data["ENCODER_REVISION"]
 
-    def set_encoder_revision(self, encoder_revision: str):
+    def set_encoder_revision(self,
+                             encoder_revision: str) -> None:
         if self.exists():
             self._read_in()
         self.data["ENCODER_REVISION"] = encoder_revision
@@ -91,7 +93,8 @@ class MetricsFile:
             self._read_in()
         return self.data["ENCODER_DEFINES"]
 
-    def set_encoder_defines(self, encoder_defines: list):
+    def set_encoder_defines(self,
+                            encoder_defines: list) -> None:
         if self.exists():
             self._read_in()
         self.data["ENCODER_DEFINES"] = encoder_defines
@@ -102,7 +105,8 @@ class MetricsFile:
             self._read_in()
         return self.data["ENCODER_CMDLINE"]
 
-    def set_encoder_cmdline(self, encoder_cmdline: str):
+    def set_encoder_cmdline(self,
+                            encoder_cmdline: str) -> None:
         if self.exists():
             self._read_in()
         self.data["ENCODER_CMDLINE"] = encoder_cmdline
@@ -113,7 +117,8 @@ class MetricsFile:
             self._read_in()
         return self.data["ENCODING_INPUT"]
 
-    def set_encoding_input(self, encoding_input: str):
+    def set_encoding_input(self,
+                           encoding_input: str) -> None:
         if self.exists():
             self._read_in()
         self.data["ENCODING_INPUT"] = encoding_input
@@ -124,7 +129,8 @@ class MetricsFile:
             self._read_in()
         return self.data["ENCODING_OUTPUT"]
 
-    def set_encoding_output(self, encoding_output: str):
+    def set_encoding_output(self,
+                            encoding_output: str) -> None:
         if self.exists():
             self._read_in()
         self.data["ENCODING_OUTPUT"] = encoding_output
@@ -135,7 +141,8 @@ class MetricsFile:
             self._read_in()
         return self.data["ENCODING_RESOLUTION"]
 
-    def set_encoding_resolution(self, encoding_resolution: str):
+    def set_encoding_resolution(self,
+                                encoding_resolution: str) -> None:
         if self.exists():
             self._read_in()
         self.data["ENCODING_RESOLUTION"] = encoding_resolution
@@ -146,13 +153,15 @@ class MetricsFile:
             self._read_in()
         return self.data["ENCODING_TIME_SECONDS"]
 
-    def set_encoding_time(self, time_as_seconds: float):
+    def set_encoding_time(self,
+                          time_as_seconds: float) -> None:
         if self.exists():
             self._read_in()
         self.data["ENCODING_TIME_SECONDS"] = time_as_seconds
         self._write_out()
 
-    def get_speedup_relative_to(self, anchor) -> float:
+    def get_speedup_relative_to(self,
+                                anchor) -> float:
         own_time = self.get_encoding_time()
         anchor_time = anchor.get_encoding_time()
         return anchor_time / own_time
@@ -162,7 +171,8 @@ class MetricsFile:
             self._read_in()
         return self.data["PSNR_AVG"]
 
-    def set_psnr_avg(self, psnr_avg: float):
+    def set_psnr_avg(self,
+                     psnr_avg: float) -> None:
         if self.exists():
             self._read_in()
         self.data["PSNR_AVG"] = psnr_avg
@@ -173,13 +183,14 @@ class MetricsFile:
             self._read_in()
         return self.data["SSIM_AVG"]
 
-    def set_ssim_avg(self, ssim_avg: float):
+    def set_ssim_avg(self,
+                     ssim_avg: float) -> None:
         if self.exists():
             self._read_in()
         self.data["SSIM_AVG"] = ssim_avg
         self._write_out()
 
-    def _write_out(self):
+    def _write_out(self) -> None:
         if not os.path.exists(self.directory_path):
             os.makedirs(self.directory_path)
         try:
@@ -189,7 +200,7 @@ class MetricsFile:
             console_logger.error(f"Couldn't write metrics to file '{self.filepath}'")
             raise
 
-    def _read_in(self):
+    def _read_in(self) -> None:
         if os.path.exists(self.filepath):
             try:
                 with open(self.filepath, "r") as file:
@@ -224,10 +235,12 @@ class Metrics:
     def get_sequence(self) -> VideoSequence:
         return self.sequence
 
-    def get_metrics_file(self, param_set: ParamSetBase) -> MetricsFile:
+    def get_metrics_file(self,
+                         param_set: ParamSetBase) -> MetricsFile:
         return MetricsFile(self.encoder, param_set, self.sequence)
 
-    def get_bdbr_psnr(self, anchor: Metrics) -> float:
+    def get_bdbr_psnr(self,
+                      anchor: Metrics) -> float:
 
         if self is anchor:
             return 0
@@ -264,7 +277,8 @@ class Metrics:
 
         return self._compute_bdbr(psnr_list, anchor_psnr_list)
 
-    def get_bdbr_ssim(self, anchor: Metrics) -> float:
+    def get_bdbr_ssim(self,
+                      anchor: Metrics) -> float:
 
         if self is anchor:
             return 0
@@ -301,7 +315,9 @@ class Metrics:
 
         return self._compute_bdbr(ssim_list, anchor_ssim_list)
 
-    def _compute_bdbr(self, bitrate_metric_tuple_list: list, anchor_bitrate_metric_tuple_list: list):
+    def _compute_bdbr(self,
+                      bitrate_metric_tuple_list: list,
+                      anchor_bitrate_metric_tuple_list: list) -> float:
 
         def bitrate_metric_tuple_list_asc_sort_by_bitrate(a, b):
             return -1 if a[0] < b[0] else 1

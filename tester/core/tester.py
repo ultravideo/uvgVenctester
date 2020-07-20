@@ -11,7 +11,9 @@ import traceback
 
 
 class TesterContext:
-    def __init__(self, test_configurations: list, input_sequence_filepaths: list):
+    def __init__(self,
+                 test_configurations: list,
+                 input_sequence_filepaths: list):
 
         self._configs: list = test_configurations
 
@@ -32,7 +34,7 @@ class TesterContext:
     def get_sequences(self) -> list:
         return self._sequences
 
-    def validate_bottom(self):
+    def validate_bottom(self) -> None:
         """Validates everything that can be validated without the encoder binaries
         having been built."""
         for config1 in self._configs:
@@ -58,7 +60,7 @@ class TesterContext:
                                          f"does not exist")
                     raise RuntimeError
 
-    def validate_top(self):
+    def validate_top(self) -> None:
         """Validates everything that can only be validated once the encoder binaries
         have been built."""
         for config in self._configs:
@@ -73,8 +75,8 @@ class Tester:
     def __init__(self):
         try:
             console_logger.info("Tester: Initializing")
-            Cfg()._read_userconfig()
-            Cfg()._validate_all()
+            Cfg().read_userconfig()
+            Cfg().validate_all()
             self._create_base_directories_if_not_exist()
         except Exception as exception:
             console_logger.error("Tester: Failed to initialize")
@@ -91,7 +93,8 @@ class Tester:
             self._log_exception(exception)
             exit(1)
 
-    def run_tests(self, context:TesterContext):
+    def run_tests(self,
+                  context:TesterContext) -> None:
 
         try:
             console_logger.info(f"Tester: Building encoders")
@@ -112,7 +115,8 @@ class Tester:
             self._log_exception(exception)
             exit(1)
 
-    def compute_metrics(self, context: TesterContext):
+    def compute_metrics(self,
+                        context: TesterContext) -> None:
 
         try:
             for sequence in context.get_sequences():
@@ -144,7 +148,9 @@ class Tester:
             self._log_exception(exception)
             exit(1)
 
-    def generate_csv(self, context: TesterContext, csv_filepath: str):
+    def generate_csv(self,
+                     context: TesterContext,
+                     csv_filepath: str) -> None:
 
         console_logger.info(f"Tester: Generating CSV file '{csv_filepath}'")
 
@@ -193,7 +199,7 @@ class Tester:
     def _run_subtest(self,
                      config: TestConfig,
                      param_set: ParamSetBase,
-                     sequence: VideoSequence):
+                     sequence: VideoSequence) -> None:
         console_logger.info(f"Tester: Running test '{config.get_long_name(param_set)}' "
                             f"for sequence '{sequence.get_input_filename()}'")
 
@@ -221,7 +227,7 @@ class Tester:
             self._log_exception(exception)
             exit(1)
 
-    def _create_base_directories_if_not_exist(self):
+    def _create_base_directories_if_not_exist(self) -> None:
         for path in Cfg().binaries_dir_path,\
                     Cfg().encoding_output_dir_path,\
                     Cfg().sources_dir_path:
@@ -234,7 +240,8 @@ class Tester:
                     self._log_exception(exception)
                     exit(1)
 
-    def _log_exception(self, exception: Exception):
+    def _log_exception(self,
+                       exception: Exception) -> None:
         console_logger.error(f"Tester: An exception of type '{type(exception).__name__}' was caught: "
                              f"{str(exception)}")
         console_logger.error(f"Tester: {traceback.format_exc()}")

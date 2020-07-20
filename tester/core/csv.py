@@ -33,7 +33,8 @@ class CsvFieldId(Enum):
 class CsvFile():
     """Represents the tester output CSV file."""
 
-    def __init__(self, filepath: str):
+    def __init__(self,
+                 filepath: str):
         self.directory = os.path.dirname(filepath)
         self.filepath = filepath
 
@@ -50,7 +51,8 @@ class CsvFile():
         with open(self.filepath, "w") as file:
             file.write(header_row + "\n")
 
-    def add_entry(self, values_by_field: dict):
+    def add_entry(self,
+                  values_by_field: dict) -> None:
 
         config_name = values_by_field[CsvFieldId.CONFIG_NAME]
         anchor_name = values_by_field[CsvFieldId.ANCHOR_NAME]
