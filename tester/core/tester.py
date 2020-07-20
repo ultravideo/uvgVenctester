@@ -99,6 +99,7 @@ class Tester:
             for config in context.get_configs():
                 console_logger.info(f"Tester: Building encoder for configuration '{config.get_short_name()}'")
                 config.get_encoder().build()
+                config.get_encoder().clean()
             context.validate_top()
 
             for sequence in context.get_sequences():
@@ -168,7 +169,7 @@ class Tester:
                                 CsvFieldId.SEQUENCE_NAME: sequence.get_input_filename(),
                                 CsvFieldId.SEQUENCE_CLASS: sequence.get_sequence_class(),
                                 CsvFieldId.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
-                                CsvFieldId.ENCODER_NAME: config.get_encoder().get_encoder_name(),
+                                CsvFieldId.ENCODER_NAME: config.get_encoder().get_name(),
                                 CsvFieldId.ENCODER_REVISION: config.get_encoder().get_short_revision(),
                                 CsvFieldId.ENCODER_DEFINES: config.get_encoder().get_defines(),
                                 CsvFieldId.ENCODER_CMDLINE: param_set.to_cmdline_str(),
@@ -204,7 +205,7 @@ class Tester:
                 config.get_encoder().encode(sequence, param_set)
                 seconds: float = round(time.perf_counter() - start_time, 6)
 
-                metrics_file.set_encoder_name(config.get_encoder().get_encoder_name())
+                metrics_file.set_encoder_name(config.get_encoder().get_name())
                 metrics_file.set_encoder_revision(config.get_encoder().get_revision())
                 metrics_file.set_encoder_defines(config.get_encoder().get_defines())
                 metrics_file.set_encoder_cmdline(param_set.to_cmdline_str())

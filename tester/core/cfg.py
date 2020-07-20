@@ -77,6 +77,13 @@ class Cfg(metaclass=Singleton):
                 console_logger.warning(f"Cfg: Property {property_name}:"
                                        f" Path '{getattr(self, property_name)}' does not exist")
 
+        # Only Linux and Windows are supported.
+        SUPPORTED_OSES = ["Linux", "Windows"]
+        if not self.os_name in SUPPORTED_OSES:
+            console_logger.error(f"Cfg: Unsupported OS '{Cfg().os_name}'. Expected one of "
+                                 f"{SUPPORTED_OSES}")
+            raise RuntimeError
+
     def _property_names(self) -> list:
         """Returns the names of all properties (getters) in an alphabetically ordered list."""
 
