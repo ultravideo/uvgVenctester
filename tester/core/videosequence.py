@@ -20,43 +20,40 @@ class VideoSequence:
                  width: int = None,
                  height: int = None,
                  framerate: int = 25,
-                 framecount: int = None,
+                 total_framecount: int = None,
                  chroma: int = 420,
-                 bits_per_pixel: int = 8):
+                 bits_per_pixel: int = 8,
+                 seek: int = 0,
+                 frames: int = 0):
 
         assert (not width and not height) or (width and height)
         assert os.path.exists(filepath)
         assert chroma in (400, 420)
         assert bits_per_pixel in (8, 10)
 
-        self.input_filepath = filepath
-        self.input_filename = os.path.basename(self.input_filepath)
-        self.base_filename = os.path.splitext(self.input_filename)[0]
-        self.sequence_class = VideoSequence.guess_sequence_class(self.input_filepath)
-        self.width = width
-        self.height = height
-        self.framerate = framerate
-        self.framecount = framecount
-        self.chroma = chroma
-        self.bits_per_pixel = bits_per_pixel
-        self.pixel_format = VideoSequence.PIXEL_FORMATS[(self.chroma, self.bits_per_pixel)]
-
-        if not self.width and not self.height:
-            self.width, self.height = VideoSequence.guess_resolution(self.input_filepath)
-
-        if not self.framecount:
-            self.framecount = VideoSequence.guess_framecount(
+        self.input_filepath: str = filepath
+        self.input_filename: str = os.path.basename(self.input_filepath)
+        self.base_filename: str = os.path.splitext(self.input_filename)[0]
+        self.sequence_class: str = VideoSequence.guess_sequence_class(self.input_filepath)
+        self.seek: int = seek
+        self.chroma: int = chroma
+        self.bits_per_pixel: int = bits_per_pixel
+        self.pixel_format: str = VideoSequence.PIXEL_FORMATS[(self.chroma, self.bits_per_pixel)]
+        (self.width, self.height) = (width, height) if (width and height)\
+            else VideoSequence.guess_resolution(self.input_filepath)
+        self.total_framecount: int = total_framecount if total_framecount\
+            else VideoSequence.guess_total_framecount(
                 self.input_filepath,
                 self.width,
                 self.height,
                 self.chroma,
                 self.bits_per_pixel
             )
-
-        if not self.framerate:
-            self.framerate = VideoSequence.guess_framerate(self.input_filepath)
-
-        self.duration_seconds = self.framecount // self.framerate
+        self.framecount: int = frames if frames else self.total_framecount - seek
+        self.framerate: int = framerate if framerate else VideoSequence.guess_framerate(self.input_filepath)
+        self.total_duration_seconds: float = self.total_framecount / self.framerate
+        self.duration_seconds: float = self.framecount / self.framerate
+        self.bitrate: float = VideoSequence.guess_bitrate(filepath, self.total_duration_seconds)
 
         console_logger.debug(f"{type(self).__name__}: Initialized object:")
         for attribute_name in sorted(self.__dict__):
@@ -135,6 +132,9 @@ class VideoSequence:
     def get_bits_per_pixel(self) -> int:
         return self.bits_per_pixel
 
+    def get_total_framecount(self) -> int:
+        return self.total_framecount
+
     def get_framecount(self) -> int:
         return self.framecount
 
@@ -147,8 +147,20 @@ class VideoSequence:
     def get_pixel_format(self):
         return self.pixel_format
 
+    def get_total_duration_seconds(self):
+        return self.total_duration_seconds
+
     def get_duration_seconds(self):
         return self.duration_seconds
+
+    def get_bitrate(self):
+        return self.bitrate
+
+    @staticmethod
+    def guess_bitrate(filepath: str,
+                      total_duration_seconds: float) -> float:
+        total_bits = os.path.getsize(filepath) * 8
+        return total_bits / total_duration_seconds
 
     @staticmethod
     def guess_sequence_class(filepath: str) -> str:
@@ -173,22 +185,22 @@ class VideoSequence:
             raise RuntimeError
 
     @staticmethod
-    def guess_framecount(filepath: str,
-                         width: int,
-                         height: int,
-                         chroma: int,
-                         bits_per_pixel: int) -> int:
+    def guess_total_framecount(filepath: str,
+                               width: int,
+                               height: int,
+                               chroma: int,
+                               bits_per_pixel: int) -> int:
 
         filename = os.path.basename(filepath)
-        console_logger.debug(f"VideoSequence: Trying to guess the framecount from '{filename}'")
+        console_logger.debug(f"VideoSequence: Trying to guess the total framecount from '{filename}'")
 
         frame_count_pattern = re.compile("_[0-9]+x[0-9]+_[0-9]+_([0-9]+)")
         match = frame_count_pattern.search(filename)
         if match:
             return int(match.group(1))
 
-        console_logger.debug(f"VideoSequence: Could not guess the framecount from '{filename}'")
-        console_logger.debug(f"VideoSequence: Guessing the framecount from the size of file '{filename}'")
+        console_logger.debug(f"VideoSequence: Could not guess the total framecount from '{filename}'")
+        console_logger.debug(f"VideoSequence: Guessing the total framecount from the size of file '{filename}'")
 
         file_size_bytes = os.path.getsize(filepath)
         bytes_per_pixel = 1 if bits_per_pixel == 8 else 2

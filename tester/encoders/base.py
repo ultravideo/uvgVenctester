@@ -62,6 +62,8 @@ class ParamSetBase():
     def __init__(self,
                  quality_param_type: QualityParamType,
                  quality_param_value: int,
+                 seek: int,
+                 frames: int,
                  cl_args: str):
 
         if not quality_param_type.is_valid():
@@ -69,9 +71,11 @@ class ParamSetBase():
                                  f"'{str(quality_param_type)}'")
             raise RuntimeError
 
-        self.quality_param_type: QualityParamType = quality_param_type
-        self.quality_param_value: int = quality_param_value
-        self.cl_args: str = cl_args
+        self._quality_param_type: QualityParamType = quality_param_type
+        self._quality_param_value: int = quality_param_value
+        self._seek = seek
+        self._frames = frames
+        self._cl_args: str = cl_args
 
     def __eq__(self,
                other: ParamSetBase):
@@ -79,18 +83,24 @@ class ParamSetBase():
                and self.to_cmdline_str() == other.to_cmdline_str()
 
     def __hash__(self):
-        return hashlib.md5(self.quality_param_type)\
-               + hashlib.md5(self.quality_param_value)\
-               + hashlib.md5(self.cl_args.encode())
+        return hashlib.md5(self._quality_param_type)\
+               + hashlib.md5(self._quality_param_value)\
+               + hashlib.md5(self._cl_args.encode())
 
     def get_quality_param_type(self) -> QualityParamType:
-        return self.quality_param_type
+        return self._quality_param_type
 
     def get_quality_param_name(self) -> str:
-        return str(self.quality_param_type)
+        return str(self._quality_param_type)
 
     def get_quality_param_value(self) -> int:
-        return self.quality_param_value
+        return self._quality_param_value
+
+    def get_seek(self) -> int:
+        return self._seek
+
+    def get_frames(self) -> int:
+        return self._frames
 
     def to_cmdline_tuple(self,
                          include_quality_param: bool = True) -> tuple:

@@ -23,7 +23,14 @@ class TesterContext:
 
         self._sequences: list = []
         for filepath in input_sequence_filepaths:
-            self._sequences.append(VideoSequence(filepath))
+            self._sequences.append(
+                VideoSequence(
+                    filepath=filepath,
+                    # TODO: Figure out a better way to do this.
+                    seek=self._configs[0].get_param_sets()[0].get_seek(),
+                    frames=self._configs[0].get_param_sets()[0].get_frames(),
+                )
+            )
 
     def get_configs(self) -> list:
         return self._configs
@@ -136,6 +143,8 @@ class Tester:
                             sequence.get_output_filepath(config.get_encoder(), param_set),
                             sequence.get_width(),
                             sequence.get_height(),
+                            param_set.get_seek(),
+                            param_set.get_frames()
                         )
 
                         metrics_file.set_psnr_avg(psnr)

@@ -253,27 +253,17 @@ class Metrics:
 
         metrics_files = [self.get_metrics_file(param_set) for param_set in self.param_sets]
         for metrics_file in metrics_files:
-            sequence = metrics_file.get_sequence()
-            output_filepath = sequence.get_output_filepath(
-                self.encoder,
-                metrics_file.get_param_set()
-            )
-            bitrate = (os.path.getsize(output_filepath) * 8)\
-                      / sequence.get_duration_seconds()
-            psnr = metrics_file.get_psnr_avg()
-            psnr_list.append((bitrate, psnr))
+            psnr_list.append((
+                metrics_file.get_sequence().get_bitrate(),
+                metrics_file.get_psnr_avg()
+            ))
 
         anchor_metrics_files = [anchor.get_metrics_file(param_set) for param_set in anchor.param_sets]
         for anchor_metrics_file in anchor_metrics_files:
-            sequence = anchor_metrics_file.get_sequence()
-            output_filepath = sequence.get_output_filepath(
-                anchor_metrics_file.get_encoder(),
-                anchor_metrics_file.get_param_set()
-            )
-            bitrate = (os.path.getsize(output_filepath) * 8)\
-                      / sequence.get_duration_seconds()
-            psnr = anchor_metrics_file.get_psnr_avg()
-            anchor_psnr_list.append((bitrate, psnr))
+            anchor_psnr_list.append((
+                anchor_metrics_file.get_sequence().get_bitrate(),
+                anchor_metrics_file.get_psnr_avg()
+            ))
 
         return self._compute_bdbr(psnr_list, anchor_psnr_list)
 
@@ -291,27 +281,17 @@ class Metrics:
 
         metrics_files = [self.get_metrics_file(param_set) for param_set in self.param_sets]
         for metrics_file in metrics_files:
-            sequence = metrics_file.get_sequence()
-            output_filepath = sequence.get_output_filepath(
-                self.encoder,
-                metrics_file.get_param_set()
-            )
-            bitrate = (os.path.getsize(output_filepath) * 8)\
-                      / sequence.get_duration_seconds()
-            ssim = metrics_file.get_ssim_avg()
-            ssim_list.append((bitrate, ssim))
+            ssim_list.append((
+                metrics_file.get_sequence().get_bitrate(),
+                metrics_file.get_ssim_avg()
+            ))
 
         anchor_metrics_files = [anchor.get_metrics_file(param_set) for param_set in anchor.param_sets]
         for anchor_metrics_file in anchor_metrics_files:
-            sequence = anchor_metrics_file.get_sequence()
-            output_filepath = sequence.get_output_filepath(
-                anchor_metrics_file.get_encoder(),
-                anchor_metrics_file.get_param_set()
-            )
-            bitrate = (os.path.getsize(output_filepath) * 8)\
-                      / sequence.get_duration_seconds()
-            ssim = anchor_metrics_file.get_ssim_avg()
-            anchor_ssim_list.append((bitrate, ssim))
+            anchor_ssim_list.append((
+                anchor_metrics_file.get_sequence().get_bitrate(),
+                anchor_metrics_file.get_ssim_avg()
+            ))
 
         return self._compute_bdbr(ssim_list, anchor_ssim_list)
 
@@ -326,7 +306,11 @@ class Metrics:
         bitrate_metric_tuple_list = sorted(bitrate_metric_tuple_list, key=sort_key)
         anchor_bitrate_metric_tuple_list = sorted(anchor_bitrate_metric_tuple_list, key=sort_key)
 
-        bdbr = BDrateCalculator().CalcBDRate(
-            bitrate_metric_tuple_list,
-            anchor_bitrate_metric_tuple_list)
+        try:
+            bdbr = BDrateCalculator().CalcBDRate(
+                bitrate_metric_tuple_list,
+                anchor_bitrate_metric_tuple_list)
+        except AssertionError:
+            bdbr = float("NaN")
+
         return bdbr

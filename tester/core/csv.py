@@ -5,8 +5,8 @@
 
 from tester.core import cfg
 
+import math
 import os
-
 from enum import *
 
 class CsvFieldId(Enum):
@@ -62,9 +62,12 @@ class CsvFile():
             value = values_by_field[field_id]
 
             if isinstance(value, float):
-                # Round floats, use the configured decimal point character.
-                value = round(value, cfg.Cfg().csv_float_rounding_accuracy)
-                value = str(value).replace(".", cfg.Cfg().csv_decimal_point)
+                if math.isnan(value):
+                    value = "-"
+                else:
+                    # Round floats, use the configured decimal point character.
+                    value = round(value, cfg.Cfg().csv_float_rounding_accuracy)
+                    value = str(value).replace(".", cfg.Cfg().csv_decimal_point)
             else:
                 value = str(value)
 
@@ -72,9 +75,9 @@ class CsvFile():
             # give special treatment to certain fields.
             # TODO: Make values user-configurable?
             if field_id == CsvFieldId.ANCHOR_NAME and anchor_name == config_name:
-                value = "None"
+                value = "-"
             elif field_id == CsvFieldId.SPEEDUP and anchor_name == config_name:
-                value = "0"
+                value = "-"
 
             new_row += f"{value}{cfg.Cfg().csv_field_separator}"
 

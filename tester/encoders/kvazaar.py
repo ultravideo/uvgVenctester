@@ -18,8 +18,22 @@ class KvazaarParamSet(ParamSetBase):
     def __init__(self,
                  quality_param_type: QualityParamType,
                  quality_param_value: int,
+                 seek: int,
+                 frames: int,
                  cl_args: str):
-        super().__init__(quality_param_type, quality_param_value, cl_args)
+
+        if seek:
+            cl_args += f" --seek {seek}"
+        if frames:
+            cl_args += f" --frames {frames}"
+
+        super().__init__(
+            quality_param_type,
+            quality_param_value,
+            seek,
+            frames,
+            cl_args
+        )
 
         # This checks the integrity of the parameters.
         self.to_cmdline_tuple()
@@ -41,13 +55,13 @@ class KvazaarParamSet(ParamSetBase):
         def is_value(candidate: str):
             return not is_option(candidate)
 
-        cl_args = self.cl_args
+        cl_args = self._cl_args
 
         if include_quality_param:
-            if self.quality_param_type == QualityParamType.QP:
-                cl_args += f" --qp {self.quality_param_value}"
-            elif self.quality_param_type == QualityParamType.BITRATE:
-                cl_args += f" --bitrate {self.quality_param_value}"
+            if self._quality_param_type == QualityParamType.QP:
+                cl_args += f" --qp {self._quality_param_value}"
+            elif self._quality_param_type == QualityParamType.BITRATE:
+                cl_args += f" --bitrate {self._quality_param_value}"
 
         split_args: list = []
 

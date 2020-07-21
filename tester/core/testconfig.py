@@ -15,15 +15,18 @@ class TestConfig:
     """Represents a test configuration. A test configuration is the combination of
     an encoder binary and sets of encoding parameters (one set for each value of the quality
     parameter in use)."""
+
     def __init__(self,
                  name: str,
-                 quality_param_type: QualityParamType,
-                 quality_param_list: list,
-                 cl_args: str,
                  encoder_id: EncoderId,
                  encoder_revision: str,
                  encoder_defines: list,
-                 anchor_names: list):
+                 anchor_names: list,
+                 quality_param_type: QualityParamType,
+                 quality_param_list: list,
+                 cl_args: str,
+                 seek: int = 0,
+                 frames: int = 0):
         self.name = name
         self.encoder: EncoderBase = None
         self.anchor_names: list = anchor_names
@@ -32,8 +35,13 @@ class TestConfig:
         if encoder_id == EncoderId.KVAZAAR:
             self.encoder = tester.encoders.kvazaar.Kvazaar(encoder_revision, encoder_defines)
             self.param_sets = [
-                tester.encoders.kvazaar.KvazaarParamSet(quality_param_type, quality_param_value, cl_args)
-                    for quality_param_value in quality_param_list
+                tester.encoders.kvazaar.KvazaarParamSet(
+                    quality_param_type,
+                    quality_param_value,
+                    seek,
+                    frames,
+                    cl_args
+                ) for quality_param_value in quality_param_list
             ]
         else:
             console_logger.error(f"TestConfig: '{self.name}': Unknown encoder '{self.encoder}'")
