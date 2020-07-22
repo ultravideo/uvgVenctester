@@ -227,7 +227,7 @@ class Tester:
                 metrics_file.set_encoder_defines(config.get_encoder().get_defines())
                 metrics_file.set_encoder_cmdline(param_set.to_cmdline_str())
                 metrics_file.set_encoding_input(sequence.get_input_filename())
-                metrics_file.set_encoding_resolution(f"{sequence.width}x{sequence.height}")
+                metrics_file.set_encoding_resolution(f"{sequence._width}x{sequence._height}")
                 metrics_file.set_encoding_time(seconds)
             else:
                 console_logger.info(f"Tester: File "

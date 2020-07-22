@@ -35,12 +35,12 @@ class CsvFile():
 
     def __init__(self,
                  filepath: Path):
-        self.filepath: Path = filepath
+        self._filepath: Path = filepath
 
         # Create the new CSV file.
-        if not Path(self.filepath.parent).exists():
-            Path(self.filepath.parent).mkdir(parents=True, exist_ok=True)
-        with self.filepath.open("w") as file:
+        if not Path(self._filepath.parent).exists():
+            Path(self._filepath.parent).mkdir(parents=True, exist_ok=True)
+        with self._filepath.open("w") as file:
             # Create the header.
             header_row = ""
             for field_id in cfg.Cfg().csv_enabled_fields:
@@ -78,5 +78,5 @@ class CsvFile():
 
             new_row += f"{value}{cfg.Cfg().csv_field_separator}"
 
-        with self.filepath.open("a") as file:
+        with self._filepath.open("a") as file:
             file.write(new_row + "\n")

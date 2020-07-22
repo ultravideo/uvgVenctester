@@ -31,47 +31,47 @@ class VideoSequence:
         assert chroma in (400, 420)
         assert bits_per_pixel in (8, 10)
 
-        self.filepath: Path = filepath
-        self.sequence_class: str = VideoSequence.guess_sequence_class(self.filepath)
-        self.seek: int = seek
-        self.chroma: int = chroma
-        self.bits_per_pixel: int = bits_per_pixel
-        self.pixel_format: str = VideoSequence.PIXEL_FORMATS[(self.chroma, self.bits_per_pixel)]
-        (self.width, self.height) = (width, height) if (width and height)\
-            else VideoSequence.guess_resolution(self.filepath)
-        self.total_framecount: int = total_framecount if total_framecount\
+        self._filepath: Path = filepath
+        self._sequence_class: str = VideoSequence.guess_sequence_class(self._filepath)
+        self._seek: int = seek
+        self._chroma: int = chroma
+        self._bits_per_pixel: int = bits_per_pixel
+        self._pixel_format: str = VideoSequence.PIXEL_FORMATS[(self._chroma, self._bits_per_pixel)]
+        (self._width, self._height) = (width, height) if (width and height)\
+            else VideoSequence.guess_resolution(self._filepath)
+        self._total_framecount: int = total_framecount if total_framecount\
             else VideoSequence.guess_total_framecount(
-                self.filepath,
-                self.width,
-                self.height,
-                self.chroma,
-                self.bits_per_pixel
+                self._filepath,
+                self._width,
+                self._height,
+                self._chroma,
+                self._bits_per_pixel
             )
-        self.framecount: int = frames if frames else self.total_framecount - seek
-        self.framerate: int = framerate if framerate else VideoSequence.guess_framerate(self.filepath)
-        self.total_duration_seconds: float = self.total_framecount / self.framerate
-        self.duration_seconds: float = self.framecount / self.framerate
-        self.bitrate: float = VideoSequence.guess_bitrate(filepath, self.total_duration_seconds)
+        self._framecount: int = frames if frames else self._total_framecount - seek
+        self._framerate: int = framerate if framerate else VideoSequence.guess_framerate(self._filepath)
+        self._total_duration_seconds: float = self._total_framecount / self._framerate
+        self._duration_seconds: float = self._framecount / self._framerate
+        self._bitrate: float = VideoSequence.guess_bitrate(filepath, self._total_duration_seconds)
 
         console_logger.debug(f"{type(self).__name__}: Initialized object:")
         for attribute_name in sorted(self.__dict__):
             console_logger.debug(f"{type(self).__name__}: {attribute_name} = {getattr(self, attribute_name)}")
 
     def __hash__(self) -> int:
-        return hashlib.md5(str(self.filepath).encode())
+        return hashlib.md5(str(self._filepath).encode())
 
     def get_base_filename(self) -> str:
-        return Path(self.filepath).stem
+        return Path(self._filepath).stem
 
     def get_input_filepath(self) -> Path:
-        return self.filepath
+        return self._filepath
 
     def get_input_filename(self,
                            include_extension=True) -> str:
         if include_extension:
-            return self.filepath.name
+            return self._filepath.name
         else:
-            return str(self.filepath.with_suffix("").name)
+            return str(self._filepath.with_suffix("").name)
 
     def get_output_filename(self,
                             encoder_instance: EncoderBase,
@@ -109,40 +109,40 @@ class VideoSequence:
                / self.get_ssim_log_filename(encoder_instance, param_set)
 
     def get_width(self) -> int:
-        return self.width
+        return self._width
 
     def get_height(self) -> int:
-        return self.height
+        return self._height
 
     def get_chroma(self) -> int:
-        return self.chroma
+        return self._chroma
 
     def get_bits_per_pixel(self) -> int:
-        return self.bits_per_pixel
+        return self._bits_per_pixel
 
     def get_total_framecount(self) -> int:
-        return self.total_framecount
+        return self._total_framecount
 
     def get_framecount(self) -> int:
-        return self.framecount
+        return self._framecount
 
     def get_framerate(self) -> int:
-        return self.framerate
+        return self._framerate
 
     def get_sequence_class(self) -> str:
-        return self.sequence_class
+        return self._sequence_class
 
     def get_pixel_format(self):
-        return self.pixel_format
+        return self._pixel_format
 
     def get_total_duration_seconds(self):
-        return self.total_duration_seconds
+        return self._total_duration_seconds
 
     def get_duration_seconds(self):
-        return self.duration_seconds
+        return self._duration_seconds
 
     def get_bitrate(self):
-        return self.bitrate
+        return self._bitrate
 
     @staticmethod
     def guess_bitrate(filepath: Path,

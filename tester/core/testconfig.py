@@ -27,14 +27,14 @@ class TestConfig:
                  cl_args: str,
                  seek: int = 0,
                  frames: int = 0):
-        self.name = name
-        self.encoder: EncoderBase = None
-        self.anchor_names: list = anchor_names
-        self.param_sets: list = []
+        self._name = name
+        self._encoder: EncoderBase = None
+        self._anchor_names: list = anchor_names
+        self._param_sets: list = []
 
         if encoder_id == EncoderId.KVAZAAR:
-            self.encoder = tester.encoders.kvazaar.Kvazaar(encoder_revision, encoder_defines)
-            self.param_sets = [
+            self._encoder = tester.encoders.kvazaar.Kvazaar(encoder_revision, encoder_defines)
+            self._param_sets = [
                 tester.encoders.kvazaar.KvazaarParamSet(
                     quality_param_type,
                     quality_param_value,
@@ -44,39 +44,39 @@ class TestConfig:
                 ) for quality_param_value in quality_param_list
             ]
         else:
-            console_logger.error(f"TestConfig: '{self.name}': Unknown encoder '{self.encoder}'")
+            console_logger.error(f"TestConfig: '{self._name}': Unknown encoder '{self._encoder}'")
             raise RuntimeError
 
     def __eq__(self,
                other) -> bool:
-        return self.name == other.get_short_name() \
-               and self.encoder == other.get_encoder() \
-               and self.anchor_names == other.get_anchor_names() \
-               and self.param_sets == other.param_sets
+        return self._name == other.get_short_name() \
+               and self._encoder == other.get_encoder() \
+               and self._anchor_names == other.get_anchor_names() \
+               and self._param_sets == other.param_sets
 
     def __hash__(self) -> int:
-        return int(hashlib.md5(self.name.encode()).hexdigest(), 16)
+        return int(hashlib.md5(self._name.encode()).hexdigest(), 16)
 
     def get_short_name(self) -> str:
-        return self.name
+        return self._name
 
     def get_long_name(self,
                       param_set: ParamSetBase) -> str:
-        return f"{self.name}\\{param_set.get_quality_param_name()}{param_set.get_quality_param_value()}"
+        return f"{self._name}\\{param_set.get_quality_param_name()}{param_set.get_quality_param_value()}"
 
     def get_encoder(self) -> EncoderBase:
-        return self.encoder
+        return self._encoder
 
     def get_anchor_names(self) -> list:
-        return self.anchor_names
+        return self._anchor_names
 
     def get_param_sets(self) -> list:
-        return self.param_sets
+        return self._param_sets
 
     def get_metrics(self,
                     sequence: VideoSequence) -> Metrics:
         return Metrics(
-            self.encoder,
-            self.param_sets,
+            self._encoder,
+            self._param_sets,
             sequence
         )

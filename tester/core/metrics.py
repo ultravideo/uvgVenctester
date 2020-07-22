@@ -20,134 +20,134 @@ class MetricsFile:
                  encoder_instance: EncoderBase,
                  encoding_param_set: ParamSetBase,
                  input_sequence: VideoSequence):
-        self.encoder_instance = encoder_instance
-        self.encoding_param_set = encoding_param_set
-        self.input_sequence = input_sequence
+        self._encoder = encoder_instance
+        self._param_set = encoding_param_set
+        self._sequence = input_sequence
 
-        self.filepath: Path = encoder_instance.get_output_subdir(encoding_param_set) \
-            / f"{input_sequence.get_input_filename(include_extension=False)}_" \
-              f"{encoding_param_set.get_quality_param_name()}" \
-              f"{encoding_param_set.get_quality_param_value()}"
+        self._filepath: Path = encoder_instance.get_output_subdir(encoding_param_set) \
+                               / f"{input_sequence.get_input_filename(include_extension=False)}_" \
+                                 f"{encoding_param_set.get_quality_param_name()}" \
+                                 f"{encoding_param_set.get_quality_param_value()}"
 
-        self.data: dict = {}
-        if self.filepath.exists():
-            self.data = self._read_in()
+        self._data: dict = {}
+        if self._filepath.exists():
+            self._data = self._read_in()
 
     def __hash__(self) -> int:
-        return hashlib.md5(self.filepath)
+        return hashlib.md5(self._filepath)
 
     def exists(self) -> bool:
-        return self.filepath.exists()
+        return self._filepath.exists()
 
     def get_encoder(self) -> EncoderBase:
-        return self.encoder_instance
+        return self._encoder
 
     def get_param_set(self) -> ParamSetBase:
-        return self.encoding_param_set
+        return self._param_set
 
     def get_sequence(self) -> VideoSequence:
-        return self.input_sequence
+        return self._sequence
 
     def get_filepath(self) -> Path:
-        return self.filepath
+        return self._filepath
 
     def get_directory(self) -> Path:
-        return Path(self.filepath.parent)
+        return Path(self._filepath.parent)
 
     def get_encoder_name(self) -> str:
         if self.exists():
             self._read_in()
-        return self.data["ENCODER_NAME"]
+        return self._data["ENCODER_NAME"]
 
     def set_encoder_name(self,
                          encoder_name: str) -> None:
         if self.exists():
             self._read_in()
-        self.data["ENCODER_NAME"] = encoder_name
+        self._data["ENCODER_NAME"] = encoder_name
         self._write_out()
 
     def get_encoder_revision(self) -> str:
         if self.exists():
             self._read_in()
-        return self.data["ENCODER_REVISION"]
+        return self._data["ENCODER_REVISION"]
 
     def set_encoder_revision(self,
                              encoder_revision: str) -> None:
         if self.exists():
             self._read_in()
-        self.data["ENCODER_REVISION"] = encoder_revision
+        self._data["ENCODER_REVISION"] = encoder_revision
         self._write_out()
 
     def get_encoder_defines(self) -> list:
         if self.exists():
             self._read_in()
-        return self.data["ENCODER_DEFINES"]
+        return self._data["ENCODER_DEFINES"]
 
     def set_encoder_defines(self,
                             encoder_defines: list) -> None:
         if self.exists():
             self._read_in()
-        self.data["ENCODER_DEFINES"] = encoder_defines
+        self._data["ENCODER_DEFINES"] = encoder_defines
         self._write_out()
 
     def get_encoder_cmdline(self) -> str:
         if self.exists():
             self._read_in()
-        return self.data["ENCODER_CMDLINE"]
+        return self._data["ENCODER_CMDLINE"]
 
     def set_encoder_cmdline(self,
                             encoder_cmdline: str) -> None:
         if self.exists():
             self._read_in()
-        self.data["ENCODER_CMDLINE"] = encoder_cmdline
+        self._data["ENCODER_CMDLINE"] = encoder_cmdline
         self._write_out()
 
     def get_encoding_input(self) -> str:
         if self.exists():
             self._read_in()
-        return self.data["ENCODING_INPUT"]
+        return self._data["ENCODING_INPUT"]
 
     def set_encoding_input(self,
                            encoding_input: str) -> None:
         if self.exists():
             self._read_in()
-        self.data["ENCODING_INPUT"] = encoding_input
+        self._data["ENCODING_INPUT"] = encoding_input
         self._write_out()
 
     def get_encoding_output(self) -> str:
         if self.exists():
             self._read_in()
-        return self.data["ENCODING_OUTPUT"]
+        return self._data["ENCODING_OUTPUT"]
 
     def set_encoding_output(self,
                             encoding_output: str) -> None:
         if self.exists():
             self._read_in()
-        self.data["ENCODING_OUTPUT"] = encoding_output
+        self._data["ENCODING_OUTPUT"] = encoding_output
         self._write_out()
 
     def get_encoding_resolution(self) -> str:
         if self.exists():
             self._read_in()
-        return self.data["ENCODING_RESOLUTION"]
+        return self._data["ENCODING_RESOLUTION"]
 
     def set_encoding_resolution(self,
                                 encoding_resolution: str) -> None:
         if self.exists():
             self._read_in()
-        self.data["ENCODING_RESOLUTION"] = encoding_resolution
+        self._data["ENCODING_RESOLUTION"] = encoding_resolution
         self._write_out()
 
     def get_encoding_time(self) -> float:
         if self.exists():
             self._read_in()
-        return self.data["ENCODING_TIME_SECONDS"]
+        return self._data["ENCODING_TIME_SECONDS"]
 
     def set_encoding_time(self,
                           time_as_seconds: float) -> None:
         if self.exists():
             self._read_in()
-        self.data["ENCODING_TIME_SECONDS"] = time_as_seconds
+        self._data["ENCODING_TIME_SECONDS"] = time_as_seconds
         self._write_out()
 
     def get_speedup_relative_to(self,
@@ -159,44 +159,44 @@ class MetricsFile:
     def get_psnr_avg(self) -> float:
         if self.exists():
             self._read_in()
-        return self.data["PSNR_AVG"]
+        return self._data["PSNR_AVG"]
 
     def set_psnr_avg(self,
                      psnr_avg: float) -> None:
         if self.exists():
             self._read_in()
-        self.data["PSNR_AVG"] = psnr_avg
+        self._data["PSNR_AVG"] = psnr_avg
         self._write_out()
 
     def get_ssim_avg(self) -> float:
         if self.exists():
             self._read_in()
-        return self.data["SSIM_AVG"]
+        return self._data["SSIM_AVG"]
 
     def set_ssim_avg(self,
                      ssim_avg: float) -> None:
         if self.exists():
             self._read_in()
-        self.data["SSIM_AVG"] = ssim_avg
+        self._data["SSIM_AVG"] = ssim_avg
         self._write_out()
 
     def _write_out(self) -> None:
-        if not Path(self.filepath.parent).exists():
-            Path(self.filepath.parent).mkdir(parents=True)
+        if not Path(self._filepath.parent).exists():
+            Path(self._filepath.parent).mkdir(parents=True)
         try:
-            with self.filepath.open("w") as file:
-                json.dump(self.data, file)
+            with self._filepath.open("w") as file:
+                json.dump(self._data, file)
         except:
-            console_logger.error(f"Couldn't write metrics to file '{self.filepath}'")
+            console_logger.error(f"Couldn't write metrics to file '{self._filepath}'")
             raise
 
     def _read_in(self) -> None:
-        if self.filepath.exists():
+        if self._filepath.exists():
             try:
-                with self.filepath.open("r") as file:
-                    self.data = json.load(file)
+                with self._filepath.open("r") as file:
+                    self._data = json.load(file)
             except:
-                console_logger.error(f"Couldn't read metrics from file '{self.filepath}'")
+                console_logger.error(f"Couldn't read metrics from file '{self._filepath}'")
                 raise
 
 

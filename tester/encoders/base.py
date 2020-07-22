@@ -229,7 +229,7 @@ class EncoderBase:
 
     def prepare_sources(self) -> None:
         console_logger.info(f"{self._name}: Preparing sources")
-        console_logger.info(f"{self._name}: Repository: '{self._git_repo.local_repo_path}'")
+        console_logger.info(f"{self._name}: Repository: '{self._git_repo._local_repo_path}'")
         console_logger.info(f"{self._name}: Revision: '{self._user_given_revision}'")
 
         # Clone the remote if the local repo doesn't exist yet.
