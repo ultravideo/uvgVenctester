@@ -2,8 +2,8 @@ from tester.encoders.base import *
 from tester.core.log import *
 
 import hashlib
+from pathlib import *
 import re
-import os
 
 class VideoSequence:
 
@@ -16,7 +16,7 @@ class VideoSequence:
     }
 
     def __init__(self,
-                 filepath: str,
+                 filepath: Path,
                  width: int = None,
                  height: int = None,
                  framerate: int = 25,
@@ -27,30 +27,28 @@ class VideoSequence:
                  frames: int = 0):
 
         assert (not width and not height) or (width and height)
-        assert os.path.exists(filepath)
+        assert filepath.exists()
         assert chroma in (400, 420)
         assert bits_per_pixel in (8, 10)
 
-        self.input_filepath: str = filepath
-        self.input_filename: str = os.path.basename(self.input_filepath)
-        self.base_filename: str = os.path.splitext(self.input_filename)[0]
-        self.sequence_class: str = VideoSequence.guess_sequence_class(self.input_filepath)
+        self.filepath: Path = filepath
+        self.sequence_class: str = VideoSequence.guess_sequence_class(self.filepath)
         self.seek: int = seek
         self.chroma: int = chroma
         self.bits_per_pixel: int = bits_per_pixel
         self.pixel_format: str = VideoSequence.PIXEL_FORMATS[(self.chroma, self.bits_per_pixel)]
         (self.width, self.height) = (width, height) if (width and height)\
-            else VideoSequence.guess_resolution(self.input_filepath)
+            else VideoSequence.guess_resolution(self.filepath)
         self.total_framecount: int = total_framecount if total_framecount\
             else VideoSequence.guess_total_framecount(
-                self.input_filepath,
+                self.filepath,
                 self.width,
                 self.height,
                 self.chroma,
                 self.bits_per_pixel
             )
         self.framecount: int = frames if frames else self.total_framecount - seek
-        self.framerate: int = framerate if framerate else VideoSequence.guess_framerate(self.input_filepath)
+        self.framerate: int = framerate if framerate else VideoSequence.guess_framerate(self.filepath)
         self.total_duration_seconds: float = self.total_framecount / self.framerate
         self.duration_seconds: float = self.framecount / self.framerate
         self.bitrate: float = VideoSequence.guess_bitrate(filepath, self.total_duration_seconds)
@@ -60,24 +58,20 @@ class VideoSequence:
             console_logger.debug(f"{type(self).__name__}: {attribute_name} = {getattr(self, attribute_name)}")
 
     def __hash__(self) -> int:
-        return int(hashlib.md5(self.input_filepath.encode()).hexdigest(), 16)
+        return hashlib.md5(str(self.filepath).encode())
 
     def get_base_filename(self) -> str:
-        return self.base_filename
+        return Path(self.filepath).stem
 
-    def get_input_filepath(self) -> str:
-        return self.input_filepath
+    def get_input_filepath(self) -> Path:
+        return self.filepath
 
     def get_input_filename(self,
                            include_extension=True) -> str:
         if include_extension:
-            return self.input_filename
+            return self.filepath.name
         else:
-            if "." in self.input_filename:
-                split_parts: list = self.input_filename.split(".")
-                return ".".join(split_parts[:len(split_parts) - 1])
-            else:
-                return self.input_filename
+            return str(self.filepath.with_suffix("").name)
 
     def get_output_filename(self,
                             encoder_instance: EncoderBase,
@@ -88,11 +82,9 @@ class VideoSequence:
 
     def get_output_filepath(self,
                             encoder_instance: EncoderBase,
-                            param_set: ParamSetBase) -> str:
-        return os.path.join(
-            encoder_instance.get_output_subdir(param_set),
-            self.get_output_filename(encoder_instance, param_set)
-        )
+                            param_set: ParamSetBase) -> Path:
+        return encoder_instance.get_output_subdir(param_set) \
+               / self.get_output_filename(encoder_instance, param_set)
 
     def get_psnr_log_filename(self,
                               encoder_instance: EncoderBase,
@@ -106,19 +98,15 @@ class VideoSequence:
 
     def get_psnr_log_filepath(self,
                               encoder_instance: EncoderBase,
-                              param_set: ParamSetBase) -> str:
-        return os.path.join(
-            encoder_instance.get_output_subdir(param_set),
-            self.get_psnr_log_filename(encoder_instance, param_set)
-        )
+                              param_set: ParamSetBase) -> Path:
+        return encoder_instance.get_output_subdir(param_set) \
+               / self.get_psnr_log_filename(encoder_instance, param_set)
 
     def get_ssim_log_filepath(self,
                               encoder_instance: EncoderBase,
-                              param_set: ParamSetBase) -> str:
-        return os.path.join(
-            encoder_instance.get_output_subdir(param_set),
-            self.get_ssim_log_filename(encoder_instance, param_set)
-        )
+                              param_set: ParamSetBase) -> Path:
+        return encoder_instance.get_output_subdir(param_set) \
+               / self.get_ssim_log_filename(encoder_instance, param_set)
 
     def get_width(self) -> int:
         return self.width
@@ -157,23 +145,23 @@ class VideoSequence:
         return self.bitrate
 
     @staticmethod
-    def guess_bitrate(filepath: str,
+    def guess_bitrate(filepath: Path,
                       total_duration_seconds: float) -> float:
-        total_bits = os.path.getsize(filepath) * 8
+        total_bits = filepath.stat().st_size * 8
         return total_bits / total_duration_seconds
 
     @staticmethod
-    def guess_sequence_class(filepath: str) -> str:
+    def guess_sequence_class(filepath: Path) -> str:
         for letter in "A", "B", "C", "D", "E", "F":
             sequence_class = f"hevc-{letter}"
-            if sequence_class.lower() in filepath.lower():
+            if sequence_class.lower() in str(filepath).lower():
                 return sequence_class
         console_logger.warning(f"VideoSequence: Could not guess the sequence class from '{filepath}'")
         return "-"
 
     @staticmethod
-    def guess_resolution(filepath: str) -> (int, int):
-        filename = os.path.basename(filepath)
+    def guess_resolution(filepath: Path) -> (int, int):
+        filename = filepath.name
         resolution_pattern = re.compile(r"_([0-9]+)x([0-9]+)")
         match = resolution_pattern.search(filename)
         if match:
@@ -185,13 +173,13 @@ class VideoSequence:
             raise RuntimeError
 
     @staticmethod
-    def guess_total_framecount(filepath: str,
+    def guess_total_framecount(filepath: Path,
                                width: int,
                                height: int,
                                chroma: int,
                                bits_per_pixel: int) -> int:
 
-        filename = os.path.basename(filepath)
+        filename = filepath.name
         console_logger.debug(f"VideoSequence: Trying to guess the total framecount from '{filename}'")
 
         frame_count_pattern = re.compile("_[0-9]+x[0-9]+_[0-9]+_([0-9]+)")
@@ -202,15 +190,15 @@ class VideoSequence:
         console_logger.debug(f"VideoSequence: Could not guess the total framecount from '{filename}'")
         console_logger.debug(f"VideoSequence: Guessing the total framecount from the size of file '{filename}'")
 
-        file_size_bytes = os.path.getsize(filepath)
+        file_size_bytes = filepath.stat().st_size
         bytes_per_pixel = 1 if bits_per_pixel == 8 else 2
         pixels_per_frame = width * height if chroma == 400 else int(width * height * 1.5)
 
         return file_size_bytes // (pixels_per_frame * bytes_per_pixel)
 
     @staticmethod
-    def guess_framerate(filepath: str) -> int:
-        filename = os.path.basename(filepath)
+    def guess_framerate(filepath: Path) -> int:
+        filename = filepath.name
         framerate_pattern = re.compile("_[0-9]+x[0-9]+_([0-9]+)")
         match = framerate_pattern.search(filename)
         if match:

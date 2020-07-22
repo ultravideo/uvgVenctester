@@ -13,6 +13,7 @@ from tester.core.log import *
 import hashlib
 import shutil
 from enum import Enum
+from pathlib import Path
 
 
 class EncoderId(Enum):
@@ -124,7 +125,7 @@ class EncoderBase:
                  id: EncoderId,
                  user_given_revision: str,
                  defines: list,
-                 git_repo_path: str,
+                 git_repo_path: Path,
                  git_repo_ssh_url: str):
 
         self._id: EncoderId = id
@@ -133,22 +134,22 @@ class EncoderBase:
         self._defines: list = defines
         self._define_hash: str = hashlib.md5(str(defines).encode()).digest().hex()
         self._define_hash_short: str = self._define_hash[:Cfg().short_define_hash_len]
-        self._git_local_path: str = git_repo_path
+        self._git_local_path: Path = git_repo_path
         self._git_ssh_url: str = git_repo_ssh_url
 
         self._git_repo: GitRepository = GitRepository(git_repo_path)
 
         self._exe_name: str = ""
-        self._exe_path: str = ""
+        self._exe_path: Path = Path("")
         self._commit_hash: str = ""
         self._commit_hash_short: str = ""
         self._build_log_name: str = ""
-        self._build_log_path: str = ""
+        self._build_log_path: Path = Path("")
         # Initializes the above.
         self.prepare_sources()
 
         # This must be set in the constructor of derived classes.
-        self._exe_src_path: str = ""
+        self._exe_src_path: Path = Path("")
 
         # This is set when build() is called.
         self._build_log: logging.Logger = None
@@ -172,10 +173,10 @@ class EncoderBase:
     def get_name(self) -> str:
         return self._name
 
-    def get_exe_path(self) -> str:
+    def get_exe_path(self) -> Path:
         return self._exe_path
 
-    def get_exe_src_path(self) -> str:
+    def get_exe_src_path(self) -> Path:
         return self._exe_src_path
 
     def get_id(self) -> EncoderId:
@@ -193,18 +194,12 @@ class EncoderBase:
     def get_short_revision(self) -> str:
         return self._commit_hash_short
 
-    def get_output_base_dir(self) -> str:
-        return os.path.join(
-            Cfg().encoding_output_dir_path,
-            self._exe_name.strip(".exe")
-        )
+    def get_output_base_dir(self) -> Path:
+        return Cfg().encoding_output_dir_path / self._exe_name.strip(".exe")
 
     def get_output_subdir(self,
-                          param_set: ParamSetBase) -> str:
-        return os.path.join(
-            self.get_output_base_dir(),
-            param_set.to_cmdline_str(include_quality_param=False)
-        )
+                          param_set: ParamSetBase) -> Path:
+        return self.get_output_base_dir() / param_set.to_cmdline_str(include_quality_param=False)
 
     def get_output_filename(self,
                             input_sequence: tester.core.videosequence,
@@ -217,9 +212,9 @@ class EncoderBase:
 
     def get_output_filepath(self,
                             input_sequence: tester.core.videosequence,
-                            param_set: ParamSetBase) -> str:
+                            param_set: ParamSetBase) -> Path:
         output_filename = self.get_output_filename(input_sequence, param_set)
-        output_filepath = os.path.join(self.get_output_subdir(param_set), output_filename)
+        output_filepath = self.get_output_subdir(param_set) / output_filename
         return output_filepath
 
     def get_encoding_log_filename(self,
@@ -229,8 +224,8 @@ class EncoderBase:
 
     def get_encoding_log_filepath(self,
                                   input_sequence: tester.core.videosequence,
-                                  param_set: ParamSetBase) -> str:
-        return self.get_output_filepath(input_sequence, param_set).strip(".hevc") + "_encoding_log.txt"
+                                  param_set: ParamSetBase) -> Path:
+        return Path(str(self.get_output_filepath(input_sequence, param_set)).strip(".hevc") + "_encoding_log.txt")
 
     def prepare_sources(self) -> None:
         console_logger.info(f"{self._name}: Preparing sources")
@@ -238,7 +233,7 @@ class EncoderBase:
         console_logger.info(f"{self._name}: Revision: '{self._user_given_revision}'")
 
         # Clone the remote if the local repo doesn't exist yet.
-        if not os.path.exists(self._git_repo.local_repo_path):
+        if not self._git_local_path.exists():
             cmd_str, output, exception = self._git_repo.clone(self._git_ssh_url)
             if not exception:
                 pass
@@ -247,7 +242,7 @@ class EncoderBase:
                 console_logger.error(exception.output.decode())
                 raise exception
         else:
-            console_logger.info(f"{self._name}: Repository '{self._git_repo.local_repo_path}' "
+            console_logger.info(f"{self._name}: Repository '{self._git_local_path}' "
                                 f"already exists")
 
         # Convert the user-given revision into the actual full revision.
@@ -262,9 +257,9 @@ class EncoderBase:
         self._commit_hash_short = self._commit_hash[:Cfg().short_commit_hash_len]
         self._exe_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}"\
                         f"{'.exe' if Cfg().os_name == 'Windows' else ''}"
-        self._exe_path = os.path.join(Cfg().binaries_dir_path, self._exe_name)
+        self._exe_path = Cfg().binaries_dir_path / self._exe_name
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
-        self._build_log_path = os.path.join(Cfg().binaries_dir_path, self._build_log_name)
+        self._build_log_path = Cfg().binaries_dir_path / self._build_log_name
 
         console_logger.info(f"{self._name}: Revision '{self._user_given_revision}' "
                             f"maps to commit hash '{self._commit_hash}'")
@@ -275,12 +270,12 @@ class EncoderBase:
 
     def build_start(self) -> bool:
         """Meant to be called as the first thing from the build() method of derived classes."""
-        assert os.path.exists(Cfg().binaries_dir_path)
+        assert Cfg().binaries_dir_path.exists()
 
         console_logger.info(f"{self._name}: Building executable '{self._exe_name}'")
         console_logger.info(f"{self._name}: Log: '{self._build_log_name}'")
 
-        if (os.path.exists(self._exe_path)):
+        if (self._exe_path.exists()):
             console_logger.info(f"{self._name}: Executable '{self._exe_name}' already exists")
             # Don't build unnecessarily.
             return False
@@ -326,11 +321,11 @@ class EncoderBase:
             raise
 
         # Copy the executable to its destination.
-        assert os.path.exists(self._exe_src_path)
+        assert self._exe_src_path.exists()
         self._build_log.debug(f"{self._name}: Copying file '{self._exe_src_path}' "
                               f"to '{self._exe_path}'")
         try:
-            shutil.copy(self._exe_src_path, self._exe_path)
+            shutil.copy(str(self._exe_src_path), str(self._exe_path))
 
         except FileNotFoundError as exception:
             console_logger.error(str(exception))
@@ -399,6 +394,7 @@ class EncoderBase:
 
         output_filepath = self.get_output_filepath(input_sequence, param_set)
         output_filename = self.get_output_filename(input_sequence, param_set)
+        output_dir = Path(output_filepath.parent)
 
         console_logger.debug(f"{self._name}: Output: '{output_filename}'")
         console_logger.debug(f"{self._name}: Arguments: '{param_set.to_cmdline_str()}'")
@@ -407,12 +403,12 @@ class EncoderBase:
         encoding_log_filename = self.get_encoding_log_filename(input_sequence, param_set)
         console_logger.debug(f"{self._name}: Log: '{encoding_log_filename}'")
 
-        if os.path.exists(output_filepath):
+        if output_filepath.exists():
             console_logger.info(f"{self._name}: File '{output_filename}' already exists")
             return None, None
 
-        if not os.path.exists(os.path.dirname(output_filepath)):
-            os.makedirs(os.path.dirname(output_filepath))
+        if not output_dir.exists():
+            output_dir.mkdir(parents=True)
 
         return output_filepath, encoding_log_filepath
 
@@ -426,7 +422,7 @@ class EncoderBase:
                 encode_cmd,
                 stderr=subprocess.STDOUT
             )
-            with open(self.get_encoding_log_filepath(input_sequence, param_set), "w") as encoding_log:
+            with self.get_encoding_log_filepath(input_sequence, param_set).open("w") as encoding_log:
                 encoding_log.write(output.decode())
         except subprocess.CalledProcessError as exception:
             console_logger.error(f"{self._name}: Encoding failed "

@@ -8,6 +8,7 @@ from tester.encoders.base import *
 import subprocess
 import time
 import traceback
+from pathlib import Path
 
 
 class TesterContext:
@@ -25,7 +26,7 @@ class TesterContext:
         for filepath in input_sequence_filepaths:
             self._sequences.append(
                 VideoSequence(
-                    filepath=filepath,
+                    filepath=Path(filepath),
                     # TODO: Figure out a better way to do this.
                     seek=self._configs[0].get_param_sets()[0].get_seek(),
                     frames=self._configs[0].get_param_sets()[0].get_frames(),
@@ -164,7 +165,7 @@ class Tester:
         console_logger.info(f"Tester: Generating CSV file '{csv_filepath}'")
 
         try:
-            csvfile = CsvFile(filepath=csv_filepath)
+            csvfile = CsvFile(filepath=Path(csv_filepath))
 
             for sequence in context.get_sequences():
                 for config in context.get_configs():
@@ -237,13 +238,15 @@ class Tester:
             exit(1)
 
     def _create_base_directories_if_not_exist(self) -> None:
-        for path in Cfg().binaries_dir_path,\
-                    Cfg().encoding_output_dir_path,\
-                    Cfg().sources_dir_path:
-            if not os.path.exists(path):
+        for path in [
+            Cfg().binaries_dir_path,
+            Cfg().encoding_output_dir_path,
+            Cfg().sources_dir_path
+        ]:
+            if not path.exists():
                 console_logger.debug(f"Tester: Creating directory '{path}'")
                 try:
-                    os.makedirs(path)
+                    path.mkdir(parents=True)
                 except Exception as exception:
                     console_logger.error(f"Tester: Failed to create directory '{path}'")
                     self._log_exception(exception)

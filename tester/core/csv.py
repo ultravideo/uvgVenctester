@@ -6,7 +6,7 @@
 from tester.core import cfg
 
 import math
-import os
+from pathlib import Path
 from enum import *
 
 class CsvFieldId(Enum):
@@ -34,21 +34,18 @@ class CsvFile():
     """Represents the tester output CSV file."""
 
     def __init__(self,
-                 filepath: str):
-        self.directory = os.path.dirname(filepath)
-        self.filepath = filepath
+                 filepath: Path):
+        self.filepath: Path = filepath
 
         # Create the new CSV file.
-        if self.directory and not os.path.exists(self.directory):
-            os.makedirs(self.directory)
-
-        # Create the header.
-        header_row = ""
-        for field_id in cfg.Cfg().csv_enabled_fields:
-            header_row += cfg.Cfg().csv_field_names[field_id]
-            header_row += cfg.Cfg().csv_field_separator
-
-        with open(self.filepath, "w") as file:
+        if not Path(self.filepath.parent).exists():
+            Path(self.filepath.parent).mkdir(parents=True, exist_ok=True)
+        with self.filepath.open("w") as file:
+            # Create the header.
+            header_row = ""
+            for field_id in cfg.Cfg().csv_enabled_fields:
+                header_row += cfg.Cfg().csv_field_names[field_id]
+                header_row += cfg.Cfg().csv_field_separator
             file.write(header_row + "\n")
 
     def add_entry(self,
@@ -81,5 +78,5 @@ class CsvFile():
 
             new_row += f"{value}{cfg.Cfg().csv_field_separator}"
 
-        with open(self.filepath, "a") as file:
+        with self.filepath.open("a") as file:
             file.write(new_row + "\n")

@@ -12,7 +12,7 @@ from tester.encoders.base import *
 import functools
 import hashlib
 import json
-import os
+from pathlib import Path
 from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
 class MetricsFile:
@@ -24,30 +24,20 @@ class MetricsFile:
         self.encoding_param_set = encoding_param_set
         self.input_sequence = input_sequence
 
-        self.directory_path = os.path.join(
-            Cfg().encoding_output_dir_path,
-            os.path.basename(encoder_instance.get_exe_path()).strip(".exe"),
-            encoding_param_set.to_cmdline_str(include_quality_param=False)
-        )
-
-        base_filename: str = f"{input_sequence.get_input_filename(include_extension=False)}"
-        qp_name: str = encoding_param_set.get_quality_param_name()
-        qp_value: int = encoding_param_set.get_quality_param_value()
-        ext_filename = f"{base_filename}_{qp_name.lower()}{qp_value}_metrics.json"
-        self.filepath = os.path.join(
-            self.directory_path,
-            ext_filename
-        )
+        self.filepath: Path = encoder_instance.get_output_subdir(encoding_param_set) \
+            / f"{input_sequence.get_input_filename(include_extension=False)}_" \
+              f"{encoding_param_set.get_quality_param_name()}" \
+              f"{encoding_param_set.get_quality_param_value()}"
 
         self.data: dict = {}
-        if os.path.exists(self.filepath):
+        if self.filepath.exists():
             self.data = self._read_in()
 
     def __hash__(self) -> int:
         return hashlib.md5(self.filepath)
 
     def exists(self) -> bool:
-        return os.path.exists(self.filepath)
+        return self.filepath.exists()
 
     def get_encoder(self) -> EncoderBase:
         return self.encoder_instance
@@ -58,11 +48,11 @@ class MetricsFile:
     def get_sequence(self) -> VideoSequence:
         return self.input_sequence
 
-    def get_filepath(self) -> str:
+    def get_filepath(self) -> Path:
         return self.filepath
 
-    def get_directory(self) -> str:
-        return self.directory_path
+    def get_directory(self) -> Path:
+        return Path(self.filepath.parent)
 
     def get_encoder_name(self) -> str:
         if self.exists():
@@ -191,19 +181,19 @@ class MetricsFile:
         self._write_out()
 
     def _write_out(self) -> None:
-        if not os.path.exists(self.directory_path):
-            os.makedirs(self.directory_path)
+        if not Path(self.filepath.parent).exists():
+            Path(self.filepath.parent).mkdir(parents=True)
         try:
-            with open(self.filepath, "w") as file:
+            with self.filepath.open("w") as file:
                 json.dump(self.data, file)
         except:
             console_logger.error(f"Couldn't write metrics to file '{self.filepath}'")
             raise
 
     def _read_in(self) -> None:
-        if os.path.exists(self.filepath):
+        if self.filepath.exists():
             try:
-                with open(self.filepath, "r") as file:
+                with self.filepath.open("r") as file:
                     self.data = json.load(file)
             except:
                 console_logger.error(f"Couldn't read metrics from file '{self.filepath}'")

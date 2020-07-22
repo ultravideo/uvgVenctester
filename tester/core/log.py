@@ -7,6 +7,7 @@ This module defines functionality related to logging.
 
 import logging
 import sys
+from pathlib import Path
 
 # For printing colored text.
 import colorama
@@ -50,19 +51,19 @@ console_logger.setLevel(logging.DEBUG)
 
 
 UNAVAILABLE_LOG_FILENAMES: list = []
-def setup_build_log(log_filename: str) -> logging.Logger:
+def setup_build_log(log_filepath: Path) -> logging.Logger:
     """Initializes and returns a Logger object with the given filename.
     The returned object is intended to be used for build logging.
-    NOTE: Make sure this function is always called with a different log_filename
+    NOTE: Make sure this function is always called with a different log_filepath
     because it also identifies the logger object!"""
 
-    assert log_filename not in UNAVAILABLE_LOG_FILENAMES
-    UNAVAILABLE_LOG_FILENAMES.append(log_filename)
+    assert log_filepath not in UNAVAILABLE_LOG_FILENAMES
+    UNAVAILABLE_LOG_FILENAMES.append(log_filepath)
 
     formatter = logging.Formatter("%(message)s")
-    handler = logging.FileHandler(log_filename, "w")
+    handler = logging.FileHandler(str(log_filepath), "w")
     handler.setFormatter(formatter)
-    build_log = logging.getLogger(log_filename)
+    build_log = logging.getLogger(str(log_filepath))
     build_log.addHandler(handler)
     build_log.setLevel(logging.DEBUG)
     return build_log

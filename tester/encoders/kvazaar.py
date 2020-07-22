@@ -159,8 +159,8 @@ class Kvazaar(EncoderBase):
             git_repo_ssh_url=Cfg().kvz_git_repo_ssh_url
         )
 
-        self._exe_src_path: str = Cfg().kvz_exe_src_path_windows if Cfg().os_name == "Windows"\
-                             else Cfg().kvz_exe_src_path_linux
+        self._exe_src_path: Path = Cfg().kvz_exe_src_path_windows if Cfg().os_name == "Windows"\
+                              else Cfg().kvz_exe_src_path_linux
 
     def build(self) -> None:
 
@@ -171,7 +171,7 @@ class Kvazaar(EncoderBase):
 
         if Cfg().os_name == "Windows":
 
-            assert os.path.exists(Cfg().kvz_vs_solution_path)
+            assert Cfg().kvz_vs_solution_path.exists()
 
             # Add defines to msbuild arguments.
             # Semicolons cannot be used as literals, so use %3B instead. Read these for reference:
@@ -190,8 +190,8 @@ class Kvazaar(EncoderBase):
 
         elif Cfg().os_name == "Linux":
 
-            assert os.path.exists(Cfg().kvz_configure_script_path)
-            assert os.path.exists(Cfg().kvz_autogen_script_path)
+            assert Cfg().kvz_configure_script_path.exists()
+            assert Cfg().kvz_autogen_script_path.exists()
 
             # Add defines to configure arguments.
             cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self._defines])}"
@@ -200,9 +200,9 @@ class Kvazaar(EncoderBase):
 
             # Run autogen.sh, then configure, then make. Return 0 on success, 1 on failure.
             build_cmd = (
-                "cd", Cfg().kvz_git_repo_path,
-                "&&", Cfg().kvz_autogen_script_path,
-                "&&", Cfg().kvz_configure_script_path,) + tuple(kvz_configure_args) + (
+                "cd", str(Cfg().kvz_git_repo_path),
+                "&&", str(Cfg().kvz_autogen_script_path),
+                "&&", str(Cfg().kvz_configure_script_path),) + tuple(kvz_configure_args) + (
                 "&&", "make",
             )
 
@@ -216,7 +216,7 @@ class Kvazaar(EncoderBase):
 
         if Cfg().os_name == "Linux":
             clean_cmd = (
-                "cd", Cfg().kvz_git_repo_path,
+                "cd", str(Cfg().kvz_git_repo_path),
                 "&&", "make", "clean",
             )
 
@@ -231,7 +231,7 @@ class Kvazaar(EncoderBase):
 
         if Cfg().os_name == "Windows":
             dummy_cmd = (
-                self._exe_path,
+                str(self._exe_path),
                 "-i", "NUL",
                 "--input-res", "2x2",
                 "-o", "NUL",

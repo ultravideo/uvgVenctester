@@ -11,9 +11,9 @@ from .log import *
 from .singleton import *
 from . import csv # To avoid circular import
 
-import os
 import platform
 import re
+from pathlib import Path
 
 # Import the user's configuration file if it exists.
 try:
@@ -73,7 +73,8 @@ class Cfg(metaclass=Singleton):
 
         # Check whether the paths defined by the properties exist - warn if not.
         for property_name in self._property_names():
-            if "path" in property_name and not os.path.exists(getattr(self, property_name)):
+            property = getattr(self, property_name)
+            if isinstance(property, Path) and not property.exists():
                 console_logger.warning(f"Cfg: Property {property_name}:"
                                        f" Path '{getattr(self, property_name)}' does not exist")
 
@@ -125,16 +126,16 @@ class Cfg(metaclass=Singleton):
         return platform.system()
 
     # Must not be overridden by the user.
-    __PROJECT_ROOT_PATH: str = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    __PROJECT_ROOT_PATH: Path = (Path(__file__).parent / ".." / "..").resolve()
     @property
-    def project_root_path(self) -> str:
+    def project_root_path(self) -> Path:
         """Returns the absolute path of the Git repository."""
         return self.__PROJECT_ROOT_PATH
 
     # Must not be overridden by the user.
-    __TESTER_ROOT_PATH: str = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
+    __TESTER_ROOT_PATH: Path = (Path(__file__).parent / "..").resolve()
     @property
-    def tester_root_path(self) -> str:
+    def tester_root_path(self) -> Path:
         """Returns the absolute path of the tester root directory."""
         return self.__TESTER_ROOT_PATH
 
@@ -146,10 +147,10 @@ class Cfg(metaclass=Singleton):
         return self.BINARIES_DIR_NAME
 
     @property
-    def binaries_dir_path(self) -> str:
+    def binaries_dir_path(self) -> Path:
         """Returns the absolute path of the directory in which executables built by the tester
         will be placed."""
-        return os.path.join(self.tester_root_path, self.binaries_dir_name)
+        return self.tester_root_path / self.binaries_dir_name
 
     SOURCES_DIR_NAME = "_sources"
     @property
@@ -159,10 +160,10 @@ class Cfg(metaclass=Singleton):
         return self.SOURCES_DIR_NAME
 
     @property
-    def sources_dir_path(self) -> str:
+    def sources_dir_path(self) -> Path:
         """Returns the path of the directory in which source code fetched by the tester
         will be placed."""
-        return os.path.join(self.tester_root_path, self.sources_dir_name)
+        return self.tester_root_path / self.sources_dir_name
 
     SHORT_COMMIT_HASH_LEN: int = 16
     @property
@@ -178,9 +179,9 @@ class Cfg(metaclass=Singleton):
         executables built by the tester."""
         return self.SHORT_DEFINE_HASH_LEN
 
-    VS_INSTALL_PATH: str = r"C:\Program Files (x86)\Microsoft Visual Studio"
+    VS_INSTALL_PATH: Path = Path("C:/") / "Program Files (x86)" / "Microsoft Visual Studio"
     @property
-    def vs_install_path(self) -> str:
+    def vs_install_path(self) -> Path:
         """Returns the absolute path of the Visual Studio base installation directory."""
         return self.VS_INSTALL_PATH
 
@@ -197,11 +198,10 @@ class Cfg(metaclass=Singleton):
         return self.VS_EDITION
 
     @property
-    def vs_vsdevcmd_bat_path(self) -> str:
+    def vs_vsdevcmd_bat_path(self) -> Path:
         """Returns the absolute path of VsDevCmd.bat (Visual Studio command line environment setup
         batch script)."""
-        return os.path.join(self.VS_INSTALL_PATH, self.VS_VERSION, self.VS_EDITION,
-                            "Common7", "Tools", "VsDevCmd.bat")
+        return self.vs_install_path / self.vs_version / self.vs_edition / "Common7" / "Tools" / "VsDevCmd.bat"
 
     KVZ_GIT_REPO_NAME: str = "kvazaar"
     @property
@@ -211,14 +211,14 @@ class Cfg(metaclass=Singleton):
         return self.KVZ_GIT_REPO_NAME
 
     @property
-    def kvz_git_repo_path(self) -> str:
+    def kvz_git_repo_path(self) -> Path:
         """Returns the absolute path of the Kvazaar Git repository."""
-        return os.path.join(self.sources_dir_path, self.kvz_git_repo_name)
+        return self.sources_dir_path / self.kvz_git_repo_name
 
     @property
-    def kvz_git_dir_path(self) -> str:
+    def kvz_git_dir_path(self) -> Path:
         """Returns the absolute path of the .git directory within the Kvazaar Git repository."""
-        return os.path.join(self.kvz_git_repo_path, ".git")
+        return self.kvz_git_repo_path / ".git"
 
     KVZ_GIT_REPO_SSH_URL: str = "git@gitlab.tut.fi:TIE/ultravideo/kvazaar.git"
     @property
@@ -233,14 +233,14 @@ class Cfg(metaclass=Singleton):
         return self.KVZ_EXE_SRC_NAME
 
     @property
-    def kvz_exe_src_path_windows(self) -> str:
+    def kvz_exe_src_path_windows(self) -> Path:
         """Returns the absolute path of the Kvazaar executable after compiling on Windows."""
-        return os.path.join(self.kvz_git_repo_path, "bin", "x64-Release", self.kvz_exe_src_name)
+        return self.kvz_git_repo_path / "bin" / "x64-Release" / self.kvz_exe_src_name
 
     @property
-    def kvz_exe_src_path_linux(self) -> str:
+    def kvz_exe_src_path_linux(self) -> Path:
         """Returns the absolute path of the Kvazaar executable after compiling on Linux."""
-        return os.path.join(self.kvz_git_repo_path, "src", "kvazaar")
+        return self.kvz_git_repo_path / "src" / "kvazaar"
 
     KVZ_MSBUILD_CONFIGURATION: str = "Release"
     @property
@@ -289,19 +289,19 @@ class Cfg(metaclass=Singleton):
         return self.KVZ_VS_SOLUTION_NAME
 
     @property
-    def kvz_vs_solution_path(self) -> str:
+    def kvz_vs_solution_path(self) -> Path:
         """Returns the absolute path of the Kvazaar Visual Studio solution."""
-        return os.path.join(self.kvz_git_repo_path, "build", self.kvz_vs_solution_name)
+        return self.kvz_git_repo_path / "build" / self.kvz_vs_solution_name
 
     @property
-    def kvz_autogen_script_path(self) -> str:
+    def kvz_autogen_script_path(self) -> Path:
         """Returns the absolute path of the autogen.sh script in the Kvazaar Git repository."""
-        return os.path.join(self.kvz_git_repo_path, "autogen.sh")
+        return self.kvz_git_repo_path / "autogen.sh"
 
     @property
-    def kvz_configure_script_path(self) -> str:
+    def kvz_configure_script_path(self) -> Path:
         """Returns the absolute path of the configure script in the Kvazaar Git repository."""
-        return os.path.join(self.kvz_git_repo_path, "configure")
+        return self.kvz_git_repo_path / "configure"
 
     KVZ_CONFIGURE_ARGS: list = [
         # We want a self-contained executable.
@@ -322,10 +322,10 @@ class Cfg(metaclass=Singleton):
         return self.ENCODING_OUTPUT_DIR_NAME
 
     @property
-    def encoding_output_dir_path(self) -> str:
+    def encoding_output_dir_path(self) -> Path:
         """Returns the absolute path of the directory in which encoded video files
         will be placed by the tester."""
-        return os.path.join(self.tester_root_path, self.encoding_output_dir_name)
+        return self.tester_root_path / self.encoding_output_dir_name
 
     CSV_FIELD_SEPARATOR: str = ";"
     @property

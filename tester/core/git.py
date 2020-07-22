@@ -6,20 +6,20 @@ This module defines functionality related to Git.
 """
 
 import subprocess
-import os
+from pathlib import Path
 
 class GitRepository(object):
     """Represents a Git repository."""
     def __init__(self,
-                 local_repo_path: str):
+                 local_repo_path: Path):
         """@param local_repo_path The absolute path to the local repository
         (the directory doesn't need to exist)."""
-        self.local_repo_path: str = local_repo_path
-        self.git_dir: str = os.path.join(local_repo_path, '.git')
+        self.local_repo_path: Path = local_repo_path
+        self.git_dir_path: Path = local_repo_path / ".git"
 
     def exists(self) -> bool:
         """Returns True if the local repository exists."""
-        return os.path.exists(self.local_repo_path)
+        return self.local_repo_path.exists() and self.git_dir_path.exists()
 
     def clone(self,
               remote_url: str) -> (str, bytes, subprocess.CalledProcessError):
@@ -52,7 +52,7 @@ class GitRepository(object):
         checkout_cmd: tuple = (
             "git",
             "--work-tree", self.local_repo_path,
-            "--git-dir", self.git_dir,
+            "--git-dir", self.git_dir_path,
             "checkout", revision,
         )
         cmd_as_str: str = subprocess.list2cmdline(checkout_cmd)
@@ -71,7 +71,7 @@ class GitRepository(object):
         pull_cmd: tuple = (
             "git",
             "--work-tree", self.local_repo_path,
-            "--git-dir", self.git_dir,
+            "--git-dir", self.git_dir_path,
             "pull", "origin", "master",
         )
         cmd_as_str: str = subprocess.list2cmdline(pull_cmd)
@@ -90,7 +90,7 @@ class GitRepository(object):
         fetch_cmd: tuple = (
             "git",
             "--work-tree", self.local_repo_path,
-            "--git-dir", self.git_dir,
+            "--git-dir", self.git_dir_path,
             "fetch", "--all",
         )
         cmd_as_str: str = subprocess.list2cmdline(fetch_cmd)
@@ -111,7 +111,7 @@ class GitRepository(object):
         rev_parse_cmd: tuple = (
             "git",
             "--work-tree", self.local_repo_path,
-            "--git-dir", self.git_dir,
+            "--git-dir", self.git_dir_path,
             "rev-parse", revision,
         )
         cmd_as_str: str = subprocess.list2cmdline(rev_parse_cmd)
