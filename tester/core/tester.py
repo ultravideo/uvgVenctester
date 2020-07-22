@@ -14,7 +14,7 @@ from pathlib import Path
 class TesterContext:
     def __init__(self,
                  test_configurations: list,
-                 input_sequence_filepaths: list):
+                 sequence_globs: list):
 
         self._configs: list = test_configurations
 
@@ -23,15 +23,16 @@ class TesterContext:
             self._configs_by_name[config.get_short_name()] = config
 
         self._sequences: list = []
-        for filepath in input_sequence_filepaths:
-            self._sequences.append(
-                VideoSequence(
-                    filepath=Path(filepath),
-                    # TODO: Figure out a better way to do this.
-                    seek=self._configs[0].get_param_sets()[0].get_seek(),
-                    frames=self._configs[0].get_param_sets()[0].get_frames(),
+        for glob in sequence_globs:
+            for filepath in Path().glob(glob):
+                self._sequences.append(
+                    VideoSequence(
+                        filepath=filepath,
+                        # TODO: Figure out a better way to do this.
+                        seek=self._configs[0].get_param_sets()[0].get_seek(),
+                        frames=self._configs[0].get_param_sets()[0].get_frames(),
+                    )
                 )
-            )
 
     def get_configs(self) -> list:
         return self._configs
