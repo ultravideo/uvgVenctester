@@ -1,11 +1,9 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""This module defines the Singleton class that singletons should use as their metaclass.
-Don't ask how it works, it just works."""
+"""This module defines functionality related singletons."""
 
 class Singleton(type):
-    """Singleton class that singletons should use as their metaclass."""
+    """Singleton class that singletons should use as their metaclass.
+    Don't ask how it works, it just works."""
+
     _instances = {}
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:

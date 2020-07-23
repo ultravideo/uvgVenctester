@@ -1,9 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""
-This module defines functionality related to logging.
-"""
+"""This module defines functionality related logging."""
 
 import logging
 import sys
@@ -18,13 +13,18 @@ class ColoredFormatter(logging.Formatter):
     """A formatter that adds color to log messages based on the logging level.
     Meant to be used with the console logger so the user can more easily
     filter information based on the color."""
+
     def __init__(self,
                  format):
-        super().__init__(fmt=format, datefmt=None, style='%')
-        self.debug_format = f"{colorama.Fore.LIGHTBLACK_EX}{format}{colorama.Fore.RESET}"
-        self.info_format = f"{colorama.Fore.GREEN}{format}{colorama.Fore.RESET}"
-        self.warning_format = f"{colorama.Fore.LIGHTYELLOW_EX}{format}{colorama.Fore.RESET}"
-        self.error_format = f"{colorama.Fore.RED}{format}{colorama.Fore.RESET}"
+        super().__init__(
+            fmt=format,
+            datefmt=None,
+            style='%'
+        )
+        self.debug_format: str = f"{colorama.Fore.LIGHTBLACK_EX}{format}{colorama.Fore.RESET}"
+        self.info_format: str = f"{colorama.Fore.GREEN}{format}{colorama.Fore.RESET}"
+        self.warning_format: str = f"{colorama.Fore.LIGHTYELLOW_EX}{format}{colorama.Fore.RESET}"
+        self.error_format: str = f"{colorama.Fore.RED}{format}{colorama.Fore.RESET}"
 
     def format(self,
                record) -> str:
@@ -50,7 +50,7 @@ console_logger.addHandler(handler)
 console_logger.setLevel(logging.DEBUG)
 
 
-UNAVAILABLE_LOG_FILENAMES: list = []
+UNAVAILABLE_LOG_FILENAMES = []
 def setup_build_log(log_filepath: Path) -> logging.Logger:
     """Initializes and returns a Logger object with the given filename.
     The returned object is intended to be used for build logging.

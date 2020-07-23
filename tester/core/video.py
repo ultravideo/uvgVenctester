@@ -1,3 +1,5 @@
+"""This module defines functionality related to video files."""
+
 from __future__ import annotations
 
 from tester.encoders.base import *
@@ -9,6 +11,8 @@ import re
 
 
 class VideoFileBase:
+    """Base class for video files."""
+
     def __init__(self,
                  filepath: Path,
                  width: int,
@@ -65,6 +69,7 @@ class VideoFileBase:
 
 
 class RawVideoSequence(VideoFileBase):
+    """Represents a YUV file (or part of it, in case seek and frames are not 0)."""
 
     def __init__(self,
                  filepath: Path,
@@ -217,6 +222,7 @@ class RawVideoSequence(VideoFileBase):
 
 
 class HevcVideoFile(VideoFileBase):
+    """Represents a HEVC file encoded by an encoder."""
 
     def __init__(self,
                  filepath: Path,

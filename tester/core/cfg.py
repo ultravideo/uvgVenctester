@@ -1,11 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""
-This module defines configuration variables that affect the functionality of the tester.
-The user may set up userconfig.py in the root directory of the repository to override
-the default values and customize the functionality of the tester.
-"""
+"""This module defines functionality to enable customization of the tester functionality."""
 
 from .log import *
 from .singleton import *

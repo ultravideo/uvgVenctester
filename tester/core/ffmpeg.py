@@ -1,3 +1,5 @@
+"""This module defines functionality related to ffmpeg."""
+
 from tester.core.log import *
 from tester.core.video import *
 

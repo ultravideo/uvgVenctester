@@ -1,3 +1,5 @@
+"""This module defines functionality related to testing."""
+
 from tester.core.cfg import *
 from tester.core.csv import *
 from tester.core.log import *
@@ -12,6 +14,8 @@ from pathlib import Path
 
 
 class TesterContext:
+    """Contains the state of the tester. The intention is to make the Tester class itself
+    stateless for flexibility."""
 
     def __init__(self,
                  tests: list,
@@ -84,6 +88,7 @@ class TesterContext:
 
 
 class Tester:
+    """The tester class the methods of which the user will call."""
 
     def __init__(self):
         try:
@@ -131,7 +136,6 @@ class Tester:
 
     def compute_metrics(self,
                         context: TesterContext) -> None:
-
         try:
             for sequence in context.get_input_sequences():
                 for test in context.get_tests():

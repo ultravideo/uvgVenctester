@@ -1,7 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""This module defines functionality related to creating the tester output CSV file."""
+"""This module defines functionality related to generating the CSV output file."""
 
 from tester.core import cfg
 
@@ -10,6 +7,7 @@ from pathlib import Path
 from enum import *
 
 class CsvFieldId(Enum):
+    """An enumeration to identify the different CSV fields."""
     NONE: int = 0
     SEQUENCE_NAME: int = 1
     SEQUENCE_CLASS: int = 2

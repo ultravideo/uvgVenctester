@@ -1,7 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""This module defines functionality related to computing video quality metrics."""
+"""This module defines functionality related video quality metrics."""
 
 from __future__ import annotations
 
@@ -17,6 +14,7 @@ from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
 
 class SubTestMetrics:
+    """Represents the metrics of a given subtest + input sequence combination."""
 
     def __init__(self,
                  input_sequence: RawVideoSequence,
@@ -193,6 +191,7 @@ class SubTestMetrics:
 
 
 class TestMetrics:
+    """Represents the metrics of a given test + input sequence combination."""
 
     def __init__(self,
                  subtest_metrics: list,

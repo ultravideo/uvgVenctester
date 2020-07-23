@@ -1,16 +1,11 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-"""This module defines all Kvazaar-specific functionality."""
+"""This module defines all functionality specific to Kvazaar."""
 
 from .base import *
 import tester.core.video
 
-import os
-
 
 class KvazaarParamSet(ParamSetBase):
-    """Represents the parameters passed to Kvazaar when encoding."""
+    """Represents the command line parameters passed to Kvazaar when encoding."""
 
     # These have to be the first two arguments on the command line.
     POSITIONAL_ARGS = ("--preset", "--gop")
@@ -40,8 +35,9 @@ class KvazaarParamSet(ParamSetBase):
 
     def to_cmdline_tuple(self,
                          include_quality_param: bool = True) -> tuple:
-        """Reorders command line arguments such that --preset is first, --gop second and all the rest last.
-        Also checks that the args are syntactically valid. Returns the arguments as a string."""
+        """Reorders command line arguments such that --preset is first,
+        --gop second and all the rest last. Also checks that the args are syntactically valid.
+        Returns the arguments as a string."""
 
         def is_long_option(candidate: str):
             return candidate.startswith("--")
@@ -145,7 +141,7 @@ class KvazaarParamSet(ParamSetBase):
 
 
 class Kvazaar(EncoderBase):
-    """Represents a Kvazaar binary."""
+    """Represents a Kvazaar executable."""
 
     def __init__(self,
                  user_given_revision: str,

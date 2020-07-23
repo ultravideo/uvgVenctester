@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """This module defines generic functionality related to encoders."""
 
 from __future__ import annotations
@@ -105,14 +102,12 @@ class ParamSetBase():
 
     def to_cmdline_tuple(self,
                          include_quality_param: bool = True) -> tuple:
-        """Returns the command line arguments as a tuple.
-        @param include_quality_param If False, the quality parameter argument is omitted."""
+        """Returns the command line arguments as a tuple."""
         raise NotImplementedError
 
     def to_cmdline_str(self,
                        include_quality_param: bool = True) -> str:
-        """Returns the command line arguments as a string.
-        @param include_quality_param If False, the quality parameter argument is omitted."""
+        """Returns the command line arguments as a string."""
         return " ".join(self.to_cmdline_tuple(include_quality_param))
 
 

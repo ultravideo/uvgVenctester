@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
+"""This module defines functionality related to test configurations."""
 
 from __future__ import annotations
 
@@ -10,6 +9,7 @@ import hashlib
 
 
 class SubTest:
+    """Represents a subtest. A single test consists of multiple subtests."""
 
     def __init__(self,
                  name: str,
@@ -49,6 +49,9 @@ class SubTest:
 
 
 class Test:
+    """Represents a test. A single test consists of as many subtests as there are different
+    quality parameter values. (Therefore a subtest is basically a unique set of encoding
+    parameters.)"""
 
     def __init__(self,
                  name: str,
