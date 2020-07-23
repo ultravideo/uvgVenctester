@@ -1,7 +1,7 @@
 from tester.core.cfg import *
 from tester.core.csv import *
 from tester.core.log import *
-from tester.core.testconfig import *
+from tester.core.test import *
 from tester.core import ffmpeg
 from tester.encoders.base import *
 
@@ -12,75 +12,79 @@ from pathlib import Path
 
 
 class TesterContext:
+
     def __init__(self,
-                 test_configurations: list,
-                 sequence_globs: list):
+                 tests: list,
+                 input_sequence_globs: list):
 
-        self._configs: list = test_configurations
+        self._tests: list = tests
 
-        self._configs_by_name: dict = {}
-        for config in test_configurations:
-            self._configs_by_name[config.get_short_name()] = config
+        self._tests_by_name: dict = {}
+        for test in tests:
+            self._tests_by_name[test.get_name()] = test
 
-        self._sequences: list = []
-        for glob in sequence_globs:
+        self._input_sequences: list = []
+        for glob in input_sequence_globs:
             for filepath in Path().glob(glob):
-                self._sequences.append(
+                self._input_sequences.append(
                     RawVideoSequence(
                         filepath=filepath.resolve(),
                         # TODO: Figure out a better way to do this.
-                        seek=self._configs[0].get_param_sets()[0].get_seek(),
-                        frames=self._configs[0].get_param_sets()[0].get_frames(),
+                        seek=self._tests[0].get_subtests()[0].get_param_set().get_seek(),
+                        frames=self._tests[0].get_subtests()[0].get_param_set().get_frames(),
                     )
                 )
 
-    def get_configs(self) -> list:
-        return self._configs
+    def get_tests(self) -> list:
+        return self._tests
 
-    def get_configs_by_name(self) -> dict:
-        return self._configs_by_name
+    def get_test(self,
+                 test_name: str) -> Test:
+        assert test_name in self._tests_by_name.keys()
+        return self._tests_by_name[test_name]
 
-    def get_sequences(self) -> list:
-        return self._sequences
+    def get_input_sequences(self) -> list:
+        return self._input_sequences
 
-    def validate_bottom(self) -> None:
+    def validate_initial(self) -> None:
         """Validates everything that can be validated without the encoder binaries
         having been built."""
-        for config1 in self._configs:
-            for config2 in self._configs:
-                if config1 == config2 and not config1 is config2:
-                    console_logger.error(f"Tester: Duplicate configurations: "
-                                         f"'{config1.get_short_name()}', "
-                                         f"'{config2.get_short_name()}'")
+        for test1 in self._tests:
+            for test2 in self._tests:
+                if test1 == test2 and not test1 is test2:
+                    console_logger.error(f"Tester: Duplicate tests: "
+                                         f"'{test1.get_name()}', "
+                                         f"'{test2.get_name()}'")
                     raise RuntimeError
 
-        for config1 in self._configs:
-            for config2 in self._configs:
-                if config1.get_short_name() == config2.get_short_name() and config1 is not config2:
-                    console_logger.error(f"Tester: Duplicate configuration name "
-                                         f"'{config1.get_short_name()}'")
+        for test1 in self._tests:
+            for test2 in self._tests:
+                if test1.get_name() == test2.get_name() and test1 is not test2:
+                    console_logger.error(f"Tester: Duplicate test name "
+                                         f"'{test1.get_name()}'")
                     raise RuntimeError
 
-        for config in self._configs:
-            for anchor_name in config.get_anchor_names():
-                if not anchor_name in self._configs_by_name.keys():
+        for test in self._tests:
+            for anchor_name in test.get_anchor_names():
+                if not anchor_name in self._tests_by_name.keys():
                     console_logger.error(f"Tester: Anchor '{anchor_name}' "
-                                         f"of configuration '{config.get_short_name()}' "
+                                         f"of test '{test.get_name()}' "
                                          f"does not exist")
                     raise RuntimeError
 
-    def validate_top(self) -> None:
+    def validate_final(self) -> None:
         """Validates everything that can only be validated once the encoder binaries
         have been built."""
-        for config in self._configs:
-            for param_set in config.get_param_sets():
-                if not config.get_encoder().dummy_run(param_set):
-                    console_logger.error(f"Tester: Configuration '{config.get_short_name()}' "
+        for test in self._tests:
+            for subtest in test.get_subtests():
+                if not test.get_encoder().dummy_run(subtest.get_param_set()):
+                    console_logger.error(f"Tester: Test '{test.get_name()}' "
                                          f"is invalid")
                     raise RuntimeError
 
 
 class Tester:
+
     def __init__(self):
         try:
             console_logger.info("Tester: Initializing")
@@ -93,12 +97,13 @@ class Tester:
             exit(1)
 
     def create_context(self,
-                       test_configurations: list,
-                       input_sequence_filepaths: list) -> TesterContext:
-        console_logger.info("Tester: Creating new context")
+                       tests: list,
+                       input_sequence_globs: list) -> TesterContext:
+        console_logger.info("Tester: Creating context")
         try:
-            return TesterContext(test_configurations, input_sequence_filepaths)
+            return TesterContext(tests, input_sequence_globs)
         except Exception as exception:
+            console_logger.info("Tester: Failed to create context")
             self._log_exception(exception)
             exit(1)
 
@@ -107,17 +112,17 @@ class Tester:
 
         try:
             console_logger.info(f"Tester: Building encoders")
-            context.validate_bottom()
-            for config in context.get_configs():
-                console_logger.info(f"Tester: Building encoder for configuration '{config.get_short_name()}'")
-                config.get_encoder().build()
-                config.get_encoder().clean()
-            context.validate_top()
+            context.validate_initial()
+            for test in context.get_tests():
+                console_logger.info(f"Tester: Building encoder for test '{test.get_name()}'")
+                test.get_encoder().build()
+                test.get_encoder().clean()
+            context.validate_final()
 
-            for sequence in context.get_sequences():
-                for config in context.get_configs():
-                    for param_set in config.get_param_sets():
-                        self._run_subtest(config, param_set, sequence)
+            for sequence in context.get_input_sequences():
+                for test in context.get_tests():
+                    for subtest in test.get_subtests():
+                        self._run_subtest(subtest, sequence)
 
         except Exception as exception:
             console_logger.error(f"Tester: Failed to run tests")
@@ -128,25 +133,20 @@ class Tester:
                         context: TesterContext) -> None:
 
         try:
-            for sequence in context.get_sequences():
-                for config in context.get_configs():
-                    metrics = config.get_metrics(sequence)
-                    for param_set_index in range(len(config.get_param_sets())):
-                        param_set = config.get_param_sets()[param_set_index]
+            for sequence in context.get_input_sequences():
+                for test in context.get_tests():
+                    for subtest in test.get_subtests():
 
                         console_logger.info(f"Tester: Computing metrics")
                         console_logger.info(f"Tester: Sequence: '{sequence.get_filepath().name}'")
-                        console_logger.info(f"Tester: Test: '{config.get_long_name(param_set)}'")
+                        console_logger.info(f"Tester: Subtest: '{subtest.get_name()}'")
 
-                        metrics_file = metrics.get_metrics_file(param_set)
-
-                        psnr, ssim = ffmpeg.compute_psnr_and_ssim(
+                        psnr_avg, ssim_avg = ffmpeg.compute_psnr_and_ssim(
                             sequence,
-                            config.get_encoder().get_output_file(sequence, param_set)
+                            test.get_encoder().get_output_file(sequence, subtest.get_param_set())
                         )
-
-                        metrics_file.set_psnr_avg(psnr)
-                        metrics_file.set_ssim_avg(ssim)
+                        subtest.get_metrics(sequence).set_psnr_avg(psnr_avg)
+                        subtest.get_metrics(sequence).set_ssim_avg(ssim_avg)
 
         except Exception as exception:
             console_logger.error(f"Tester: Failed to compute metrics")
@@ -164,39 +164,43 @@ class Tester:
         try:
             csvfile = CsvFile(filepath=Path(csv_filepath))
 
-            for sequence in context.get_sequences():
-                for config in context.get_configs():
-                    metrics = config.get_metrics(sequence)
-                    for anchor_name in config.get_anchor_names():
-                        anchor_config = context.get_configs_by_name()[anchor_name]
-                        anchor_metrics = anchor_config.get_metrics(sequence)
-                        for param_set_index in range(len(config.get_param_sets())):
+            for sequence in context.get_input_sequences():
+                for test in context.get_tests():
+                    for anchor_test in [context.get_test(name) for name in test.get_anchor_names()]:
+                        for subtest_index, subtest in enumerate(test.get_subtests()):
 
-                            param_set = config.get_param_sets()[param_set_index]
-                            metrics_file = metrics.get_metrics_file(param_set)
+                            anchor_subtest = anchor_test.get_subtests()[subtest_index]
 
-                            anchor_param_set = anchor_config.get_param_sets()[param_set_index]
-                            anchor_metrics_file = anchor_metrics.get_metrics_file(anchor_param_set)
+                            test_metrics = test.get_metrics(sequence)
+                            subtest_metrics = subtest.get_metrics(sequence)
 
-                            csvfile.add_entry({
-                                CsvFieldId.SEQUENCE_NAME: sequence.get_filepath().name,
-                                CsvFieldId.SEQUENCE_CLASS: sequence.get_sequence_class(),
-                                CsvFieldId.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
-                                CsvFieldId.ENCODER_NAME: config.get_encoder().get_name(),
-                                CsvFieldId.ENCODER_REVISION: config.get_encoder().get_short_revision(),
-                                CsvFieldId.ENCODER_DEFINES: config.get_encoder().get_defines(),
-                                CsvFieldId.ENCODER_CMDLINE: param_set.to_cmdline_str(),
-                                CsvFieldId.QUALITY_PARAM_NAME: param_set.get_quality_param_name(),
-                                CsvFieldId.QUALITY_PARAM_VALUE: param_set.get_quality_param_value(),
-                                CsvFieldId.CONFIG_NAME: config.get_short_name(),
-                                CsvFieldId.ANCHOR_NAME: anchor_config.get_short_name(),
-                                CsvFieldId.TIME_SECONDS: metrics_file.get_encoding_time(),
-                                CsvFieldId.SPEEDUP: metrics_file.get_speedup_relative_to(anchor_metrics_file),
-                                CsvFieldId.PSNR_AVG: metrics_file.get_psnr_avg(),
-                                CsvFieldId.SSIM_AVG: metrics_file.get_ssim_avg(),
-                                CsvFieldId.BDBR_PSNR: metrics.get_bdbr_psnr(anchor_metrics),
-                                CsvFieldId.BDBR_SSIM: metrics.get_bdbr_ssim(anchor_metrics),
-                            })
+                            anchor_test_metrics = anchor_test.get_metrics(sequence)
+                            anchor_subtest_metrics = anchor_subtest.get_metrics(sequence)
+
+                            encoder = subtest.get_encoder()
+                            param_set = subtest.get_param_set()
+
+                            csvfile.add_entry(
+                                {
+                                    CsvFieldId.SEQUENCE_NAME: sequence.get_filepath().name,
+                                    CsvFieldId.SEQUENCE_CLASS: sequence.get_sequence_class(),
+                                    CsvFieldId.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
+                                    CsvFieldId.ENCODER_NAME: encoder.get_name(),
+                                    CsvFieldId.ENCODER_REVISION: encoder.get_short_revision(),
+                                    CsvFieldId.ENCODER_DEFINES: encoder.get_defines(),
+                                    CsvFieldId.ENCODER_CMDLINE: param_set.to_cmdline_str(),
+                                    CsvFieldId.QUALITY_PARAM_NAME: param_set.get_quality_param_name(),
+                                    CsvFieldId.QUALITY_PARAM_VALUE: param_set.get_quality_param_value(),
+                                    CsvFieldId.CONFIG_NAME: test.get_name(),
+                                    CsvFieldId.ANCHOR_NAME: anchor_test.get_name(),
+                                    CsvFieldId.TIME_SECONDS: subtest_metrics.get_encoding_time(),
+                                    CsvFieldId.SPEEDUP: subtest_metrics.get_speedup_relative_to(anchor_subtest_metrics),
+                                    CsvFieldId.PSNR_AVG: subtest_metrics.get_psnr_avg(),
+                                    CsvFieldId.SSIM_AVG: subtest_metrics.get_ssim_avg(),
+                                    CsvFieldId.BDBR_PSNR: test_metrics.get_bdbr_psnr(anchor_test_metrics),
+                                    CsvFieldId.BDBR_SSIM: test_metrics.get_bdbr_ssim(anchor_test_metrics),
+                                }
+                            )
 
         except Exception as exception:
             console_logger.error(f"Tester: Failed to generate CSV file '{csv_filepath}'")
@@ -204,31 +208,37 @@ class Tester:
             exit(1)
 
     def _run_subtest(self,
-                     config: TestConfig,
-                     param_set: ParamSetBase,
-                     sequence: RawVideoSequence) -> None:
-        console_logger.info(f"Tester: Running test '{config.get_long_name(param_set)}' "
-                            f"for sequence '{sequence.get_filepath().name}'")
+                     subtest: SubTest,
+                     input_sequence: RawVideoSequence) -> None:
+
+        console_logger.info(f"Tester: Running subtest '{subtest.get_name()}' "
+                            f"for sequence '{input_sequence.get_filepath().name}'")
+
+        param_set = subtest.get_param_set()
+        encoder = subtest.get_encoder()
+        subtest_metrics = subtest.get_metrics(input_sequence)
 
         try:
-            metrics_file = config.get_metrics(sequence).get_metrics_file(param_set)
+            metrics_file = subtest.get_metrics(input_sequence)
 
             if not metrics_file.exists():
-                start_time: float = time.perf_counter()
-                config.get_encoder().encode(sequence, param_set)
-                seconds: float = round(time.perf_counter() - start_time, 6)
 
-                metrics_file.set_encoder_name(config.get_encoder().get_name())
-                metrics_file.set_encoder_revision(config.get_encoder().get_revision())
-                metrics_file.set_encoder_defines(config.get_encoder().get_defines())
-                metrics_file.set_encoder_cmdline(param_set.to_cmdline_str())
-                metrics_file.set_encoding_input(sequence.get_filepath().name)
-                metrics_file.set_encoding_resolution(f"{sequence._width}x{sequence._height}")
-                metrics_file.set_encoding_time(seconds)
+                start_time: float = time.perf_counter()
+                subtest.get_encoder().encode(input_sequence, subtest.get_param_set())
+                encoding_time_seconds: float = round(time.perf_counter() - start_time, 6)
+
+                subtest_metrics.set_encoder_name(encoder.get_name())
+                subtest_metrics.set_encoder_revision(encoder.get_revision())
+                subtest_metrics.set_encoder_defines(encoder.get_defines())
+                subtest_metrics.set_encoder_cmdline(param_set.to_cmdline_str())
+                subtest_metrics.set_encoding_input(input_sequence.get_filepath().name)
+                subtest_metrics.set_encoding_resolution(f"{input_sequence.get_width()}x{input_sequence.get_height()}")
+                subtest_metrics.set_encoding_time(encoding_time_seconds)
+
             else:
-                console_logger.info(f"Tester: File "
-                                    f"'{config.get_encoder().get_output_file(sequence, param_set).get_filepath()}' "
-                                    f"already exists")
+                console_logger.info(f"Tester: Results for subtest '{subtest.get_name()}', "
+                                    f"sequence '{input_sequence.get_filepath().name}' already exist")
+
         except Exception as exception:
             console_logger.error(f"Tester: Test failed")
             self._log_exception(exception)
