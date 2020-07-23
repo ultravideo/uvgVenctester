@@ -4,7 +4,7 @@
 """This module defines all Kvazaar-specific functionality."""
 
 from .base import *
-import tester.core.videosequence
+import tester.core.video
 
 import os
 
@@ -248,18 +248,18 @@ class Kvazaar(EncoderBase):
         return super().dummy_run_finish(dummy_cmd, param_set)
 
     def encode(self,
-               input_sequence: tester.core.videosequence.VideoSequence,
+               input_sequence: tester.core.video.RawVideoSequence,
                param_set: KvazaarParamSet) -> None:
 
-        output_filepath, log_filepath = super().encode_start(input_sequence, param_set)
-        if not output_filepath and not log_filepath:
+        output_filepath = super().encode_start(input_sequence, param_set)
+        if not output_filepath:
             return
 
         encode_cmd = (
                          self._exe_path,
-            "-i", input_sequence.get_input_filepath(),
+            "-i", input_sequence.get_filepath(),
             "--input-res", f"{input_sequence.get_width()}x{input_sequence.get_height()}",
-            "-o", output_filepath,
+            "-o", str(output_filepath),
         ) + param_set.to_cmdline_tuple()
 
         super().encode_finish(encode_cmd, input_sequence, param_set)

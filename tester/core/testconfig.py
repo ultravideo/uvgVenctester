@@ -4,7 +4,7 @@
 """This module defines functionality related to test configurations. A test configuration is
 essentially a combination of encoder version and encoding parameters."""
 
-from tester.core.videosequence import *
+from tester.core.video import *
 from tester.core.metrics import *
 import tester.encoders.kvazaar
 
@@ -52,7 +52,7 @@ class TestConfig:
         return self._name == other.get_short_name() \
                and self._encoder == other.get_encoder() \
                and self._anchor_names == other.get_anchor_names() \
-               and self._param_sets == other.param_sets
+               and self._param_sets == other._param_sets
 
     def __hash__(self) -> int:
         return int(hashlib.md5(self._name.encode()).hexdigest(), 16)
@@ -74,7 +74,7 @@ class TestConfig:
         return self._param_sets
 
     def get_metrics(self,
-                    sequence: VideoSequence) -> Metrics:
+                    sequence: RawVideoSequence) -> Metrics:
         return Metrics(
             self._encoder,
             self._param_sets,

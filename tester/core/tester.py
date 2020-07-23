@@ -26,8 +26,8 @@ class TesterContext:
         for glob in sequence_globs:
             for filepath in Path().glob(glob):
                 self._sequences.append(
-                    VideoSequence(
-                        filepath=filepath,
+                    RawVideoSequence(
+                        filepath=filepath.resolve(),
                         # TODO: Figure out a better way to do this.
                         seek=self._configs[0].get_param_sets()[0].get_seek(),
                         frames=self._configs[0].get_param_sets()[0].get_frames(),
@@ -135,18 +135,14 @@ class Tester:
                         param_set = config.get_param_sets()[param_set_index]
 
                         console_logger.info(f"Tester: Computing metrics")
-                        console_logger.info(f"Tester: Sequence: '{sequence.get_input_filename()}'")
+                        console_logger.info(f"Tester: Sequence: '{sequence.get_filepath().name}'")
                         console_logger.info(f"Tester: Test: '{config.get_long_name(param_set)}'")
 
                         metrics_file = metrics.get_metrics_file(param_set)
 
                         psnr, ssim = ffmpeg.compute_psnr_and_ssim(
-                            sequence.get_input_filepath(),
-                            sequence.get_output_filepath(config.get_encoder(), param_set),
-                            sequence.get_width(),
-                            sequence.get_height(),
-                            param_set.get_seek(),
-                            param_set.get_frames()
+                            sequence,
+                            config.get_encoder().get_output_file(sequence, param_set)
                         )
 
                         metrics_file.set_psnr_avg(psnr)
@@ -183,7 +179,7 @@ class Tester:
                             anchor_metrics_file = anchor_metrics.get_metrics_file(anchor_param_set)
 
                             csvfile.add_entry({
-                                CsvFieldId.SEQUENCE_NAME: sequence.get_input_filename(),
+                                CsvFieldId.SEQUENCE_NAME: sequence.get_filepath().name,
                                 CsvFieldId.SEQUENCE_CLASS: sequence.get_sequence_class(),
                                 CsvFieldId.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
                                 CsvFieldId.ENCODER_NAME: config.get_encoder().get_name(),
@@ -210,9 +206,9 @@ class Tester:
     def _run_subtest(self,
                      config: TestConfig,
                      param_set: ParamSetBase,
-                     sequence: VideoSequence) -> None:
+                     sequence: RawVideoSequence) -> None:
         console_logger.info(f"Tester: Running test '{config.get_long_name(param_set)}' "
-                            f"for sequence '{sequence.get_input_filename()}'")
+                            f"for sequence '{sequence.get_filepath().name}'")
 
         try:
             metrics_file = config.get_metrics(sequence).get_metrics_file(param_set)
@@ -226,12 +222,12 @@ class Tester:
                 metrics_file.set_encoder_revision(config.get_encoder().get_revision())
                 metrics_file.set_encoder_defines(config.get_encoder().get_defines())
                 metrics_file.set_encoder_cmdline(param_set.to_cmdline_str())
-                metrics_file.set_encoding_input(sequence.get_input_filename())
+                metrics_file.set_encoding_input(sequence.get_filepath().name)
                 metrics_file.set_encoding_resolution(f"{sequence._width}x{sequence._height}")
                 metrics_file.set_encoding_time(seconds)
             else:
                 console_logger.info(f"Tester: File "
-                                    f"'{sequence.get_output_filename(config.get_encoder(), param_set)}' "
+                                    f"'{config.get_encoder().get_output_file(sequence, param_set).get_filepath()}' "
                                     f"already exists")
         except Exception as exception:
             console_logger.error(f"Tester: Test failed")

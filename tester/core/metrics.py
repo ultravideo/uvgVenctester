@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from tester.core.cfg import *
-from tester.core.videosequence import *
+from tester.core.video import *
 from tester.encoders.base import *
 
 import functools
@@ -16,19 +16,14 @@ from pathlib import Path
 from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
 class MetricsFile:
+
     def __init__(self,
-                 encoder_instance: EncoderBase,
-                 encoding_param_set: ParamSetBase,
-                 input_sequence: VideoSequence):
-        self._encoder = encoder_instance
-        self._param_set = encoding_param_set
-        self._sequence = input_sequence
+                 input_sequence: RawVideoSequence,
+                 output_sequence: HevcVideoFile):
 
-        self._filepath: Path = encoder_instance.get_output_subdir(encoding_param_set) \
-                               / f"{input_sequence.get_input_filename(include_extension=False)}_" \
-                                 f"{encoding_param_set.get_quality_param_name()}" \
-                                 f"{encoding_param_set.get_quality_param_value()}"
-
+        self._input_sequence: RawVideoSequence = input_sequence
+        self._output_sequence: HevcVideoFile = output_sequence
+        self._filepath: Path = output_sequence.get_metrics_json_path()
         self._data: dict = {}
         if self._filepath.exists():
             self._data = self._read_in()
@@ -39,14 +34,11 @@ class MetricsFile:
     def exists(self) -> bool:
         return self._filepath.exists()
 
-    def get_encoder(self) -> EncoderBase:
-        return self._encoder
+    def get_input_sequence(self) -> RawVideoSequence:
+        return self._input_sequence
 
-    def get_param_set(self) -> ParamSetBase:
-        return self._param_set
-
-    def get_sequence(self) -> VideoSequence:
-        return self._sequence
+    def get_output_sequence(self) -> HevcVideoFile:
+        return self._output_sequence
 
     def get_filepath(self) -> Path:
         return self._filepath
@@ -204,17 +196,17 @@ class Metrics:
     def __init__(self,
                  encoder_instance: EncoderBase,
                  param_sets: list,
-                 sequence: VideoSequence):
+                 sequence: RawVideoSequence):
         self.encoder: EncoderBase = encoder_instance
         self.param_sets: list = param_sets
-        self.sequence: VideoSequence = sequence
+        self.input_sequence: RawVideoSequence = sequence
 
     def __eq__(self, other):
         for i in range(len(self.param_sets)):
             if self.param_sets[i] != other.get_param_sets()[i]:
                 return False
         return self.encoder == other.get_encoder() \
-               and self.sequence == other.sequence
+               and self.input_sequence == other.sequence
 
     def get_encoder(self) -> EncoderBase:
         return self.encoder
@@ -222,12 +214,15 @@ class Metrics:
     def get_param_sets(self) -> list:
         return self.param_sets
 
-    def get_sequence(self) -> VideoSequence:
-        return self.sequence
+    def get_sequence(self) -> RawVideoSequence:
+        return self.input_sequence
 
     def get_metrics_file(self,
                          param_set: ParamSetBase) -> MetricsFile:
-        return MetricsFile(self.encoder, param_set, self.sequence)
+        return MetricsFile(
+            self.input_sequence,
+            self.encoder.get_output_file(self.input_sequence, param_set)
+        )
 
     def get_bdbr_psnr(self,
                       anchor: Metrics) -> float:
@@ -244,14 +239,14 @@ class Metrics:
         metrics_files = [self.get_metrics_file(param_set) for param_set in self.param_sets]
         for metrics_file in metrics_files:
             psnr_list.append((
-                metrics_file.get_sequence().get_bitrate(),
+                metrics_file.get_input_sequence().get_bitrate(),
                 metrics_file.get_psnr_avg()
             ))
 
         anchor_metrics_files = [anchor.get_metrics_file(param_set) for param_set in anchor.param_sets]
         for anchor_metrics_file in anchor_metrics_files:
             anchor_psnr_list.append((
-                anchor_metrics_file.get_sequence().get_bitrate(),
+                anchor_metrics_file.get_input_sequence().get_bitrate(),
                 anchor_metrics_file.get_psnr_avg()
             ))
 
@@ -272,14 +267,14 @@ class Metrics:
         metrics_files = [self.get_metrics_file(param_set) for param_set in self.param_sets]
         for metrics_file in metrics_files:
             ssim_list.append((
-                metrics_file.get_sequence().get_bitrate(),
+                metrics_file.get_input_sequence().get_bitrate(),
                 metrics_file.get_ssim_avg()
             ))
 
         anchor_metrics_files = [anchor.get_metrics_file(param_set) for param_set in anchor.param_sets]
         for anchor_metrics_file in anchor_metrics_files:
             anchor_ssim_list.append((
-                anchor_metrics_file.get_sequence().get_bitrate(),
+                anchor_metrics_file.get_input_sequence().get_bitrate(),
                 anchor_metrics_file.get_ssim_avg()
             ))
 

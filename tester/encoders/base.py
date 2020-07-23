@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-import tester.core.videosequence
+import tester.core.video
 from tester.core.cfg import *
 from tester.core.git import *
 from tester.core.log import *
@@ -194,38 +194,26 @@ class EncoderBase:
     def get_short_revision(self) -> str:
         return self._commit_hash_short
 
-    def get_output_base_dir(self) -> Path:
-        return Cfg().encoding_output_dir_path / self._exe_name.strip(".exe")
-
-    def get_output_subdir(self,
-                          param_set: ParamSetBase) -> Path:
-        return self.get_output_base_dir() / param_set.to_cmdline_str(include_quality_param=False)
-
-    def get_output_filename(self,
-                            input_sequence: tester.core.videosequence,
-                            param_set: ParamSetBase) -> str:
+    def get_output_file(self,
+                        input_sequence: tester.core.video.RawVideoSequence,
+                        param_set: ParamSetBase) -> tester.core.video.HevcVideoFile:
         qp_name = param_set.get_quality_param_name()
         qp_value = param_set.get_quality_param_value()
-        base_filename = f"{input_sequence.get_input_filename(include_extension=False)}"
-        output_filename = f"{base_filename}_{qp_name.lower()}{qp_value}.hevc"
-        return output_filename
-
-    def get_output_filepath(self,
-                            input_sequence: tester.core.videosequence,
-                            param_set: ParamSetBase) -> Path:
-        output_filename = self.get_output_filename(input_sequence, param_set)
-        output_filepath = self.get_output_subdir(param_set) / output_filename
-        return output_filepath
-
-    def get_encoding_log_filename(self,
-                                  input_sequence: tester.core.videosequence,
-                                  param_set: ParamSetBase) -> str:
-        return self.get_output_filename(input_sequence, param_set).strip(".hevc") + "_encoding_log.txt"
-
-    def get_encoding_log_filepath(self,
-                                  input_sequence: tester.core.videosequence,
-                                  param_set: ParamSetBase) -> Path:
-        return Path(str(self.get_output_filepath(input_sequence, param_set)).strip(".hevc") + "_encoding_log.txt")
+        filename = input_sequence.get_filepath().with_suffix("").name + f"_{qp_name.lower()}_{qp_value}.hevc"
+        directory_path = Cfg().encoding_output_dir_path \
+                         / self._exe_name.strip(".exe") \
+                         / param_set.to_cmdline_str(include_quality_param=False)
+        filepath = directory_path / filename
+        return tester.core.video.HevcVideoFile(
+            filepath,
+            input_sequence.get_width(),
+            input_sequence.get_height(),
+            input_sequence.get_framerate(),
+            input_sequence.get_framecount(),
+            input_sequence.get_duration_seconds(),
+            self,
+            param_set
+        )
 
     def prepare_sources(self) -> None:
         console_logger.info(f"{self._name}: Preparing sources")
@@ -380,53 +368,52 @@ class EncoderBase:
         return True
 
     def encode(self,
-               input_sequence: tester.core.videosequence,
+               input_sequence: tester.core.video,
                param_set: ParamSetBase) -> None:
         """Encodes the given sequence with the given set of parameters."""
         raise NotImplementedError
 
     def encode_start(self,
-                     input_sequence: tester.core.videosequence,
-                     param_set: ParamSetBase) -> (str, str):
+                     input_sequence: tester.core.video,
+                     param_set: ParamSetBase) -> Path:
         """Meant to be called as the first thing from the encode() method of derived classes."""
 
-        console_logger.debug(f"{self._name}: Encoding file '{input_sequence.get_input_filename()}'")
+        console_logger.debug(f"{self._name}: Encoding file '{input_sequence.get_filepath().name}'")
 
-        output_filepath = self.get_output_filepath(input_sequence, param_set)
-        output_filename = self.get_output_filename(input_sequence, param_set)
-        output_dir = Path(output_filepath.parent)
+        output_file = self.get_output_file(input_sequence, param_set)
 
-        console_logger.debug(f"{self._name}: Output: '{output_filename}'")
+        console_logger.debug(f"{self._name}: Output: '{output_file.get_filepath().name}'")
         console_logger.debug(f"{self._name}: Arguments: '{param_set.to_cmdline_str()}'")
 
-        encoding_log_filepath = self.get_encoding_log_filepath(input_sequence, param_set)
-        encoding_log_filename = self.get_encoding_log_filename(input_sequence, param_set)
-        console_logger.debug(f"{self._name}: Log: '{encoding_log_filename}'")
+        console_logger.debug(f"{self._name}: Log: '{output_file.get_encoding_log_path()}'")
 
-        if output_filepath.exists():
-            console_logger.info(f"{self._name}: File '{output_filename}' already exists")
-            return None, None
+        if output_file.get_filepath().exists():
+            console_logger.info(f"{self._name}: File '{output_file.get_filepath().name}' already exists")
+            return None
 
-        if not output_dir.exists():
-            output_dir.mkdir(parents=True)
+        if not output_file.get_filepath().parent.exists():
+            output_file.get_filepath().parent.mkdir(parents=True)
 
-        return output_filepath, encoding_log_filepath
+        return output_file.get_filepath()
 
     def encode_finish(self,
                       encode_cmd: tuple,
-                      input_sequence: tester.core.videosequence,
+                      input_sequence: tester.core.video,
                       param_set: ParamSetBase) -> None:
         """Meant to be called as the last thing from the encode() method of derived classes."""
+
+        output_file = self.get_output_file(input_sequence, param_set)
+
         try:
             output = subprocess.check_output(
                 encode_cmd,
                 stderr=subprocess.STDOUT
             )
-            with self.get_encoding_log_filepath(input_sequence, param_set).open("w") as encoding_log:
+            with output_file.get_encoding_log_path().open("w") as encoding_log:
                 encoding_log.write(output.decode())
         except subprocess.CalledProcessError as exception:
             console_logger.error(f"{self._name}: Encoding failed "
                                  f"(input: '{input_sequence.input_filepath()}', "
-                                 f"output: '{self.get_output_filepath(input_sequence, param_set)}')")
+                                 f"output: '{output_file.get_filepath()}')")
             console_logger.error(exception.output.decode().strip())
             raise
