@@ -18,10 +18,10 @@ class SubTestMetrics:
 
     def __init__(self,
                  input_sequence: RawVideoSequence,
-                 output_sequence: HevcVideoFile):
+                 output_file: HevcVideoFile):
         self._input_sequence: RawVideoSequence = input_sequence
-        self._output_sequence: HevcVideoFile = output_sequence
-        self._filepath: Path = output_sequence.get_metrics_json_path()
+        self._output_file: HevcVideoFile = output_file
+        self._filepath: Path = output_file.get_metrics_json_path()
         self._json_data: dict = {}
         if self._filepath.exists():
             self._json_data = self._read_in()
@@ -35,8 +35,8 @@ class SubTestMetrics:
     def get_input_sequence(self) -> RawVideoSequence:
         return self._input_sequence
 
-    def get_output_sequence(self) -> HevcVideoFile:
-        return self._output_sequence
+    def get_output_file(self) -> HevcVideoFile:
+        return self._output_file
 
     def get_filepath(self) -> Path:
         return self._filepath
@@ -177,7 +177,7 @@ class SubTestMetrics:
             with self._filepath.open("w") as file:
                 json.dump(self._json_data, file)
         except:
-            console_log.error(f"Couldn't write metrics to file '{self._filepath}'")
+            console_log.error(f"{type(self).__name__}: Couldn't write metrics to file '{self._filepath}'")
             raise
 
     def _read_in(self) -> None:
@@ -186,7 +186,7 @@ class SubTestMetrics:
                 with self._filepath.open("r") as file:
                     self._json_data = json.load(file)
             except:
-                console_log.error(f"Couldn't read metrics from file '{self._filepath}'")
+                console_log.error(f"{type(self).__name__}: Couldn't read metrics from file '{self._filepath}'")
                 raise
 
 
@@ -219,13 +219,13 @@ class TestMetrics:
 
         for subtest_metrics in self._subtest_metrics:
             psnr_list.append((
-                subtest_metrics.get_output_sequence().get_bitrate(),
+                subtest_metrics.get_output_file().get_bitrate(),
                 subtest_metrics.get_psnr_avg()
             ))
 
         for anchor_subtest_metrics in anchor._subtest_metrics:
             anchor_psnr_list.append((
-                anchor_subtest_metrics.get_output_sequence().get_bitrate(),
+                anchor_subtest_metrics.get_output_file().get_bitrate(),
                 anchor_subtest_metrics.get_psnr_avg()
             ))
 
@@ -242,13 +242,13 @@ class TestMetrics:
 
         for subtest_metrics in self._subtest_metrics:
             ssim_list.append((
-                subtest_metrics.get_output_sequence().get_bitrate(),
+                subtest_metrics.get_output_file().get_bitrate(),
                 subtest_metrics.get_ssim_avg()
             ))
 
         for anchor_subtest_metrics in anchor._subtest_metrics:
             anchor_ssim_list.append((
-                anchor_subtest_metrics.get_output_sequence().get_bitrate(),
+                anchor_subtest_metrics.get_output_file().get_bitrate(),
                 anchor_subtest_metrics.get_ssim_avg()
             ))
 
