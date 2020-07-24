@@ -119,6 +119,8 @@ class RawVideoSequence(VideoFileBase):
         self._chroma = chroma
         self._bits_per_pixel = bits_per_pixel
 
+        self._sequence_class = RawVideoSequence.guess_sequence_class_from_filepath(filepath)
+
         console_log.debug(f"{type(self).__name__}: Initialized object:")
         for attribute_name in sorted(self.__dict__):
             console_log.debug(f"{type(self).__name__}: "
@@ -154,7 +156,7 @@ class RawVideoSequence(VideoFileBase):
         return PIXEL_FORMATS[(self._chroma, self._bits_per_pixel)]
 
     def get_sequence_class(self) -> str:
-        return RawVideoSequence.guess_sequence_class_from_filepath(self._filepath)
+        return self._sequence_class
 
     @staticmethod
     def guess_sequence_class_from_filepath(filepath: Path) -> str:
@@ -162,7 +164,7 @@ class RawVideoSequence(VideoFileBase):
             sequence_class = f"hevc-{letter}"
             if sequence_class.lower() in str(filepath).lower():
                 return sequence_class
-        console_log.warning(f"VideoSequence: Could not guess the sequence class from '{filepath}'")
+        console_log.debug(f"VideoSequence: Could not guess the sequence class from '{filepath}'")
         return "-"
 
     @staticmethod
