@@ -2,6 +2,7 @@
 
 import logging
 import sys
+import traceback
 from pathlib import Path
 
 # For printing colored text.
@@ -48,6 +49,14 @@ handler.setFormatter(formatter)
 console_log = logging.getLogger("console")
 console_log.addHandler(handler)
 console_log.setLevel(logging.DEBUG)
+
+
+def log_exception(exception: Exception) -> None:
+    console_log.error(f"Tester: An exception of"
+                      f"type '{type(exception).__name__}' "
+                      f"was caught: "
+                      f"{str(exception)}")
+    console_log.error(f"Tester: {traceback.format_exc().strip()}")
 
 
 UNAVAILABLE_LOG_FILENAMES = []

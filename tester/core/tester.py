@@ -98,7 +98,7 @@ class Tester:
             self._create_base_directories_if_not_exist()
         except Exception as exception:
             console_log.error("Tester: Failed to initialize")
-            self._log_exception(exception)
+            log_exception(exception)
             exit(1)
 
     def create_context(self,
@@ -109,7 +109,7 @@ class Tester:
             return TesterContext(tests, input_sequence_globs)
         except Exception as exception:
             console_log.info("Tester: Failed to create context")
-            self._log_exception(exception)
+            log_exception(exception)
             exit(1)
 
     def run_tests(self,
@@ -131,7 +131,7 @@ class Tester:
 
         except Exception as exception:
             console_log.error(f"Tester: Failed to run tests")
-            self._log_exception(exception)
+            log_exception(exception)
             exit(1)
 
     def compute_metrics(self,
@@ -159,7 +159,7 @@ class Tester:
                                           f"subtest '{subtest.get_name()}'")
                         if isinstance(exception, subprocess.CalledProcessError):
                             console_log.error(exception.output.decode())
-                        self._log_exception(exception)
+                        log_exception(exception)
                         console_log.info(f"Tester: Ignoring error")
 
     def generate_csv(self,
@@ -214,12 +214,12 @@ class Tester:
                                 console_log.error(f"Tester: Failed to add CSV entry for "
                                                   f"sequence '{sequence.get_filepath().name}', "
                                                   f"subtest '{subtest.get_name()}'")
-                                self._log_exception(exception)
+                                log_exception(exception)
                                 console_log.info(f"Tester: Ignoring error")
 
         except Exception as exception:
             console_log.error(f"Tester: Failed to generate CSV file '{csv_filepath}'")
-            self._log_exception(exception)
+            log_exception(exception)
             exit(1)
 
     def _run_subtest(self,
@@ -256,7 +256,7 @@ class Tester:
 
         except Exception as exception:
             console_log.error(f"Tester: Test failed")
-            self._log_exception(exception)
+            log_exception(exception)
             exit(1)
 
     def _create_base_directories_if_not_exist(self) -> None:
@@ -271,11 +271,5 @@ class Tester:
                     path.mkdir(parents=True)
                 except Exception as exception:
                     console_log.error(f"Tester: Failed to create directory '{path}'")
-                    self._log_exception(exception)
+                    log_exception(exception)
                     exit(1)
-
-    def _log_exception(self,
-                       exception: Exception) -> None:
-        console_log.error(f"Tester: An exception of type '{type(exception).__name__}' was caught: "
-                             f"{str(exception)}")
-        console_log.error(f"Tester: {traceback.format_exc().strip()}")
