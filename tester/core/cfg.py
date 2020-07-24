@@ -145,7 +145,7 @@ class Cfg(metaclass=Singleton):
         will be placed."""
         return self.tester_root_path / self.binaries_dir_name
 
-    SOURCES_DIR_NAME = "_sources"
+    SOURCES_DIR_NAME: str = "_sources"
     @property
     def sources_dir_name(self) -> str:
         """Returns the name of the directory in which source code fetched by the tester
@@ -157,6 +157,12 @@ class Cfg(metaclass=Singleton):
         """Returns the path of the directory in which source code fetched by the tester
         will be placed."""
         return self.tester_root_path / self.sources_dir_name
+
+    SEQUENCES_DIR_PATH: Path = Path.cwd()
+    @property
+    def sequences_dir_path(self) -> Path:
+        """Returns the path of the directory in which input sequences are located."""
+        return self.SEQUENCES_DIR_PATH
 
     SHORT_COMMIT_HASH_LEN: int = 16
     @property

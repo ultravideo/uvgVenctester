@@ -29,7 +29,7 @@ class TesterContext:
 
         self._input_sequences: list = []
         for glob in input_sequence_globs:
-            for filepath in Path().glob(glob):
+            for filepath in Cfg().sequences_dir_path.glob(glob):
                 self._input_sequences.append(
                     RawVideoSequence(
                         filepath=filepath.resolve(),
