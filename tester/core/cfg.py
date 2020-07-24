@@ -263,17 +263,17 @@ class Cfg(metaclass=Singleton):
         passed to MSBuild when compiling Kvazaar on Windows."""
         return self.KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION
 
-    KVZ_MSBUILD_ARGS: list = [
-        f"/p:Configuration={KVZ_MSBUILD_CONFIGURATION}",
-        f"/p:Platform={KVZ_MSBUILD_PLATFORM}",
-        f"/p:PlatformToolset={KVZ_MSBUILD_PLATFORMTOOLSET}",
-        f"/p:WindowsTargetPlatformVersion={KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION}",
-    ]
     @property
     def kvz_msbuild_args(self) -> list:
         """Returns the additional command line arguments to be passed to MSBuild
         when compiling Kvazaar on Windows."""
-        return self.KVZ_MSBUILD_ARGS
+
+        return [
+            f"/p:Configuration={self.kvz_msbuild_configuration}",
+            f"/p:Platform={self.kvz_msbuild_platform}",
+            f"/p:PlatformToolset={self.kvz_msbuild_platformtoolset}",
+            f"/p:WindowsTargetPlatformVersion={self.kvz_msbuild_windowstargetplatformversion}",
+        ]
 
     KVZ_VS_SOLUTION_NAME: str = "kvazaar_VS2015.sln"
     @property
