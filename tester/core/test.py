@@ -117,8 +117,8 @@ class Test:
         return self._anchor_names
 
     def get_metrics(self,
-                    sequence: RawVideoSequence) -> TestMetrics:
+                    input_sequence: RawVideoSequence) -> TestMetrics:
         return TestMetrics(
-            [subtest.get_metrics(sequence) for subtest in self._subtests],
-            sequence
+            [subtest.get_metrics(input_sequence) for subtest in self._subtests],
+            input_sequence
         )
