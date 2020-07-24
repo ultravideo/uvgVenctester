@@ -23,7 +23,7 @@ class SubTest:
         self._param_set = param_set
 
     def __eq__(self, other: SubTest):
-        return self._encoder == other.get_encoder and self._param_set == other._param_set
+        return self._encoder == other._encoder and self._param_set == other._param_set
 
     def __hash__(self):
         return hashlib.md5(self._name.encode())
