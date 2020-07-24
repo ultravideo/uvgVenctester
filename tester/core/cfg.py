@@ -162,7 +162,7 @@ class Cfg(metaclass=Singleton):
     @property
     def sequences_dir_path(self) -> Path:
         """Returns the path of the directory in which input sequences are located."""
-        return self.SEQUENCES_DIR_PATH
+        return Path(self.SEQUENCES_DIR_PATH)
 
     SHORT_COMMIT_HASH_LEN: int = 16
     @property
@@ -182,7 +182,7 @@ class Cfg(metaclass=Singleton):
     @property
     def vs_install_path(self) -> Path:
         """Returns the absolute path of the Visual Studio base installation directory."""
-        return self.VS_INSTALL_PATH
+        return Path(self.VS_INSTALL_PATH)
 
     VS_VERSION: str = "2019"
     @property
