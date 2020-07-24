@@ -69,6 +69,13 @@ class Test:
         self._encoder: EncoderBase = None
         self._anchor_names: list = anchor_names
 
+        # Order quality parameters in ascending order by resulting bitrate,
+        # since that is the order in which the results have to be when BD-BR is computed.
+        if quality_param_type == QualityParamType.QP:
+            quality_param_list = sorted(quality_param_list, reverse=True)
+        elif quality_param_type == QualityParamType.BITRATE:
+            quality_param_list = sorted(quality_param_list)
+
         param_sets = []
 
         if encoder_id == EncoderId.KVAZAAR:
