@@ -57,23 +57,23 @@ class TesterContext:
             for test2 in self._tests:
                 if test1 == test2 and not test1 is test2:
                     console_log.error(f"Tester: Duplicate tests: "
-                                         f"'{test1.get_name()}', "
-                                         f"'{test2.get_name()}'")
+                                      f"'{test1.get_name()}', "
+                                      f"'{test2.get_name()}'")
                     raise RuntimeError
 
         for test1 in self._tests:
             for test2 in self._tests:
                 if test1.get_name() == test2.get_name() and test1 is not test2:
                     console_log.error(f"Tester: Duplicate test name "
-                                         f"'{test1.get_name()}'")
+                                      f"'{test1.get_name()}'")
                     raise RuntimeError
 
         for test in self._tests:
             for anchor_name in test.get_anchor_names():
                 if not anchor_name in self._tests_by_name.keys():
                     console_log.error(f"Tester: Anchor '{anchor_name}' "
-                                         f"of test '{test.get_name()}' "
-                                         f"does not exist")
+                                      f"of test '{test.get_name()}' "
+                                      f"does not exist")
                     raise RuntimeError
 
     def validate_final(self) -> None:
@@ -83,7 +83,7 @@ class TesterContext:
             for subtest in test.get_subtests():
                 if not test.get_encoder().dummy_run(subtest.get_param_set()):
                     console_log.error(f"Tester: Test '{test.get_name()}' "
-                                         f"is invalid")
+                                      f"is invalid")
                     raise RuntimeError
 
 
@@ -227,7 +227,7 @@ class Tester:
                      input_sequence: RawVideoSequence) -> None:
 
         console_log.info(f"Tester: Running subtest '{subtest.get_name()}' "
-                            f"for sequence '{input_sequence.get_filepath().name}'")
+                         f"for sequence '{input_sequence.get_filepath().name}'")
 
         param_set = subtest.get_param_set()
         encoder = subtest.get_encoder()
@@ -252,7 +252,7 @@ class Tester:
 
             else:
                 console_log.info(f"Tester: Results for subtest '{subtest.get_name()}', "
-                                    f"sequence '{input_sequence.get_filepath().name}' already exist")
+                                 f"sequence '{input_sequence.get_filepath().name}' already exist")
 
         except Exception as exception:
             console_log.error(f"Tester: Test failed")

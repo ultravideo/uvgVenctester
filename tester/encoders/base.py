@@ -226,7 +226,7 @@ class EncoderBase:
                 raise exception
         else:
             console_log.info(f"{self._name}: Repository '{self._git_local_path}' "
-                                f"already exists")
+                             f"already exists")
 
         # Convert the user-given revision into the actual full revision.
         cmd, output, exception = self._git_repo.rev_parse(self._user_given_revision)
@@ -239,13 +239,13 @@ class EncoderBase:
         # These can now be evaluated because the repo exists for certain.
         self._commit_hash_short = self._commit_hash[:Cfg().short_commit_hash_len]
         self._exe_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}"\
-                        f"{'.exe' if Cfg().os_name == 'Windows' else ''}"
+                         f"{'.exe' if Cfg().os_name == 'Windows' else ''}"
         self._exe_path = Cfg().binaries_dir_path / self._exe_name
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
         self._build_log_path = Cfg().binaries_dir_path / self._build_log_name
 
         console_log.info(f"{self._name}: Revision '{self._user_given_revision}' "
-                            f"maps to commit hash '{self._commit_hash}'")
+                         f"maps to commit hash '{self._commit_hash}'")
 
     def build(self) -> None:
         """Builds the executable."""
@@ -357,7 +357,7 @@ class EncoderBase:
             )
         except subprocess.CalledProcessError as exception:
             console_log.error(f"{self._name}: Invalid arguments: "
-                                 f"'{param_set.to_cmdline_str()}'")
+                              f"'{param_set.to_cmdline_str()}'")
             console_log.error(exception.output.decode().strip())
             return False
         return True
@@ -408,7 +408,7 @@ class EncoderBase:
                 encoding_log.write(output.decode())
         except subprocess.CalledProcessError as exception:
             console_log.error(f"{self._name}: Encoding failed "
-                                 f"(input: '{input_sequence.input_filepath()}', "
-                                 f"output: '{output_file.get_filepath()}')")
+                              f"(input: '{input_sequence.input_filepath()}', "
+                              f"output: '{output_file.get_filepath()}')")
             console_log.error(exception.output.decode().strip())
             raise

@@ -184,7 +184,7 @@ class RawVideoSequence(VideoFileBase):
     def guess_total_framecount_from_filename(filepath: Path) -> int:
 
         console_log.debug(f"VideoSequence: Trying to guess the total framecount from "
-                             f"'{filepath.name}'")
+                          f"'{filepath.name}'")
 
         framecount_pattern = re.compile("_[0-9]+x[0-9]+_[0-9]+_([0-9]+)")
         match = framecount_pattern.search(filepath.name)
@@ -192,7 +192,7 @@ class RawVideoSequence(VideoFileBase):
             return int(match.group(1))
         else:
             console_log.debug(f"VideoSequence: Could not guess the total framecount from "
-                                 f"'{filepath.name}'")
+                              f"'{filepath.name}'")
             return 0
 
     @staticmethod

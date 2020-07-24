@@ -69,13 +69,13 @@ class Cfg(metaclass=Singleton):
             property = getattr(self, property_name)
             if isinstance(property, Path) and not property.exists():
                 console_log.warning(f"Cfg: Property {property_name}:"
-                                       f" Path '{getattr(self, property_name)}' does not exist")
+                                    f" Path '{getattr(self, property_name)}' does not exist")
 
         # Only Linux and Windows are supported.
         SUPPORTED_OSES = ["Linux", "Windows"]
         if not self.os_name in SUPPORTED_OSES:
             console_log.error(f"Cfg: Unsupported OS '{Cfg().os_name}'. Expected one of "
-                                 f"{SUPPORTED_OSES}")
+                              f"{SUPPORTED_OSES}")
             raise RuntimeError
 
     def _property_names(self) -> list:
