@@ -34,22 +34,22 @@ class Cfg(metaclass=Singleton):
         presented in it. Meant to be called by the tester."""
 
         if userconfig:
-            console_logger.info("Cfg: Reading userconfig")
+            console_log.info("Cfg: Reading userconfig")
 
             # Set and print values of variables with valid names.
             for variable_name in self._user_variable_names():
                 if hasattr(self, variable_name):
                     value = getattr(userconfig, variable_name)
-                    console_logger.debug(f"Cfg: Variable userconfig.{variable_name} = {value}")
+                    console_log.debug(f"Cfg: Variable userconfig.{variable_name} = {value}")
                     setattr(self, variable_name, value)
 
             # Check that all variables are recognized.
             for variable_name in self._user_variable_names():
                 if not hasattr(self, variable_name):
-                    console_logger.error(f"Cfg: Unknown variable userconfig.{variable_name}")
+                    console_log.error(f"Cfg: Unknown variable userconfig.{variable_name}")
                     raise RuntimeError
         else:
-            console_logger.warning("Cfg: Userconfig not found")
+            console_log.warning("Cfg: Userconfig not found")
 
     def validate_all(self) -> None:
         """Validates configuration variables.
@@ -58,23 +58,23 @@ class Cfg(metaclass=Singleton):
 
         # Print variable values.
         for variable_name in self._variable_names():
-            console_logger.debug(f"Cfg: Variable {variable_name} = {getattr(self, variable_name)}")
+            console_log.debug(f"Cfg: Variable {variable_name} = {getattr(self, variable_name)}")
 
         # Print property values.
         for property_name in self._property_names():
-            console_logger.debug(f"Cfg: Property {property_name} = {getattr(self, property_name)}")
+            console_log.debug(f"Cfg: Property {property_name} = {getattr(self, property_name)}")
 
         # Check whether the paths defined by the properties exist - warn if not.
         for property_name in self._property_names():
             property = getattr(self, property_name)
             if isinstance(property, Path) and not property.exists():
-                console_logger.warning(f"Cfg: Property {property_name}:"
+                console_log.warning(f"Cfg: Property {property_name}:"
                                        f" Path '{getattr(self, property_name)}' does not exist")
 
         # Only Linux and Windows are supported.
         SUPPORTED_OSES = ["Linux", "Windows"]
         if not self.os_name in SUPPORTED_OSES:
-            console_logger.error(f"Cfg: Unsupported OS '{Cfg().os_name}'. Expected one of "
+            console_log.error(f"Cfg: Unsupported OS '{Cfg().os_name}'. Expected one of "
                                  f"{SUPPORTED_OSES}")
             raise RuntimeError
 

@@ -177,7 +177,7 @@ class SubTestMetrics:
             with self._filepath.open("w") as file:
                 json.dump(self._json_data, file)
         except:
-            console_logger.error(f"Couldn't write metrics to file '{self._filepath}'")
+            console_log.error(f"Couldn't write metrics to file '{self._filepath}'")
             raise
 
     def _read_in(self) -> None:
@@ -186,7 +186,7 @@ class SubTestMetrics:
                 with self._filepath.open("r") as file:
                     self._json_data = json.load(file)
             except:
-                console_logger.error(f"Couldn't read metrics from file '{self._filepath}'")
+                console_log.error(f"Couldn't read metrics from file '{self._filepath}'")
                 raise
 
 

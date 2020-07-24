@@ -45,9 +45,9 @@ class ColoredFormatter(logging.Formatter):
 formatter = ColoredFormatter("--%(levelname)s: %(message)s")
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
-console_logger = logging.getLogger("console")
-console_logger.addHandler(handler)
-console_logger.setLevel(logging.DEBUG)
+console_log = logging.getLogger("console")
+console_log.addHandler(handler)
+console_log.setLevel(logging.DEBUG)
 
 
 UNAVAILABLE_LOG_FILENAMES = []

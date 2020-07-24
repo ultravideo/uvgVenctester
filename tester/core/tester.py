@@ -56,7 +56,7 @@ class TesterContext:
         for test1 in self._tests:
             for test2 in self._tests:
                 if test1 == test2 and not test1 is test2:
-                    console_logger.error(f"Tester: Duplicate tests: "
+                    console_log.error(f"Tester: Duplicate tests: "
                                          f"'{test1.get_name()}', "
                                          f"'{test2.get_name()}'")
                     raise RuntimeError
@@ -64,14 +64,14 @@ class TesterContext:
         for test1 in self._tests:
             for test2 in self._tests:
                 if test1.get_name() == test2.get_name() and test1 is not test2:
-                    console_logger.error(f"Tester: Duplicate test name "
+                    console_log.error(f"Tester: Duplicate test name "
                                          f"'{test1.get_name()}'")
                     raise RuntimeError
 
         for test in self._tests:
             for anchor_name in test.get_anchor_names():
                 if not anchor_name in self._tests_by_name.keys():
-                    console_logger.error(f"Tester: Anchor '{anchor_name}' "
+                    console_log.error(f"Tester: Anchor '{anchor_name}' "
                                          f"of test '{test.get_name()}' "
                                          f"does not exist")
                     raise RuntimeError
@@ -82,7 +82,7 @@ class TesterContext:
         for test in self._tests:
             for subtest in test.get_subtests():
                 if not test.get_encoder().dummy_run(subtest.get_param_set()):
-                    console_logger.error(f"Tester: Test '{test.get_name()}' "
+                    console_log.error(f"Tester: Test '{test.get_name()}' "
                                          f"is invalid")
                     raise RuntimeError
 
@@ -92,23 +92,23 @@ class Tester:
 
     def __init__(self):
         try:
-            console_logger.info("Tester: Initializing")
+            console_log.info("Tester: Initializing")
             Cfg().read_userconfig()
             Cfg().validate_all()
             self._create_base_directories_if_not_exist()
         except Exception as exception:
-            console_logger.error("Tester: Failed to initialize")
+            console_log.error("Tester: Failed to initialize")
             self._log_exception(exception)
             exit(1)
 
     def create_context(self,
                        tests: list,
                        input_sequence_globs: list) -> TesterContext:
-        console_logger.info("Tester: Creating context")
+        console_log.info("Tester: Creating context")
         try:
             return TesterContext(tests, input_sequence_globs)
         except Exception as exception:
-            console_logger.info("Tester: Failed to create context")
+            console_log.info("Tester: Failed to create context")
             self._log_exception(exception)
             exit(1)
 
@@ -116,10 +116,10 @@ class Tester:
                   context:TesterContext) -> None:
 
         try:
-            console_logger.info(f"Tester: Building encoders")
+            console_log.info(f"Tester: Building encoders")
             context.validate_initial()
             for test in context.get_tests():
-                console_logger.info(f"Tester: Building encoder for test '{test.get_name()}'")
+                console_log.info(f"Tester: Building encoder for test '{test.get_name()}'")
                 test.get_encoder().build()
                 test.get_encoder().clean()
             context.validate_final()
@@ -130,7 +130,7 @@ class Tester:
                         self._run_subtest(subtest, sequence)
 
         except Exception as exception:
-            console_logger.error(f"Tester: Failed to run tests")
+            console_log.error(f"Tester: Failed to run tests")
             self._log_exception(exception)
             exit(1)
 
@@ -141,9 +141,9 @@ class Tester:
                 for test in context.get_tests():
                     for subtest in test.get_subtests():
 
-                        console_logger.info(f"Tester: Computing metrics")
-                        console_logger.info(f"Tester: Sequence: '{sequence.get_filepath().name}'")
-                        console_logger.info(f"Tester: Subtest: '{subtest.get_name()}'")
+                        console_log.info(f"Tester: Computing metrics")
+                        console_log.info(f"Tester: Sequence: '{sequence.get_filepath().name}'")
+                        console_log.info(f"Tester: Subtest: '{subtest.get_name()}'")
 
                         psnr_avg, ssim_avg = ffmpeg.compute_psnr_and_ssim(
                             sequence,
@@ -153,9 +153,9 @@ class Tester:
                         subtest.get_metrics(sequence).set_ssim_avg(ssim_avg)
 
         except Exception as exception:
-            console_logger.error(f"Tester: Failed to compute metrics")
+            console_log.error(f"Tester: Failed to compute metrics")
             if isinstance(exception, subprocess.CalledProcessError):
-                console_logger.error(exception.output.decode())
+                console_log.error(exception.output.decode())
             self._log_exception(exception)
             exit(1)
 
@@ -163,7 +163,7 @@ class Tester:
                      context: TesterContext,
                      csv_filepath: str) -> None:
 
-        console_logger.info(f"Tester: Generating CSV file '{csv_filepath}'")
+        console_log.info(f"Tester: Generating CSV file '{csv_filepath}'")
 
         try:
             csvfile = CsvFile(filepath=Path(csv_filepath))
@@ -207,7 +207,7 @@ class Tester:
                             )
 
         except Exception as exception:
-            console_logger.error(f"Tester: Failed to generate CSV file '{csv_filepath}'")
+            console_log.error(f"Tester: Failed to generate CSV file '{csv_filepath}'")
             self._log_exception(exception)
             exit(1)
 
@@ -215,7 +215,7 @@ class Tester:
                      subtest: SubTest,
                      input_sequence: RawVideoSequence) -> None:
 
-        console_logger.info(f"Tester: Running subtest '{subtest.get_name()}' "
+        console_log.info(f"Tester: Running subtest '{subtest.get_name()}' "
                             f"for sequence '{input_sequence.get_filepath().name}'")
 
         param_set = subtest.get_param_set()
@@ -240,11 +240,11 @@ class Tester:
                 subtest_metrics.set_encoding_time(encoding_time_seconds)
 
             else:
-                console_logger.info(f"Tester: Results for subtest '{subtest.get_name()}', "
+                console_log.info(f"Tester: Results for subtest '{subtest.get_name()}', "
                                     f"sequence '{input_sequence.get_filepath().name}' already exist")
 
         except Exception as exception:
-            console_logger.error(f"Tester: Test failed")
+            console_log.error(f"Tester: Test failed")
             self._log_exception(exception)
             exit(1)
 
@@ -255,16 +255,16 @@ class Tester:
             Cfg().sources_dir_path
         ]:
             if not path.exists():
-                console_logger.debug(f"Tester: Creating directory '{path}'")
+                console_log.debug(f"Tester: Creating directory '{path}'")
                 try:
                     path.mkdir(parents=True)
                 except Exception as exception:
-                    console_logger.error(f"Tester: Failed to create directory '{path}'")
+                    console_log.error(f"Tester: Failed to create directory '{path}'")
                     self._log_exception(exception)
                     exit(1)
 
     def _log_exception(self,
                        exception: Exception) -> None:
-        console_logger.error(f"Tester: An exception of type '{type(exception).__name__}' was caught: "
+        console_log.error(f"Tester: An exception of type '{type(exception).__name__}' was caught: "
                              f"{str(exception)}")
-        console_logger.error(f"Tester: {traceback.format_exc()}")
+        console_log.error(f"Tester: {traceback.format_exc()}")

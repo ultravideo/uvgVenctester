@@ -65,7 +65,7 @@ class ParamSetBase():
                  cl_args: str):
 
         if not quality_param_type.is_valid():
-            console_logger.error(f"ParamSetBase: Invalid quality_param_type "
+            console_log.error(f"ParamSetBase: Invalid quality_param_type "
                                  f"'{str(quality_param_type)}'")
             raise RuntimeError
 
@@ -149,9 +149,9 @@ class EncoderBase:
         # This is set when build() is called.
         self._build_log: logging.Logger = None
 
-        console_logger.debug(f"{self._name}: Initialized object:")
+        console_log.debug(f"{self._name}: Initialized object:")
         for attribute_name in sorted(self.__dict__):
-            console_logger.debug(f"{self._name}: {attribute_name} = '{getattr(self, attribute_name)}'")
+            console_log.debug(f"{self._name}: {attribute_name} = '{getattr(self, attribute_name)}'")
 
     def __eq__(self,
                other: EncoderBase) -> bool:
@@ -211,9 +211,9 @@ class EncoderBase:
         )
 
     def prepare_sources(self) -> None:
-        console_logger.info(f"{self._name}: Preparing sources")
-        console_logger.info(f"{self._name}: Repository: '{self._git_repo._local_repo_path}'")
-        console_logger.info(f"{self._name}: Revision: '{self._user_given_revision}'")
+        console_log.info(f"{self._name}: Preparing sources")
+        console_log.info(f"{self._name}: Repository: '{self._git_repo._local_repo_path}'")
+        console_log.info(f"{self._name}: Revision: '{self._user_given_revision}'")
 
         # Clone the remote if the local repo doesn't exist yet.
         if not self._git_local_path.exists():
@@ -221,11 +221,11 @@ class EncoderBase:
             if not exception:
                 pass
             else:
-                console_logger.error(cmd_str)
-                console_logger.error(exception.output.decode())
+                console_log.error(cmd_str)
+                console_log.error(exception.output.decode())
                 raise exception
         else:
-            console_logger.info(f"{self._name}: Repository '{self._git_local_path}' "
+            console_log.info(f"{self._name}: Repository '{self._git_local_path}' "
                                 f"already exists")
 
         # Convert the user-given revision into the actual full revision.
@@ -233,7 +233,7 @@ class EncoderBase:
         if not exception:
             self._commit_hash = output.decode().strip()
         else:
-            console_logger.error(f"{self._name}: Invalid revision '{self._user_given_revision}'")
+            console_log.error(f"{self._name}: Invalid revision '{self._user_given_revision}'")
             raise exception
 
         # These can now be evaluated because the repo exists for certain.
@@ -244,7 +244,7 @@ class EncoderBase:
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
         self._build_log_path = Cfg().binaries_dir_path / self._build_log_name
 
-        console_logger.info(f"{self._name}: Revision '{self._user_given_revision}' "
+        console_log.info(f"{self._name}: Revision '{self._user_given_revision}' "
                             f"maps to commit hash '{self._commit_hash}'")
 
     def build(self) -> None:
@@ -255,11 +255,11 @@ class EncoderBase:
         """Meant to be called as the first thing from the build() method of derived classes."""
         assert Cfg().binaries_dir_path.exists()
 
-        console_logger.info(f"{self._name}: Building executable '{self._exe_name}'")
-        console_logger.info(f"{self._name}: Log: '{self._build_log_name}'")
+        console_log.info(f"{self._name}: Building executable '{self._exe_name}'")
+        console_log.info(f"{self._name}: Log: '{self._build_log_name}'")
 
         if (self._exe_path.exists()):
-            console_logger.info(f"{self._name}: Executable '{self._exe_name}' already exists")
+            console_log.info(f"{self._name}: Executable '{self._exe_name}' already exists")
             # Don't build unnecessarily.
             return False
 
@@ -273,7 +273,7 @@ class EncoderBase:
         else:
             self._build_log.info(cmd_str)
             self._build_log.info(exception.output.decode())
-            console_logger.error(exception.output.decode())
+            console_log.error(exception.output.decode())
             raise exception
 
         # Do build.
@@ -299,7 +299,7 @@ class EncoderBase:
             else:
                 self._build_log.info(output.decode())
         except subprocess.CalledProcessError as exception:
-            console_logger.error(exception.output.decode())
+            console_log.error(exception.output.decode())
             self._build_log.error(exception.output.decode())
             raise
 
@@ -311,7 +311,7 @@ class EncoderBase:
             shutil.copy(str(self._exe_src_path), str(self._exe_path))
 
         except FileNotFoundError as exception:
-            console_logger.error(str(exception))
+            console_log.error(str(exception))
             self._build_log.error(str(exception))
             raise
 
@@ -321,7 +321,7 @@ class EncoderBase:
 
     def clean_start(self) -> None:
         """Meant to be called as the first thing from the clean() method of derived classes."""
-        console_logger.info(f"{self._name}: Cleaning build artifacts")
+        console_log.info(f"{self._name}: Cleaning build artifacts")
 
     def clean_finish(self, clean_cmd: tuple) -> None:
         """Meant to be called as the last thing from the clean() method of derived classes."""
@@ -332,7 +332,7 @@ class EncoderBase:
                 stderr=subprocess.STDOUT
             )
         except subprocess.CalledProcessError as exception:
-            console_logger.error(exception.output.decode())
+            console_log.error(exception.output.decode())
             raise
 
     def dummy_run(self,
@@ -343,7 +343,7 @@ class EncoderBase:
     def dummy_run_start(self,
                         param_set: ParamSetBase) -> bool:
         """Meant to be called as the first thing from the dummy_run() method of derived classes."""
-        console_logger.debug(f"{self._name}: Validating arguments: '{param_set.to_cmdline_str()}'")
+        console_log.debug(f"{self._name}: Validating arguments: '{param_set.to_cmdline_str()}'")
         return True
 
     def dummy_run_finish(self,
@@ -356,9 +356,9 @@ class EncoderBase:
                 stderr=subprocess.STDOUT
             )
         except subprocess.CalledProcessError as exception:
-            console_logger.error(f"{self._name}: Invalid arguments: "
+            console_log.error(f"{self._name}: Invalid arguments: "
                                  f"'{param_set.to_cmdline_str()}'")
-            console_logger.error(exception.output.decode().strip())
+            console_log.error(exception.output.decode().strip())
             return False
         return True
 
@@ -373,17 +373,17 @@ class EncoderBase:
                      param_set: ParamSetBase) -> Path:
         """Meant to be called as the first thing from the encode() method of derived classes."""
 
-        console_logger.debug(f"{self._name}: Encoding file '{input_sequence.get_filepath().name}'")
+        console_log.debug(f"{self._name}: Encoding file '{input_sequence.get_filepath().name}'")
 
         output_file = self.get_output_file(input_sequence, param_set)
 
-        console_logger.debug(f"{self._name}: Output: '{output_file.get_filepath().name}'")
-        console_logger.debug(f"{self._name}: Arguments: '{param_set.to_cmdline_str()}'")
+        console_log.debug(f"{self._name}: Output: '{output_file.get_filepath().name}'")
+        console_log.debug(f"{self._name}: Arguments: '{param_set.to_cmdline_str()}'")
 
-        console_logger.debug(f"{self._name}: Log: '{output_file.get_encoding_log_path()}'")
+        console_log.debug(f"{self._name}: Log: '{output_file.get_encoding_log_path()}'")
 
         if output_file.get_filepath().exists():
-            console_logger.info(f"{self._name}: File '{output_file.get_filepath().name}' already exists")
+            console_log.info(f"{self._name}: File '{output_file.get_filepath().name}' already exists")
             return None
 
         if not output_file.get_filepath().parent.exists():
@@ -407,8 +407,8 @@ class EncoderBase:
             with output_file.get_encoding_log_path().open("w") as encoding_log:
                 encoding_log.write(output.decode())
         except subprocess.CalledProcessError as exception:
-            console_logger.error(f"{self._name}: Encoding failed "
+            console_log.error(f"{self._name}: Encoding failed "
                                  f"(input: '{input_sequence.input_filepath()}', "
                                  f"output: '{output_file.get_filepath()}')")
-            console_logger.error(exception.output.decode().strip())
+            console_log.error(exception.output.decode().strip())
             raise

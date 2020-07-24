@@ -38,17 +38,17 @@ def compute_psnr_and_ssim(input_sequence: RawVideoSequence,
     )
 
     try:
-        console_logger.debug(f"ffmpeg: Computing metrics")
-        console_logger.debug(f"ffmpeg: Input: '{input_sequence.get_filepath().name}'")
-        console_logger.debug(f"ffmpeg: Output: '{output_sequence.get_filepath().name}'")
-        console_logger.debug(f"ffmpeg: PSNR log: '{output_sequence.get_ssim_log_path().name}'")
-        console_logger.debug(f"ffmpeg: SSIM log: '{output_sequence.get_ssim_log_path().name}'")
+        console_log.debug(f"ffmpeg: Computing metrics")
+        console_log.debug(f"ffmpeg: Input: '{input_sequence.get_filepath().name}'")
+        console_log.debug(f"ffmpeg: Output: '{output_sequence.get_filepath().name}'")
+        console_log.debug(f"ffmpeg: PSNR log: '{output_sequence.get_ssim_log_path().name}'")
+        console_log.debug(f"ffmpeg: SSIM log: '{output_sequence.get_ssim_log_path().name}'")
 
         if not output_sequence.get_psnr_log_path().exists() \
                 and not output_sequence.get_ssim_log_path().exists():
             subprocess.check_output(ffmpeg_command, stderr=subprocess.STDOUT, shell=True)
         else:
-            console_logger.debug(f"ffmpeg: Files '{output_sequence.get_psnr_log_path().name}' "
+            console_log.debug(f"ffmpeg: Files '{output_sequence.get_psnr_log_path().name}' "
                                  f"and '{output_sequence.get_ssim_log_path().name}' already exist")
 
         # Ugly but simple.
@@ -74,7 +74,7 @@ def compute_psnr_and_ssim(input_sequence: RawVideoSequence,
         return psnr_avg, ssim_avg
 
     except Exception as exception:
-        console_logger.error(f"ffmpeg: Failed to compute metrics")
+        console_log.error(f"ffmpeg: Failed to compute metrics")
         if isinstance(exception, subprocess.CalledProcessError):
-            console_logger.error(exception.output.decode())
+            console_log.error(exception.output.decode())
         raise

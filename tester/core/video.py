@@ -119,9 +119,9 @@ class RawVideoSequence(VideoFileBase):
         self._chroma = chroma
         self._bits_per_pixel = bits_per_pixel
 
-        console_logger.debug(f"{type(self).__name__}: Initialized object:")
+        console_log.debug(f"{type(self).__name__}: Initialized object:")
         for attribute_name in sorted(self.__dict__):
-            console_logger.debug(f"{type(self).__name__}: "
+            console_log.debug(f"{type(self).__name__}: "
                                  f"{attribute_name} = {getattr(self, attribute_name)}")
 
     def get_effective_size_bytes(self) -> int:
@@ -162,7 +162,7 @@ class RawVideoSequence(VideoFileBase):
             sequence_class = f"hevc-{letter}"
             if sequence_class.lower() in str(filepath).lower():
                 return sequence_class
-        console_logger.warning(f"VideoSequence: Could not guess the sequence class from '{filepath}'")
+        console_log.warning(f"VideoSequence: Could not guess the sequence class from '{filepath}'")
         return "-"
 
     @staticmethod
@@ -175,13 +175,13 @@ class RawVideoSequence(VideoFileBase):
             height = int(match.group(2))
             return width, height
         else:
-            console_logger.error(f"VideoSequence: Could not guess the resolution from '{filename}'")
+            console_log.error(f"VideoSequence: Could not guess the resolution from '{filename}'")
             raise RuntimeError
 
     @staticmethod
     def guess_total_framecount_from_filename(filepath: Path) -> int:
 
-        console_logger.debug(f"VideoSequence: Trying to guess the total framecount from "
+        console_log.debug(f"VideoSequence: Trying to guess the total framecount from "
                              f"'{filepath.name}'")
 
         framecount_pattern = re.compile("_[0-9]+x[0-9]+_[0-9]+_([0-9]+)")
@@ -189,7 +189,7 @@ class RawVideoSequence(VideoFileBase):
         if match:
             return int(match.group(1))
         else:
-            console_logger.debug(f"VideoSequence: Could not guess the total framecount from "
+            console_log.debug(f"VideoSequence: Could not guess the total framecount from "
                                  f"'{filepath.name}'")
             return 0
 
@@ -200,7 +200,7 @@ class RawVideoSequence(VideoFileBase):
                                              chroma: int,
                                              bits_per_pixel: int) -> int:
 
-        console_logger.debug(f"VideoSequence: Guessing the total framecount from the size of file "
+        console_log.debug(f"VideoSequence: Guessing the total framecount from the size of file "
                              f"'{filepath.name}'")
 
         file_size_bytes = filepath.stat().st_size
@@ -217,7 +217,7 @@ class RawVideoSequence(VideoFileBase):
         if match:
             return int(match.group(1))
         else:
-            console_logger.debug(f"VideoSequence: Could not guess the framerate from '{filename}'")
+            console_log.debug(f"VideoSequence: Could not guess the framerate from '{filename}'")
             raise RuntimeError
 
 
