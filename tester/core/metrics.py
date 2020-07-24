@@ -219,13 +219,13 @@ class TestMetrics:
 
         for subtest_metrics in self._subtest_metrics:
             psnr_list.append((
-                subtest_metrics.get_input_sequence().get_bitrate(),
+                subtest_metrics.get_output_sequence().get_bitrate(),
                 subtest_metrics.get_psnr_avg()
             ))
 
         for anchor_subtest_metrics in anchor._subtest_metrics:
             anchor_psnr_list.append((
-                anchor_subtest_metrics.get_input_sequence().get_bitrate(),
+                anchor_subtest_metrics.get_output_sequence().get_bitrate(),
                 anchor_subtest_metrics.get_psnr_avg()
             ))
 
@@ -242,13 +242,13 @@ class TestMetrics:
 
         for subtest_metrics in self._subtest_metrics:
             ssim_list.append((
-                subtest_metrics.get_input_sequence().get_bitrate(),
+                subtest_metrics.get_output_sequence().get_bitrate(),
                 subtest_metrics.get_ssim_avg()
             ))
 
         for anchor_subtest_metrics in anchor._subtest_metrics:
             anchor_ssim_list.append((
-                anchor_subtest_metrics.get_input_sequence().get_bitrate(),
+                anchor_subtest_metrics.get_output_sequence().get_bitrate(),
                 anchor_subtest_metrics.get_ssim_avg()
             ))
 
