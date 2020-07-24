@@ -136,14 +136,15 @@ class Tester:
 
     def compute_metrics(self,
                         context: TesterContext) -> None:
-        try:
-            for sequence in context.get_input_sequences():
-                for test in context.get_tests():
-                    for subtest in test.get_subtests():
 
-                        console_log.info(f"Tester: Computing metrics")
-                        console_log.info(f"Tester: Sequence: '{sequence.get_filepath().name}'")
-                        console_log.info(f"Tester: Subtest: '{subtest.get_name()}'")
+        for sequence in context.get_input_sequences():
+            for test in context.get_tests():
+                for i, subtest in enumerate(test.get_subtests()):
+
+                    try:
+                        console_log.info(f"Tester: Computing metrics for "
+                                         f"sequence '{sequence.get_filepath().name}', "
+                                         f"subtest '{subtest.get_name()}'")
 
                         psnr_avg, ssim_avg = ffmpeg.compute_psnr_and_ssim(
                             sequence,
@@ -152,12 +153,14 @@ class Tester:
                         subtest.get_metrics(sequence).set_psnr_avg(psnr_avg)
                         subtest.get_metrics(sequence).set_ssim_avg(ssim_avg)
 
-        except Exception as exception:
-            console_log.error(f"Tester: Failed to compute metrics")
-            if isinstance(exception, subprocess.CalledProcessError):
-                console_log.error(exception.output.decode())
-            self._log_exception(exception)
-            exit(1)
+                    except Exception as exception:
+                        console_log.error(f"Tester: Failed to compute metrics for "
+                                          f"sequence '{sequence.get_filepath().name}', "
+                                          f"subtest '{subtest.get_name()}'")
+                        if isinstance(exception, subprocess.CalledProcessError):
+                            console_log.error(exception.output.decode())
+                        self._log_exception(exception)
+                        console_log.info(f"Tester: Ignoring error")
 
     def generate_csv(self,
                      context: TesterContext,
@@ -173,38 +176,46 @@ class Tester:
                     for anchor_test in [context.get_test(name) for name in test.get_anchor_names()]:
                         for subtest_index, subtest in enumerate(test.get_subtests()):
 
-                            anchor_subtest = anchor_test.get_subtests()[subtest_index]
+                            try:
+                                anchor_subtest = anchor_test.get_subtests()[subtest_index]
 
-                            test_metrics = test.get_metrics(sequence)
-                            subtest_metrics = subtest.get_metrics(sequence)
+                                test_metrics = test.get_metrics(sequence)
+                                subtest_metrics = subtest.get_metrics(sequence)
 
-                            anchor_test_metrics = anchor_test.get_metrics(sequence)
-                            anchor_subtest_metrics = anchor_subtest.get_metrics(sequence)
+                                anchor_test_metrics = anchor_test.get_metrics(sequence)
+                                anchor_subtest_metrics = anchor_subtest.get_metrics(sequence)
 
-                            encoder = subtest.get_encoder()
-                            param_set = subtest.get_param_set()
+                                encoder = subtest.get_encoder()
+                                param_set = subtest.get_param_set()
 
-                            csvfile.add_entry(
-                                {
-                                    CsvFieldId.SEQUENCE_NAME: sequence.get_filepath().name,
-                                    CsvFieldId.SEQUENCE_CLASS: sequence.get_sequence_class(),
-                                    CsvFieldId.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
-                                    CsvFieldId.ENCODER_NAME: encoder.get_name(),
-                                    CsvFieldId.ENCODER_REVISION: encoder.get_short_revision(),
-                                    CsvFieldId.ENCODER_DEFINES: encoder.get_defines(),
-                                    CsvFieldId.ENCODER_CMDLINE: param_set.to_cmdline_str(),
-                                    CsvFieldId.QUALITY_PARAM_NAME: param_set.get_quality_param_name(),
-                                    CsvFieldId.QUALITY_PARAM_VALUE: param_set.get_quality_param_value(),
-                                    CsvFieldId.CONFIG_NAME: test.get_name(),
-                                    CsvFieldId.ANCHOR_NAME: anchor_test.get_name(),
-                                    CsvFieldId.TIME_SECONDS: subtest_metrics.get_encoding_time(),
-                                    CsvFieldId.SPEEDUP: subtest_metrics.get_speedup_relative_to(anchor_subtest_metrics),
-                                    CsvFieldId.PSNR_AVG: subtest_metrics.get_psnr_avg(),
-                                    CsvFieldId.SSIM_AVG: subtest_metrics.get_ssim_avg(),
-                                    CsvFieldId.BDBR_PSNR: test_metrics.get_bdbr_psnr(anchor_test_metrics),
-                                    CsvFieldId.BDBR_SSIM: test_metrics.get_bdbr_ssim(anchor_test_metrics),
-                                }
-                            )
+                                csvfile.add_entry(
+                                    {
+                                        CsvFieldId.SEQUENCE_NAME: sequence.get_filepath().name,
+                                        CsvFieldId.SEQUENCE_CLASS: sequence.get_sequence_class(),
+                                        CsvFieldId.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
+                                        CsvFieldId.ENCODER_NAME: encoder.get_name(),
+                                        CsvFieldId.ENCODER_REVISION: encoder.get_short_revision(),
+                                        CsvFieldId.ENCODER_DEFINES: encoder.get_defines(),
+                                        CsvFieldId.ENCODER_CMDLINE: param_set.to_cmdline_str(),
+                                        CsvFieldId.QUALITY_PARAM_NAME: param_set.get_quality_param_name(),
+                                        CsvFieldId.QUALITY_PARAM_VALUE: param_set.get_quality_param_value(),
+                                        CsvFieldId.CONFIG_NAME: test.get_name(),
+                                        CsvFieldId.ANCHOR_NAME: anchor_test.get_name(),
+                                        CsvFieldId.TIME_SECONDS: subtest_metrics.get_encoding_time(),
+                                        CsvFieldId.SPEEDUP: subtest_metrics.get_speedup_relative_to(anchor_subtest_metrics),
+                                        CsvFieldId.PSNR_AVG: subtest_metrics.get_psnr_avg(),
+                                        CsvFieldId.SSIM_AVG: subtest_metrics.get_ssim_avg(),
+                                        CsvFieldId.BDBR_PSNR: test_metrics.get_bdbr_psnr(anchor_test_metrics),
+                                        CsvFieldId.BDBR_SSIM: test_metrics.get_bdbr_ssim(anchor_test_metrics),
+                                    }
+                                )
+
+                            except Exception as exception:
+                                console_log.error(f"Tester: Failed to add CSV entry for "
+                                                  f"sequence '{sequence.get_filepath().name}', "
+                                                  f"subtest '{subtest.get_name()}'")
+                                self._log_exception(exception)
+                                console_log.info(f"Tester: Ignoring error")
 
         except Exception as exception:
             console_log.error(f"Tester: Failed to generate CSV file '{csv_filepath}'")
@@ -267,4 +278,4 @@ class Tester:
                        exception: Exception) -> None:
         console_log.error(f"Tester: An exception of type '{type(exception).__name__}' was caught: "
                              f"{str(exception)}")
-        console_log.error(f"Tester: {traceback.format_exc()}")
+        console_log.error(f"Tester: {traceback.format_exc().strip()}")
