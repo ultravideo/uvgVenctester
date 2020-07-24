@@ -66,26 +66,26 @@ tester = Tester()
 ```
 
 ### 3. Specify the video sequences you want to have encoded.
-- The file paths must be absolute
-- The file names must contain the resolution and framerate (see below)
-- The file names may optionally include the frame count (see below)
-- The file extension must be `.yuv`
+
+- The file paths must be relative
+- Wildcards can be used
+- The file names must contain the resolution, and may contain the framerate and frame count (`<name>_<width>x<height>_<framerate>_<frame count>.yuv`)
+    - If the name doesn't contain the framerate, it is assumed to be 25 FPS
+    - If the name doesn't contain the frame count, it is computed automatically from the size of the file, assuming that chroma is 420 and 8 bits are used for each pixel
 
 `main.py`:
 ```python
-sequences = [
-    # Resolution: 416x240, FPS: 30, frame count: automatic (from file size)
-    r"C:\example\sequence1_416x240_30.yuv",
-    # Resolution: 1920x1080, FPS: 30, frame count: 300
-    r"C:\example\sequence2_1920x1080_30_300.yuv",
+input_sequence_globs = [
+    "hevc-A/*.yuv",
+    "hevc-B/*.yuv
 ]
 ```
 
 ### 4. Specify the encoder configurations you want to test.
 `main.py`:
 ```python
-configs = [
-        TestConfig(
+tests = [
+        Test(
             name="example1",
             quality_param_type=QualityParamType.QP,
             quality_param_list=[22, 27, 32, 37,],
@@ -95,10 +95,10 @@ configs = [
             encoder_defines=["NDEBUG", "MY_SYMBOL"],
             anchor_names=[]
         ),
-        TestConfig(
+        Test(
             name="example2",
             quality_param_type=QualityParamType.BITRATE,
-            quality_param_list=[100000,  250000, 500000, 750000,],
+            quality_param_list=[100000, 250000, 500000, 750000,],
             cl_args="--preset ultrafast",
             encoder_id=EncoderId.KVAZAAR,
             encoder_revision="d1abf85229",
@@ -110,7 +110,9 @@ configs = [
 Explanations for the parameters:
 - `name` The name of the test configuration - arbitrary, but must be unique
 - `quality_param_type` The quality parameter to be used (QP or bitrate)
-- `quality_param_list` A list containing the quality parameter values with which the test will be run - all configurations must have a list of equal length
+- `quality_param_list` A list containing the quality parameter values with which the test will be run
+    - All configurations must have a list of equal length
+    - The values must be in ascending/descending order ()
 - `cl_args` Additional encoder-specific command line arguments - must not contain the quality parameter (it is automatically added by the tester)
 - `encoder_id` The encoder to be used
 - `encoder_revision` The Git revision of the encoder to be used - anything that can be used with `git checkout` is valid
@@ -120,7 +122,7 @@ Explanations for the parameters:
 ### 5. Create a new testing context.
 `main.py`:
 ```python
-context = tester.create_context(configs, sequences)
+context = tester.create_context(tests, input_sequence_globs)
 ```
 
 ### 6. Run the tests.
@@ -132,7 +134,7 @@ tester.run_tests(context)
 ### 7. Calculate the results.
 `main.py`:
 ```python
-tester.compute_results(context)
+tester.compute_metrics(context)
 ```
 
 ### 8. Output the results to a CSV file.
