@@ -84,27 +84,39 @@ input_sequence_globs = [
 ### 4. Specify the encoder configurations you want to test.
 `main.py`:
 ```python
+
+example1 = Test(
+    name="example1",
+    quality_param_type=QualityParamType.QP,
+    quality_param_list=[22, 27, 32, 37,],
+    cl_args="--preset ultrafast --gop=8 -n256 --owf 5 --no-wpp",
+    encoder_id=EncoderId.KVAZAAR,
+    encoder_revision="master",
+    encoder_defines=["NDEBUG", "MY_SYMBOL"],
+    anchor_names=[]
+)
+
+example2 = Test(
+    name="example2",
+    quality_param_type=QualityParamType.BITRATE,
+    quality_param_list=[100000, 250000, 500000, 750000,],
+    cl_args="--preset ultrafast",
+    encoder_id=EncoderId.KVAZAAR,
+    encoder_revision="d1abf85229",
+    encoder_defines=["NDEBUG"],
+    anchor_names=["example1"]
+)
+
+example3 = example2.clone(
+    name="example3",
+    cl_args="--preset ultrafast no-cpuid",
+    anchor_names=["example2"]
+)
+
 tests = [
-        Test(
-            name="example1",
-            quality_param_type=QualityParamType.QP,
-            quality_param_list=[22, 27, 32, 37,],
-            cl_args="--preset ultrafast --gop=8 -n256 --owf 5 --no-wpp",
-            encoder_id=EncoderId.KVAZAAR,
-            encoder_revision="master",
-            encoder_defines=["NDEBUG", "MY_SYMBOL"],
-            anchor_names=[]
-        ),
-        Test(
-            name="example2",
-            quality_param_type=QualityParamType.BITRATE,
-            quality_param_list=[100000, 250000, 500000, 750000,],
-            cl_args="--preset ultrafast",
-            encoder_id=EncoderId.KVAZAAR,
-            encoder_revision="d1abf85229",
-            encoder_defines=["NDEBUG"],
-            anchor_names=["example1"]
-        ),
+    example1,
+    example2,
+    example3,
 ]
 ```
 Explanations for the parameters:
