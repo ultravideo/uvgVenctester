@@ -77,7 +77,7 @@ tester = Tester()
 ```python
 input_sequence_globs = [
     "hevc-A/*.yuv",
-    "hevc-B/*.yuv
+    "hevc-B/*.yuv",
 ]
 ```
 
