@@ -1,4 +1,4 @@
-# Venctester3 - Minimum viable product
+# Venctester3 - A HEVC video encoder testing framework
 
 ## General
 
@@ -110,9 +110,9 @@ tests = [
 Explanations for the parameters:
 - `name` The name of the test configuration - arbitrary, but must be unique
 - `quality_param_type` The quality parameter to be used (QP or bitrate)
+    - The type of quality parameter may vary between test configurations
 - `quality_param_list` A list containing the quality parameter values with which the test will be run
     - All configurations must have a list of equal length
-    - The values must be in ascending/descending order ()
 - `cl_args` Additional encoder-specific command line arguments - must not contain the quality parameter (it is automatically added by the tester)
 - `encoder_id` The encoder to be used
 - `encoder_revision` The Git revision of the encoder to be used - anything that can be used with `git checkout` is valid
