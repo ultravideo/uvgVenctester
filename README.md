@@ -67,7 +67,7 @@ tester = Tester()
 
 ### 3. Specify the video sequences you want to have encoded.
 
-- The file paths must be relative
+- The file paths are relative to `SEQUENCES_DIR_PATH` (default: current working directory)
 - Wildcards can be used
 - The file names must contain the resolution, and may contain the framerate and frame count (`<name>_<width>x<height>_<framerate>_<frame count>.yuv`)
     - If the name doesn't contain the framerate, it is assumed to be 25 FPS
@@ -118,6 +118,11 @@ Explanations for the parameters:
 - `encoder_revision` The Git revision of the encoder to be used - anything that can be used with `git checkout` is valid
 - `encoder_defines` A list containing the predefined preprocessor symbols to be used when compiling, if any
 - `anchor_names` A list containing the names of the configurations the configuration is compared to, if any
+
+Additional parameters:
+- `seek`, `frames` May be used to encode only a part of each input sequence
+    - These apply to every sequence
+    - Each test configuration should have identical values for these parameters
 
 ### 5. Create a new testing context.
 `main.py`:
