@@ -174,7 +174,7 @@ class Kvazaar(EncoderBase):
             # https://docs.microsoft.com/en-us/visualstudio/msbuild/how-to-escape-special-characters-in-msbuild
             # https://docs.microsoft.com/en-us/visualstudio/msbuild/msbuild-special-characters
             MSBUILD_SEMICOLON_ESCAPE = "%3B"
-            msbuild_args = Cfg().KVZ_MSBUILD_ARGS
+            msbuild_args = Cfg().kvz_msbuild_args
             msbuild_args.append(f"/p:DefineConstants={MSBUILD_SEMICOLON_ESCAPE.join(self._defines)}")
 
             # Run VsDevCmd.bat, then msbuild.
