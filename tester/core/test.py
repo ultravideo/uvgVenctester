@@ -111,6 +111,53 @@ class Test:
     def __hash__(self):
         return int(hashlib.md5(self._name.encode()).hexdigest(), 16)
 
+    def clone(self,
+              name: str = None,
+              encoder_id: EncoderId = None,
+              encoder_revision: str = None,
+              encoder_defines: list = None,
+              anchor_names: list = None,
+              quality_param_type: QualityParamType = None,
+              quality_param_list: list = None,
+              cl_args: str = None,
+              seek: int = None,
+              frames: int = None
+              ) -> Test:
+
+        if name is None:
+            name = self._name
+        if encoder_id is None:
+            encoder_id = self._encoder.get_id()
+        if encoder_revision is None:
+            encoder_revision = self._encoder.get_user_given_revision()
+        if encoder_defines is None:
+            encoder_defines = self._encoder.get_defines()
+        if anchor_names is None:
+            anchor_names = self._anchor_names
+        if quality_param_type is None:
+            quality_param_type = self._subtests[0].get_param_set().get_quality_param_type()
+        if quality_param_list is None:
+            quality_param_list = [subtest.get_param_set().get_quality_param_value() for subtest in self._subtests]
+        if cl_args is None:
+            cl_args = self._subtests[0].get_param_set().get_cl_args()
+        if seek is None:
+            seek = self._subtests[0].get_param_set().get_seek()
+        if frames is None:
+            frames = self._subtests[0].get_param_set().get_frames()
+
+        return Test(
+            name,
+            encoder_id,
+            encoder_revision,
+            encoder_defines,
+            anchor_names,
+            quality_param_type,
+            quality_param_list,
+            cl_args,
+            seek,
+            frames
+        )
+
     def get_subtests(self) -> list:
         return self._subtests
 

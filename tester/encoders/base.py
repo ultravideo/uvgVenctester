@@ -71,8 +71,8 @@ class ParamSetBase():
 
         self._quality_param_type: QualityParamType = quality_param_type
         self._quality_param_value: int = quality_param_value
-        self._seek = seek
-        self._frames = frames
+        self._seek: int = seek
+        self._frames: int = frames
         self._cl_args: str = cl_args
 
     def __eq__(self,
@@ -99,6 +99,9 @@ class ParamSetBase():
 
     def get_frames(self) -> int:
         return self._frames
+
+    def get_cl_args(self) -> str:
+        return self._cl_args
 
     def to_cmdline_tuple(self,
                          include_quality_param: bool = True) -> tuple:
