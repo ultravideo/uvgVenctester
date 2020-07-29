@@ -21,11 +21,11 @@ To add support for a new encoder, the following things need to be done:
     - This class represents a set of command line parameters to be passed to the encoder when encoding
     - This class should be named `<EncoderNameParamSet>`
     - This class should be placed in `tester/encoders/<encoder_name>.py`
-3. Add a new value to `tester.encoders.base.EncoderId`
+3. Add a new value to `tester.encoders.base.Encoder`
     - This enum identifies the encoders
     - The new value should be named `<ENCODER_NAME>`
 4. Make the relevant changes to `tester.core.test.Test.__init__`
     - Instantiation of `_encoder` based on `encoder_id`
-    - Instantiation of `param_sets` and therefore `_subtests` based on `encoder_id`
+    - Instantiation of `_subtests` based on `encoder_id`
 
 `tester/encoders/kvazaar.py` and `tester/core/test.py` together provide a full example.

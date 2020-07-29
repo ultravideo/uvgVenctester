@@ -5,7 +5,6 @@ from __future__ import annotations
 from tester.encoders.base import *
 from tester.core.log import *
 
-import hashlib
 from pathlib import *
 import re
 
@@ -33,10 +32,11 @@ class VideoFileBase:
         self._framerate: int = framerate
         self._framecount: int = framecount
 
-    def __hash__(self) -> int:
-        return hashlib.md5(str(self._filepath).encode())
+    def __hash__(self):
+        return hash(str(self._filepath))
 
-    def __eq__(self, other: VideoFileBase) -> bool:
+    def __eq__(self,
+               other: VideoFileBase):
         return self._filepath == other._filepath
 
     def get_total_size_bytes(self) -> int:
@@ -232,9 +232,7 @@ class HevcVideoFile(VideoFileBase):
                  height: int,
                  framerate: int,
                  framecount: int,
-                 duration_seconds: float,
-                 encoder: EncoderBase,
-                 param_set: ParamSetBase):
+                 duration_seconds: float):
 
         assert filepath.suffix == ".hevc"
 
@@ -246,24 +244,3 @@ class HevcVideoFile(VideoFileBase):
             framecount,
             duration_seconds
         )
-
-        self._encoder = encoder
-        self._param_set = param_set
-
-    def get_psnr_log_path(self) -> Path:
-        return self._filepath.with_name(self._filepath.stem + "_psnr").with_suffix(".txt")
-
-    def get_ssim_log_path(self) -> Path:
-        return self._filepath.with_name(self._filepath.stem + "_ssim").with_suffix(".txt")
-
-    def get_metrics_json_path(self) -> Path:
-        return self._filepath.with_name(self._filepath.stem + "_metrics").with_suffix(".json")
-
-    def get_encoding_log_path(self) -> Path:
-        return self._filepath.with_name(self._filepath.stem + "_encoding").with_suffix(".txt")
-
-    def encoder_encoded_with(self) -> EncoderBase:
-        return self._encoder
-
-    def paramset_encoded_with(self) -> ParamSetBase:
-        return self._param_set
