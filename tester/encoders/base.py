@@ -96,6 +96,9 @@ class ParamSetBase():
     def get_frames(self) -> int:
         return self._frames
 
+    def get_cl_args(self) -> str:
+        return self._cl_args
+
     def to_cmdline_tuple(self,
                          include_quality_param: bool = True) -> tuple:
         """Returns the command line arguments as a tuple."""
