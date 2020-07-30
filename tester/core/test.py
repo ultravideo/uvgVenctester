@@ -3,85 +3,159 @@
 from __future__ import annotations
 
 from tester.core.metrics import *
-import tester.encoders.kvazaar
+from tester.encoders.kvazaar import *
 
-import hashlib
+
+class EncodingRun:
+
+    def __init__(self,
+                 parent: SubTest = None,
+                 name: str = None,
+                 round_number: int = None,
+                 encoder: EncoderBase = None,
+                 param_set: ParamSetBase = None,
+                 input_sequence: RawVideoSequence = None):
+
+        self.parent: SubTest = parent
+        self.name: str = name
+        self.round_number: int = round_number
+        self.encoder: EncoderBase = encoder
+        self.param_set: ParamSetBase = param_set
+        self.input_sequence: RawVideoSequence = input_sequence
+
+        qp_name = param_set.get_quality_param_type().short_name
+        qp_value = param_set.get_quality_param_value()
+        base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
+                        f"{qp_name}{qp_value}_{round_number}"
+        output_dir_path = Cfg().encoding_output_dir_path \
+                          / f"{encoder.get_name()}_{encoder.get_short_revision()}_" \
+                            f"{encoder.get_short_define_hash()}" \
+                          / param_set.to_cmdline_str(include_quality_param=False)
+
+        self.encoding_log_path: Path = output_dir_path / f"{base_filename}_encoding_log.txt"
+        self.metrics_path: Path = output_dir_path / f"{base_filename}_metrics.json"
+        self.psnr_log_path: Path = output_dir_path / f"{base_filename}_psnr_log.txt"
+        self.ssim_log_path: Path = output_dir_path / f"{base_filename}_ssim_log.txt"
+
+        self.output_file = HevcVideoFile(
+            filepath=output_dir_path / f"{base_filename}.hevc",
+            width=input_sequence.get_width(),
+            height=input_sequence.get_height(),
+            framerate=input_sequence.get_framerate(),
+            framecount=input_sequence.get_framecount(),
+            duration_seconds=input_sequence.get_duration_seconds()
+        )
+
+    def __eq__(self,
+               other: EncodingRun):
+        return str(self.input_sequence.get_filepath()) == str(other.input_sequence.get_filepath()) \
+               and str(self.output_file.get_filepath()) == str(other.output_file.get_filepath())
+
+    def __hash__(self):
+        return hash(self.input_sequence.get_filepath().name) + hash(self.output_file.get_filepath().name)
 
 
 class SubTest:
-    """Represents a subtest. A single test consists of multiple subtests."""
 
     def __init__(self,
+                 parent: Test,
                  name: str,
-                 index: int,
                  encoder: EncoderBase,
-                 param_set: ParamSetBase):
+                 param_set: ParamSetBase,
+                 input_sequences: list,
+                 rounds: int):
 
-        self._name = name
-        self._index = index
-        self._encoder = encoder
-        self._param_set = param_set
+        self.parent: Test = parent
+        self.name: str = name
+        self.encoder: EncoderBase = encoder
+        self.param_set: ParamSetBase = param_set
+        self.sequences: list = input_sequences
+        # Key: RawVideoSequence, value: EncodingRun
+        self.encoding_runs: dict = {}
 
-    def __eq__(self, other: SubTest):
-        return self._encoder == other._encoder and self._param_set == other._param_set
+        for sequence in input_sequences:
+            for round_number in range(1, rounds + 1):
+                run = EncodingRun(
+                    self,
+                    f"{name}/{sequence.get_filepath().name} ({round_number}/{rounds})",
+                    round_number,
+                    encoder,
+                    param_set,
+                    sequence
+                )
+                if not sequence in self.encoding_runs.keys():
+                    self.encoding_runs[sequence] = []
+                self.encoding_runs[sequence].append(run)
+
+    def __eq__(self,
+               other: SubTest):
+        return self.encoder == other.encoder and self.param_set == other.param_set
 
     def __hash__(self):
-        return hashlib.md5(self._name.encode())
-
-    def get_name(self) -> str:
-        return self._name
-
-    def get_index(self) -> int:
-        return self._index
-
-    def get_encoder(self) -> EncoderBase:
-        return self._encoder
-
-    def get_param_set(self) -> ParamSetBase:
-        return self._param_set
-
-    def get_metrics(self,
-                    input_sequence: RawVideoSequence) -> SubTestMetrics:
-        return SubTestMetrics(
-            input_sequence,
-            self._encoder.get_output_file(input_sequence, self._param_set)
-        )
+        return hash(self.encoder) + hash(self.param_set)
 
 
 class Test:
-    """Represents a test. A single test consists of as many subtests as there are different
-    quality parameter values. (Therefore a subtest is basically a unique set of encoding
-    parameters.)"""
 
     def __init__(self,
                  name: str,
-                 encoder_id: EncoderId,
+                 encoder_id: Encoder,
                  encoder_revision: str,
                  encoder_defines: list,
                  anchor_names: list,
-                 quality_param_type: QualityParamType,
+                 quality_param_type: QualityParam,
                  quality_param_list: list,
                  cl_args: str,
+                 input_sequences: list,
                  seek: int = 0,
-                 frames: int = 0):
+                 frames: int = 0,
+                 rounds: int = 1,
+                 **kwargs):
+        # Kwargs are ignored, they are here just to enable easy cloning.
 
-        self._name = name
-        self._encoder: EncoderBase = None
-        self._anchor_names: list = anchor_names
+        # Copy every parameter to make cloning easier.
+        self.name: str = name
+        self.encoder_id: Encoder = encoder_id
+        self.encoder_revision: str = encoder_revision
+        self.encoder_defines: list = encoder_defines
+        self.anchor_names: list = anchor_names
+        self.quality_param_type: QualityParam = quality_param_type
+        self.quality_param_list: list = quality_param_list
+        self.cl_args: str = cl_args
+        self.input_sequences: list = input_sequences
+        self.seek: int = seek
+        self.frames: int = frames
+        self.rounds: int = rounds
+
+        self.sequences: list = None
+        self.encoder: EncoderBase = None
+        self.subtests: list = None
+        self.metrics: TestMetrics = TestMetrics(self)
+
+        # Expand sequence globs.
+        self.sequences = []
+        for glob in input_sequences:
+            for filepath in Cfg().sequences_dir_path.glob(glob):
+                self.sequences.append(
+                    RawVideoSequence(
+                        filepath,
+                        seek=seek,
+                        frames=frames
+                    )
+                )
 
         # Order quality parameters in ascending order by resulting bitrate,
         # since that is the order in which the results have to be when BD-BR is computed.
-        if quality_param_type == QualityParamType.QP:
+        if quality_param_type == QualityParam.QP:
             quality_param_list = sorted(quality_param_list, reverse=True)
-        elif quality_param_type == QualityParamType.BITRATE:
+        elif quality_param_type == QualityParam.BITRATE:
             quality_param_list = sorted(quality_param_list)
 
         param_sets = []
-
-        if encoder_id == EncoderId.KVAZAAR:
-            self._encoder = tester.encoders.kvazaar.Kvazaar(encoder_revision, encoder_defines)
+        if encoder_id == Encoder.KVAZAAR:
+            self.encoder = Kvazaar(encoder_revision, encoder_defines)
             param_sets = [
-                tester.encoders.kvazaar.KvazaarParamSet(
+                KvazaarParamSet(
                     quality_param_type,
                     quality_param_value,
                     seek,
@@ -89,90 +163,40 @@ class Test:
                     cl_args
                 ) for quality_param_value in quality_param_list
             ]
+        else:
+            raise RuntimeError
 
-        self._subtests = [
-            SubTest(
-                f"{name} ({param_set.get_quality_param_name()}: {param_set.get_quality_param_value()})",
-                index,
-                self._encoder,
-                param_set
-            ) for index, param_set in enumerate(param_sets)
-        ]
+        self.subtests = []
+        for param_set in param_sets:
+            subtest = SubTest(
+                self,
+                f"{name}/{quality_param_type.short_name}{param_set.get_quality_param_value()}",
+                self.encoder,
+                param_set,
+                self.sequences,
+                rounds
+            )
+            self.subtests.append(subtest)
+
+    def clone(self,
+              **kwargs) -> Test:
+        """Clones a Test object. Kwargs may contain parameter overrides for the constructor call."""
+
+        defaults = {
+            attribute_name: getattr(self, attribute_name) for attribute_name in self.__dict__
+        }
+
+        for attribute_name, attribute_value in kwargs.items():
+            defaults[attribute_name] = attribute_value
+
+        return Test(**defaults)
 
     def __eq__(self,
                other: Test):
-        for subtest1 in self._subtests:
-            for subtest2 in other._subtests:
-                if subtest1 != subtest2:
-                    return False
-        return self._name == other.get_name() \
-               and self._encoder == other.get_encoder()
+        for i, subtest in enumerate(self.subtests):
+            if other.subtests[i] != subtest:
+                return False
+        return self.encoder == other.encoder
 
     def __hash__(self):
-        return int(hashlib.md5(self._name.encode()).hexdigest(), 16)
-
-    def clone(self,
-              name: str = None,
-              encoder_id: EncoderId = None,
-              encoder_revision: str = None,
-              encoder_defines: list = None,
-              anchor_names: list = None,
-              quality_param_type: QualityParamType = None,
-              quality_param_list: list = None,
-              cl_args: str = None,
-              seek: int = None,
-              frames: int = None
-              ) -> Test:
-
-        if name is None:
-            name = self._name
-        if encoder_id is None:
-            encoder_id = self._encoder.get_id()
-        if encoder_revision is None:
-            encoder_revision = self._encoder.get_user_given_revision()
-        if encoder_defines is None:
-            encoder_defines = self._encoder.get_defines()
-        if anchor_names is None:
-            anchor_names = self._anchor_names
-        if quality_param_type is None:
-            quality_param_type = self._subtests[0].get_param_set().get_quality_param_type()
-        if quality_param_list is None:
-            quality_param_list = [subtest.get_param_set().get_quality_param_value() for subtest in self._subtests]
-        if cl_args is None:
-            cl_args = self._subtests[0].get_param_set().get_cl_args()
-        if seek is None:
-            seek = self._subtests[0].get_param_set().get_seek()
-        if frames is None:
-            frames = self._subtests[0].get_param_set().get_frames()
-
-        return Test(
-            name,
-            encoder_id,
-            encoder_revision,
-            encoder_defines,
-            anchor_names,
-            quality_param_type,
-            quality_param_list,
-            cl_args,
-            seek,
-            frames
-        )
-
-    def get_subtests(self) -> list:
-        return self._subtests
-
-    def get_name(self) -> str:
-        return self._name
-
-    def get_encoder(self) -> EncoderBase:
-        return self._encoder
-
-    def get_anchor_names(self) -> list:
-        return self._anchor_names
-
-    def get_metrics(self,
-                    input_sequence: RawVideoSequence) -> TestMetrics:
-        return TestMetrics(
-            [subtest.get_metrics(input_sequence) for subtest in self._subtests],
-            input_sequence
-        )
+        return sum(hash(subtest) for subtest in self.subtests)

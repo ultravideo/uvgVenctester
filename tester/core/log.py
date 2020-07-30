@@ -52,7 +52,7 @@ console_log.setLevel(logging.DEBUG)
 
 
 def log_exception(exception: Exception) -> None:
-    console_log.error(f"Tester: An exception of"
+    console_log.error(f"Tester: An exception of "
                       f"type '{type(exception).__name__}' "
                       f"was caught: "
                       f"{str(exception)}")

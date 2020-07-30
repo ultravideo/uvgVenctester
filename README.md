@@ -52,12 +52,14 @@ Windows only:
 ## Example usage
 
 ### 1. Import the tester API.
+
 `main.py`:
 ```python
 from tester.core.tester import *
 ```
 
 ### 2. Initialize the tester.
+
 - NOTE: This has to be done at this point - otherwise the tester may not work correctly (`userconfig.py` is read when the tester is initialized)!
 
 `main.py`:
@@ -71,7 +73,7 @@ tester = Tester()
 - Wildcards can be used
 - The file names must contain the resolution, and may contain the framerate and frame count (`<name>_<width>x<height>_<framerate>_<frame count>.yuv`)
     - If the name doesn't contain the framerate, it is assumed to be 25 FPS
-    - If the name doesn't contain the frame count, it is computed automatically from the size of the file, assuming that chroma is 420 and 8 bits are used for each pixel
+    - If the name doesn't contain the frame count, it is computed automatically from the size of the file, with the assumption that chroma is 420 and 8 bits are used for each pixel
 
 `main.py`:
 ```python
@@ -82,79 +84,100 @@ input_sequence_globs = [
 ```
 
 ### 4. Specify the encoder configurations you want to test.
+
 `main.py`:
 ```python
-
-example1 = Test(
-    name="example1",
-    quality_param_type=QualityParamType.QP,
-    quality_param_list=[22, 27, 32, 37,],
-    cl_args="--preset ultrafast --gop=8 -n256 --owf 5 --no-wpp",
-    encoder_id=EncoderId.KVAZAAR,
-    encoder_revision="master",
-    encoder_defines=["NDEBUG", "MY_SYMBOL"],
-    anchor_names=[]
-)
-
-example2 = Test(
-    name="example2",
-    quality_param_type=QualityParamType.BITRATE,
-    quality_param_list=[100000, 250000, 500000, 750000,],
-    cl_args="--preset ultrafast",
-    encoder_id=EncoderId.KVAZAAR,
+test1 = Test(
+    name="test1",
+    quality_param_type=QualityParam.QP,
+    quality_param_list=[22, 27, 32, 37],
+    cl_args="--gop=8 --preset ultrafast --no-wpp --owf 5",
+    encoder_id=Encoder.KVAZAAR,
     encoder_revision="d1abf85229",
     encoder_defines=["NDEBUG"],
-    anchor_names=["example1"]
+    anchor_names=["test1"],
+    input_sequences=input_sequence_globs,
+    rounds=3
 )
 
-example3 = example2.clone(
-    name="example3",
-    cl_args="--preset ultrafast no-cpuid",
-    anchor_names=["example2"]
+test2 = Test(
+    name="test2",
+    quality_param_type=QualityParam.BITRATE,
+    quality_param_list=[100000, 250000, 500000, 750000,],
+    cl_args="--gop=8 --preset ultrafast --owf 5",
+    encoder_id=Encoder.KVAZAAR,
+    encoder_revision="master",
+    encoder_defines=["NDEBUG"],
+    anchor_names=["test2"],
+    input_sequences=input_sequence_globs
 )
 
-tests = [
-    example1,
-    example2,
-    example3,
+test3 = test2.clone(
+    name="test3",
+    cl_args="--gop=8 --preset ultrafast --no-wpp --owf 5",
+    anchor_names=["test1", "test2"],
+    rounds=5
+)
+
+configs = [
+    test1,
+    test2,
+    test3,
 ]
 ```
-Explanations for the parameters:
-- `name` The name of the test configuration - arbitrary, but must be unique
+
+Required parameters for `Test.__init__()` and `Test.clone()`:
+- `name` The name of the test configuration
+    - Arbitrary, but must be unique
 - `quality_param_type` The quality parameter to be used (QP or bitrate)
     - The type of quality parameter may vary between test configurations
 - `quality_param_list` A list containing the quality parameter values with which the test will be run
     - All configurations must have a list of equal length
-- `cl_args` Additional encoder-specific command line arguments - must not contain the quality parameter (it is automatically added by the tester)
+- `cl_args` Additional encoder-specific command line arguments
+    - Must not contain arguments conflicting with those generated from the other parameters to this function (e.g. `quality_param_type`)
 - `encoder_id` The encoder to be used
-- `encoder_revision` The Git revision of the encoder to be used - anything that can be used with `git checkout` is valid
+- `encoder_revision` The Git revision of the encoder to be used
+    - Anything that can be used with `git checkout` is valid
 - `encoder_defines` A list containing the predefined preprocessor symbols to be used when compiling, if any
 - `anchor_names` A list containing the names of the configurations the configuration is compared to, if any
+- `input_sequences` A list containing the names of the raw video sequences to be encoded
+    - All configurations must have the same `input_sequences`
 
-Additional parameters:
-- `seek`, `frames` May be used to encode only a part of each input sequence
-    - These apply to every sequence
-    - Each test configuration should have identical values for these parameters
+Optional parameters for `Test.__init__()` and `Test.clone()`:
+- `seek` An integer specifying how many frames at the start of each input file will be skipped
+    - Default: 0
+    - Applies to every sequence
+    - All configurations must have the same `seek`
+- `frames` An integer specifying how many frames are encoded
+    - Default: All
+    - Applies to every sequence
+    - All configurations must have the same `frames`
+- `rounds` An integer specifying how many times a test is repeated
+    - Default: 1
 
 ### 5. Create a new testing context.
+
 `main.py`:
 ```python
 context = tester.create_context(tests, input_sequence_globs)
 ```
 
 ### 6. Run the tests.
+
 `main.py`:
 ```python
 tester.run_tests(context)
 ```
 
 ### 7. Calculate the results.
+
 `main.py`:
 ```python
 tester.compute_metrics(context)
 ```
 
 ### 8. Output the results to a CSV file.
+
 - If the file already exists, it will be overwritten!
 
 `main.py`:

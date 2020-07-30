@@ -1,7 +1,9 @@
 """This module defines all functionality specific to Kvazaar."""
 
+from __future__ import annotations
+
 from .base import *
-import tester.core.video
+from tester.core.test import *
 
 
 class KvazaarParamSet(ParamSetBase):
@@ -11,7 +13,7 @@ class KvazaarParamSet(ParamSetBase):
     POSITIONAL_ARGS = ("--preset", "--gop")
 
     def __init__(self,
-                 quality_param_type: QualityParamType,
+                 quality_param_type: QualityParam,
                  quality_param_value: int,
                  seek: int,
                  frames: int,
@@ -54,9 +56,9 @@ class KvazaarParamSet(ParamSetBase):
         cl_args = self._cl_args
 
         if include_quality_param:
-            if self._quality_param_type == QualityParamType.QP:
+            if self._quality_param_type == QualityParam.QP:
                 cl_args += f" --qp {self._quality_param_value}"
-            elif self._quality_param_type == QualityParamType.BITRATE:
+            elif self._quality_param_type == QualityParam.BITRATE:
                 cl_args += f" --bitrate {self._quality_param_value}"
 
         split_args: list = []
@@ -148,7 +150,7 @@ class Kvazaar(EncoderBase):
                  defines: list):
 
         super().__init__(
-            id=EncoderId.KVAZAAR,
+            id=Encoder.KVAZAAR,
             user_given_revision=user_given_revision,
             defines = defines,
             git_repo_path=Cfg().kvz_git_repo_path,
@@ -180,8 +182,8 @@ class Kvazaar(EncoderBase):
             # Run VsDevCmd.bat, then msbuild.
             # KVZ_MSBUILD_ARGS has to be a list/tuple so the syntax below is pretty stupid.
             build_cmd = (
-                "call", Cfg().vs_vsdevcmd_bat_path,
-                "&&", "msbuild", Cfg().kvz_vs_solution_path
+                "call", str(Cfg().vs_vsdevcmd_bat_path),
+                "&&", "msbuild", str(Cfg().kvz_vs_solution_path)
             ) + tuple(msbuild_args)
 
         elif Cfg().os_name == "Linux":
@@ -244,18 +246,16 @@ class Kvazaar(EncoderBase):
         return super().dummy_run_finish(dummy_cmd, param_set)
 
     def encode(self,
-               input_sequence: tester.core.video.RawVideoSequence,
-               param_set: KvazaarParamSet) -> None:
+               encoding_run: EncodingRun) -> None:
 
-        output_filepath = super().encode_start(input_sequence, param_set)
-        if not output_filepath:
+        if not super().encode_start(encoding_run):
             return
 
         encode_cmd = (
                          self._exe_path,
-            "-i", input_sequence.get_filepath(),
-            "--input-res", f"{input_sequence.get_width()}x{input_sequence.get_height()}",
-            "-o", str(output_filepath),
-        ) + param_set.to_cmdline_tuple()
+            "-i", str(encoding_run.input_sequence.get_filepath()),
+            "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+            "-o", str(encoding_run.output_file.get_filepath()),
+        ) + encoding_run.param_set.to_cmdline_tuple()
 
-        super().encode_finish(encode_cmd, input_sequence, param_set)
+        super().encode_finish(encode_cmd, encoding_run)

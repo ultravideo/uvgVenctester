@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import tester.core.video
 from tester.core.cfg import *
 from tester.core.git import *
 from tester.core.log import *
+from tester.core.test import *
 
 import hashlib
 import shutil
@@ -13,42 +13,49 @@ from enum import Enum
 from pathlib import Path
 
 
-class EncoderId(Enum):
-    """An enumeration to identify different encoders."""
+class Encoder(Enum):
+    """An enumeration to identify the supported encoders."""
 
-    NONE: int = 0
     KVAZAAR: int = 1
 
-    def __str__(self):
-        """Returns the name of the encoder."""
-        if self == EncoderId.KVAZAAR:
+    @property
+    def pretty_name(self):
+        if self == Encoder.KVAZAAR:
             return "Kvazaar"
         else:
             raise RuntimeError
 
+    @property
+    def short_name(self):
+        if self == Encoder.KVAZAAR:
+            return "kvazaar"
+        else:
+            raise RuntimeError
 
-class QualityParamType(Enum):
-    """An enumeration to identify all the different quality parameter types."""
 
-    NONE: int = 0
+class QualityParam(Enum):
+    """An enumeration to identify the supported quality parameter types."""
+
     QP: int = 1
     BITRATE: int = 2
 
-    def __str__(self):
-        """Returns the name of the quality parameter."""
-        if self == QualityParamType.QP:
+    @property
+    def pretty_name(self):
+        if self == QualityParam.QP:
             return "QP"
-        elif self == QualityParamType.BITRATE:
+        elif self == QualityParam.BITRATE:
             return "bitrate"
         else:
             raise RuntimeError
 
-    def is_valid(self) -> bool:
-        VALID_LIST: list = [
-            self.QP,
-            self.BITRATE
-        ]
-        return self in VALID_LIST
+    @property
+    def short_name(self):
+        if self == QualityParam.QP:
+            return "qp"
+        elif self == QualityParam.BITRATE:
+            return "br"
+        else:
+            raise RuntimeError
 
 
 class ParamSetBase():
@@ -58,18 +65,13 @@ class ParamSetBase():
     encoder-specific subclass."""
 
     def __init__(self,
-                 quality_param_type: QualityParamType,
+                 quality_param_type: QualityParam,
                  quality_param_value: int,
                  seek: int,
                  frames: int,
                  cl_args: str):
 
-        if not quality_param_type.is_valid():
-            console_log.error(f"ParamSetBase: Invalid quality_param_type "
-                                 f"'{str(quality_param_type)}'")
-            raise RuntimeError
-
-        self._quality_param_type: QualityParamType = quality_param_type
+        self._quality_param_type: QualityParam = quality_param_type
         self._quality_param_value: int = quality_param_value
         self._seek: int = seek
         self._frames: int = frames
@@ -77,19 +79,13 @@ class ParamSetBase():
 
     def __eq__(self,
                other: ParamSetBase):
-        return type(self) == type(other)\
-               and self.to_cmdline_str() == other.to_cmdline_str()
+        return self.to_cmdline_str() == other.to_cmdline_str()
 
     def __hash__(self):
-        return hashlib.md5(self._quality_param_type)\
-               + hashlib.md5(self._quality_param_value)\
-               + hashlib.md5(self._cl_args.encode())
+        return hash(self.to_cmdline_str())
 
-    def get_quality_param_type(self) -> QualityParamType:
+    def get_quality_param_type(self) -> QualityParam:
         return self._quality_param_type
-
-    def get_quality_param_name(self) -> str:
-        return str(self._quality_param_type)
 
     def get_quality_param_value(self) -> int:
         return self._quality_param_value
@@ -120,34 +116,34 @@ class EncoderBase:
     which the tester can interact with each encoder in a generic manner."""
 
     def __init__(self,
-                 id: EncoderId,
+                 id: Encoder,
                  user_given_revision: str,
                  defines: list,
                  git_repo_path: Path,
                  git_repo_ssh_url: str):
 
-        self._id: EncoderId = id
-        self._name: str = str(id)
+        self._id: Encoder = id
+        self._name: str = id.short_name
         self._user_given_revision: str = user_given_revision
         self._defines: list = defines
-        self._define_hash: str = hashlib.md5(str(defines).encode()).digest().hex()
+        self._define_hash: str = hashlib.md5(str(defines).encode()).hexdigest()
         self._define_hash_short: str = self._define_hash[:Cfg().short_define_hash_len]
         self._git_local_path: Path = git_repo_path
         self._git_ssh_url: str = git_repo_ssh_url
 
         self._git_repo: GitRepository = GitRepository(git_repo_path)
 
-        self._exe_name: str = ""
-        self._exe_path: Path = Path("")
-        self._commit_hash: str = ""
-        self._commit_hash_short: str = ""
-        self._build_log_name: str = ""
-        self._build_log_path: Path = Path("")
+        self._exe_name: str = None
+        self._exe_path: Path = None
+        self._commit_hash: str = None
+        self._commit_hash_short: str = None
+        self._build_log_name: str = None
+        self._build_log_path: Path = None
         # Initializes the above.
         self.prepare_sources()
 
         # This must be set in the constructor of derived classes.
-        self._exe_src_path: Path = Path("")
+        self._exe_src_path: Path = None
 
         # This is set when build() is called.
         self._build_log: logging.Logger = None
@@ -158,15 +154,15 @@ class EncoderBase:
 
     def __eq__(self,
                other: EncoderBase) -> bool:
-        assert isinstance(other, EncoderBase)
-        return self._id == other._id\
-               and self._commit_hash == other._commit_hash\
+        return self._id == other._id \
+               and self._commit_hash == other._commit_hash \
                and self._define_hash == other._define_hash
 
-    def __hash__(self) -> int:
-        return hashlib.md5(self._name)\
-               + hashlib.md5(self._commit_hash)\
-               + hashlib.md5(self._define_hash)
+    def __hash__(self):
+        return hash(self._name) + hash(self._commit_hash) + hash(self._define_hash)
+
+    def get_pretty_name(self) -> str:
+        return self._name.title()
 
     def get_name(self) -> str:
         return self._name
@@ -177,7 +173,7 @@ class EncoderBase:
     def get_exe_src_path(self) -> Path:
         return self._exe_src_path
 
-    def get_id(self) -> EncoderId:
+    def get_id(self) -> Encoder:
         return self._id
 
     def get_defines(self) -> list:
@@ -192,26 +188,11 @@ class EncoderBase:
     def get_short_revision(self) -> str:
         return self._commit_hash_short
 
-    def get_output_file(self,
-                        input_sequence: tester.core.video.RawVideoSequence,
-                        param_set: ParamSetBase) -> tester.core.video.HevcVideoFile:
-        qp_name = param_set.get_quality_param_name()
-        qp_value = param_set.get_quality_param_value()
-        filename = input_sequence.get_filepath().with_suffix("").name + f"_{qp_name.lower()}_{qp_value}.hevc"
-        directory_path = Cfg().encoding_output_dir_path \
-                         / self._exe_name.strip(".exe") \
-                         / param_set.to_cmdline_str(include_quality_param=False)
-        filepath = directory_path / filename
-        return tester.core.video.HevcVideoFile(
-            filepath,
-            input_sequence.get_width(),
-            input_sequence.get_height(),
-            input_sequence.get_framerate(),
-            input_sequence.get_framecount(),
-            input_sequence.get_duration_seconds(),
-            self,
-            param_set
-        )
+    def get_define_hash(self) -> str:
+        return self._define_hash
+
+    def get_short_define_hash(self) -> str:
+        return self._define_hash_short
 
     def prepare_sources(self) -> None:
         console_log.info(f"{self._name}: Preparing sources")
@@ -366,52 +347,45 @@ class EncoderBase:
         return True
 
     def encode(self,
-               input_sequence: tester.core.video,
-               param_set: ParamSetBase) -> None:
+               encoding_run: EncodingRun) -> None:
         """Encodes the given sequence with the given set of parameters."""
         raise NotImplementedError
 
     def encode_start(self,
-                     input_sequence: tester.core.video,
-                     param_set: ParamSetBase) -> Path:
+                     encoding_run: EncodingRun) -> bool:
         """Meant to be called as the first thing from the encode() method of derived classes."""
 
-        console_log.debug(f"{self._name}: Encoding file '{input_sequence.get_filepath().name}'")
+        console_log.debug(f"{self._name}: Encoding file '{encoding_run.input_sequence.get_filepath().name}'")
+        console_log.debug(f"{self._name}: Output: '{encoding_run.output_file.get_filepath().name}'")
+        console_log.debug(f"{self._name}: Arguments: '{encoding_run.param_set.to_cmdline_str()}'")
+        console_log.debug(f"{self._name}: Log: '{encoding_run.encoding_log_path.name}'")
 
-        output_file = self.get_output_file(input_sequence, param_set)
+        if encoding_run.output_file.get_filepath().exists():
+            console_log.info(f"{self._name}: File '{encoding_run.output_file.get_filepath().name}' already exists")
+            # Don't encode unnecessarily.
+            return False
 
-        console_log.debug(f"{self._name}: Output: '{output_file.get_filepath().name}'")
-        console_log.debug(f"{self._name}: Arguments: '{param_set.to_cmdline_str()}'")
+        if not encoding_run.output_file.get_filepath().parent.exists():
+            encoding_run.output_file.get_filepath().parent.mkdir(parents=True)
 
-        console_log.debug(f"{self._name}: Log: '{output_file.get_encoding_log_path()}'")
-
-        if output_file.get_filepath().exists():
-            console_log.info(f"{self._name}: File '{output_file.get_filepath().name}' already exists")
-            return None
-
-        if not output_file.get_filepath().parent.exists():
-            output_file.get_filepath().parent.mkdir(parents=True)
-
-        return output_file.get_filepath()
+        # Do encode.
+        return True
 
     def encode_finish(self,
                       encode_cmd: tuple,
-                      input_sequence: tester.core.video,
-                      param_set: ParamSetBase) -> None:
+                      encoding_run: EncodingRun) -> None:
         """Meant to be called as the last thing from the encode() method of derived classes."""
-
-        output_file = self.get_output_file(input_sequence, param_set)
 
         try:
             output = subprocess.check_output(
                 encode_cmd,
                 stderr=subprocess.STDOUT
             )
-            with output_file.get_encoding_log_path().open("w") as encoding_log:
+            with encoding_run.encoding_log_path.open("w") as encoding_log:
                 encoding_log.write(output.decode())
         except subprocess.CalledProcessError as exception:
             console_log.error(f"{self._name}: Encoding failed "
-                              f"(input: '{input_sequence.input_filepath()}', "
-                              f"output: '{output_file.get_filepath()}')")
+                              f"(input: '{encoding_run.input_sequence.get_filepath()}', "
+                              f"output: '{encoding_run.output_file.get_filepath()}')")
             console_log.error(exception.output.decode().strip())
             raise

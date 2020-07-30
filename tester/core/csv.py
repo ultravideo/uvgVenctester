@@ -6,6 +6,7 @@ import math
 from pathlib import Path
 from enum import *
 
+
 class CsvFieldId(Enum):
     """An enumeration to identify the different CSV fields."""
     NONE: int = 0
@@ -21,11 +22,14 @@ class CsvFieldId(Enum):
     CONFIG_NAME: int = 10
     ANCHOR_NAME: int = 11
     TIME_SECONDS: int = 12
-    SPEEDUP: int = 13
-    PSNR_AVG: int = 14
-    SSIM_AVG: int = 15
-    BDBR_PSNR: int = 16
-    BDBR_SSIM: int = 17
+    TIME_STD_DEVIATION: int = 13
+    SPEEDUP: int = 14
+    BITRATE: int = 15
+    BITRATE_STD_DEVIATION: int = 16
+    PSNR_AVG: int = 17
+    SSIM_AVG: int = 18
+    BDBR_PSNR: int = 19
+    BDBR_SSIM: int = 20
 
 
 class CsvFile():
