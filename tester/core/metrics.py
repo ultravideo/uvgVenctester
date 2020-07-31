@@ -28,6 +28,7 @@ class EncodingRunMetrics:
         self.result_encoding_time: float = None
         self.result_psnr_avg: float = None
         self.result_ssim_avg: float = None
+        self.result_vmaf_avg: float = None
 
         if self.filepath.exists():
             self._read_in()
@@ -80,6 +81,18 @@ class EncodingRunMetrics:
         self.result_bitrate = bitrate
         self._write_out()
 
+    @property
+    def vmaf_avg(self) -> float:
+        if self.filepath.exists():
+            self._read_in()
+        return self.result_vmaf_avg
+
+    @vmaf_avg.setter
+    def vmaf_avg(self,
+                 vmaf_avg: float) -> None:
+        self.result_vmaf_avg = vmaf_avg
+        self._write_out()
+
     def _write_out(self) -> None:
         with self.filepath.open("w") as file:
             json_dict = {}
@@ -115,41 +128,92 @@ class SubTestMetrics:
 
     @property
     def bitrate_avg(self) -> float:
-        bitrates = [metrics.bitrate for metrics in self.run_metrics.values()]
+        bitrates = self._get_bitrates()
         return sum(bitrates) / len(bitrates)
 
     @property
-    def bitrate_std_deviation(self) -> float:
-        bitrates = [metrics.bitrate for metrics in self.run_metrics.values()]
+    def bitrate_stdev(self) -> float:
+        bitrates = self._get_bitrates()
         if len(bitrates) > 1:
             return statistics.stdev(bitrates)
         return 0.0
 
     @property
     def encoding_time_avg(self) -> float:
-        encoding_times = [metrics.encoding_time for metrics in self.run_metrics.values()]
+        encoding_times = self._get_encoding_times()
         return sum(encoding_times) / len(encoding_times)
 
     @property
-    def encoding_time_std_deviation(self) -> float:
-        encoding_times = [metrics.encoding_time for metrics in self.run_metrics.values()]
+    def encoding_time_stdev(self) -> float:
+        encoding_times = self._get_encoding_times()
         if len(encoding_times) > 1:
             return statistics.stdev(encoding_times)
         return 0.0
 
     @property
     def psnr_avg(self) -> float:
-        psnr_avgs = [metrics.psnr_avg for metrics in self.run_metrics.values()]
-        return sum(psnr_avgs) / len(psnr_avgs)
+        psnr_avgs = self._get_psnr_avgs()
+        try:
+            # This will fail if PSNR has not been computed.
+            return sum(psnr_avgs) / len(psnr_avgs)
+        except TypeError:
+            return 0.0
+
+    @property
+    def psnr_stdev(self) -> float:
+        try:
+            return statistics.stdev(self._get_psnr_avgs())
+        except:
+            return 0.0
 
     @property
     def ssim_avg(self) -> float:
-        ssim_avgs = [metrics.ssim_avg for metrics in self.run_metrics.values()]
-        return sum(ssim_avgs) / len(ssim_avgs)
+        ssim_avgs = self._get_ssim_avgs()
+        try:
+            return sum(ssim_avgs) / len(ssim_avgs)
+        except TypeError:
+            return 0.0
+
+    @property
+    def ssim_stdev(self) -> float:
+        try:
+            return statistics.stdev(self._get_ssim_avgs())
+        except:
+            return 0.0
+
+    @property
+    def vmaf_avg(self) -> float:
+        vmaf_avgs = self._get_vmaf_avgs()
+        try:
+            return sum(vmaf_avgs) / len(vmaf_avgs)
+        except TypeError:
+            return 0.0
+
+    @property
+    def vmaf_stdev(self) ->  float:
+        try:
+            return statistics.stdev(self._get_vmaf_avgs())
+        except TypeError:
+            return 0.0
 
     def get_speedup(self,
                     anchor: SubTestMetrics) -> float:
         return anchor.encoding_time_avg / self.encoding_time_avg
+
+    def _get_bitrates(self) -> list:
+        return [metrics.bitrate for metrics in self.run_metrics.values()]
+
+    def _get_encoding_times(self) -> list:
+        return [metrics.encoding_time for metrics in self.run_metrics.values()]
+
+    def _get_psnr_avgs(self) -> list:
+        return [metrics.psnr_avg for metrics in self.run_metrics.values()]
+
+    def _get_ssim_avgs(self) -> list:
+        return [metrics.ssim_avg for metrics in self.run_metrics.values()]
+
+    def _get_vmaf_avgs(self) -> list:
+        return [metrics.vmaf_avg for metrics in self.run_metrics.values()]
 
 
 class TestMetrics:

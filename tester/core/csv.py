@@ -22,14 +22,18 @@ class CsvFieldId(Enum):
     CONFIG_NAME: int = 10
     ANCHOR_NAME: int = 11
     TIME_SECONDS: int = 12
-    TIME_STD_DEVIATION: int = 13
+    TIME_STDEV: int = 13
     SPEEDUP: int = 14
     BITRATE: int = 15
-    BITRATE_STD_DEVIATION: int = 16
+    BITRATE_STDEV: int = 16
     PSNR_AVG: int = 17
-    SSIM_AVG: int = 18
-    BDBR_PSNR: int = 19
-    BDBR_SSIM: int = 20
+    PSNR_STDEV: int = 18
+    SSIM_AVG: int = 19
+    SSIM_STDEV: int = 20
+    VMAF_AVG: int = 21
+    VMAF_STDEV: int = 22
+    BDBR_PSNR: int = 23
+    BDBR_SSIM: int = 24
 
 
 class CsvFile():
