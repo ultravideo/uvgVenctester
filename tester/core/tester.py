@@ -147,18 +147,31 @@ class Tester:
                             console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
 
                             metrics = test.metrics[subtest][encoding_run]
-                            if metrics.psnr_avg is None\
-                               or metrics.ssim_avg is None\
-                               or metrics.bitrate is None:
+                            metrics.bitrate = encoding_run.output_file.get_bitrate()
 
-                                psnr_avg, ssim_avg = ffmpeg.compute_psnr_and_ssim(
-                                    encoding_run
+                            psnr_needed = bool(metrics.psnr_avg is None)\
+                                          and (CsvFieldId.PSNR_AVG in Cfg().CSV_ENABLED_FIELDS
+                                               or CsvFieldId.PSNR_STDEV in Cfg().CSV_ENABLED_FIELDS)
+                            ssim_needed = bool(metrics.ssim_avg is None)\
+                                          and (CsvFieldId.SSIM_AVG in Cfg().CSV_ENABLED_FIELDS
+                                               or CsvFieldId.SSIM_STDEV in Cfg().CSV_ENABLED_FIELDS)
+                            vmaf_needed = bool(metrics.vmaf_avg is None)\
+                                          and (CsvFieldId.VMAF_AVG in Cfg().CSV_ENABLED_FIELDS
+                                               or CsvFieldId.VMAF_STDEV in Cfg().CSV_ENABLED_FIELDS)
+
+                            if psnr_needed or ssim_needed or vmaf_needed:
+                                psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
+                                    encoding_run,
+                                    psnr=psnr_needed,
+                                    ssim=ssim_needed,
+                                    vmaf=vmaf_needed
                                 )
-
-                                metrics.psnr_avg = psnr_avg
-                                metrics.ssim_avg = ssim_avg
-                                metrics.bitrate = encoding_run.output_file.get_bitrate()
-
+                                if psnr_needed:
+                                    metrics.psnr_avg = psnr_avg
+                                if ssim_needed:
+                                    metrics.ssim_avg = ssim_avg
+                                if vmaf_needed:
+                                    metrics.vmaf_avg = vmaf_avg
                             else:
                                 console_log.info(f"Tester: Metrics for '{encoding_run.name}' already exist")
 
@@ -203,12 +216,16 @@ class Tester:
                                         CsvFieldId.CONFIG_NAME: test.name,
                                         CsvFieldId.ANCHOR_NAME: anchor.name,
                                         CsvFieldId.TIME_SECONDS: test.metrics[subtest].encoding_time_avg,
-                                        CsvFieldId.TIME_STD_DEVIATION: test.metrics[subtest].encoding_time_std_deviation,
+                                        CsvFieldId.TIME_STDEV: test.metrics[subtest].encoding_time_stdev,
                                         CsvFieldId.BITRATE: test.metrics[subtest].bitrate_avg,
-                                        CsvFieldId.BITRATE_STD_DEVIATION: test.metrics[subtest].bitrate_std_deviation,
+                                        CsvFieldId.BITRATE_STDEV: test.metrics[subtest].bitrate_stdev,
                                         CsvFieldId.SPEEDUP: test.metrics[subtest].get_speedup(anchor.metrics[sub_anchor]),
                                         CsvFieldId.PSNR_AVG: test.metrics[subtest].psnr_avg,
+                                        CsvFieldId.PSNR_STDEV: test.metrics[subtest].psnr_stdev,
                                         CsvFieldId.SSIM_AVG: test.metrics[subtest].ssim_avg,
+                                        CsvFieldId.SSIM_STDEV: test.metrics[subtest].ssim_stdev,
+                                        CsvFieldId.VMAF_AVG: test.metrics[subtest].vmaf_avg,
+                                        CsvFieldId.VMAF_STDEV: test.metrics[subtest].vmaf_stdev,
                                         CsvFieldId.BDBR_PSNR: test.metrics.get_bdbr_psnr(anchor.metrics),
                                         CsvFieldId.BDBR_SSIM: test.metrics.get_bdbr_ssim(anchor.metrics),
                                     }

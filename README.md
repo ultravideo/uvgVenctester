@@ -39,6 +39,7 @@ Windows/Linux:
 
 - `CSV_DECIMAL_POINT`
 - `CSV_FIELD_SEPARATOR`
+- `VMAF_REPO_PATH`
 
 Windows only:
 

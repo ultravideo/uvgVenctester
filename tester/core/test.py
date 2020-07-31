@@ -36,6 +36,7 @@ class EncodingRun:
         self.metrics_path: Path = output_dir_path / f"{base_filename}_metrics.json"
         self.psnr_log_path: Path = output_dir_path / f"{base_filename}_psnr_log.txt"
         self.ssim_log_path: Path = output_dir_path / f"{base_filename}_ssim_log.txt"
+        self.vmaf_log_path: Path = output_dir_path / f"{base_filename}_vmaf_log.txt"
 
         self.output_file = HevcVideoFile(
             filepath=output_dir_path / f"{base_filename}.hevc",

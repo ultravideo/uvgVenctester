@@ -350,11 +350,15 @@ class Cfg(metaclass=Singleton):
         csv.CsvFieldId.QUALITY_PARAM_VALUE,
         csv.CsvFieldId.CONFIG_NAME,
         csv.CsvFieldId.TIME_SECONDS,
-        csv.CsvFieldId.TIME_STD_DEVIATION,
+        csv.CsvFieldId.TIME_STDEV,
         csv.CsvFieldId.BITRATE,
-        csv.CsvFieldId.BITRATE_STD_DEVIATION,
+        csv.CsvFieldId.BITRATE_STDEV,
         csv.CsvFieldId.PSNR_AVG,
+        csv.CsvFieldId.PSNR_STDEV,
         csv.CsvFieldId.SSIM_AVG,
+        csv.CsvFieldId.SSIM_STDEV,
+        csv.CsvFieldId.VMAF_AVG,
+        csv.CsvFieldId.VMAF_STDEV,
         csv.CsvFieldId.ANCHOR_NAME,
         csv.CsvFieldId.SPEEDUP,
         csv.CsvFieldId.BDBR_PSNR,
@@ -378,12 +382,16 @@ class Cfg(metaclass=Singleton):
         csv.CsvFieldId.CONFIG_NAME: "Configuration name",
         csv.CsvFieldId.ANCHOR_NAME: "Anchor name",
         csv.CsvFieldId.TIME_SECONDS: "Encoding time (s)",
-        csv.CsvFieldId.TIME_STD_DEVIATION: "Encoding time (stdev)",
+        csv.CsvFieldId.TIME_STDEV: "Encoding time (stdev)",
         csv.CsvFieldId.BITRATE: "Bitrate",
-        csv.CsvFieldId.BITRATE_STD_DEVIATION: "Bitrate (stdev)",
+        csv.CsvFieldId.BITRATE_STDEV: "Bitrate (stdev)",
         csv.CsvFieldId.SPEEDUP: "Speedup",
         csv.CsvFieldId.PSNR_AVG: "PSNR (avg)",
+        csv.CsvFieldId.PSNR_STDEV: "PSNR (stdev)",
         csv.CsvFieldId.SSIM_AVG: "SSIM (avg)",
+        csv.CsvFieldId.SSIM_STDEV: "SSIM (stdev)",
+        csv.CsvFieldId.VMAF_AVG: "VMAF (avg)",
+        csv.CsvFieldId.VMAF_STDEV: "VMAF (stdev)",
         csv.CsvFieldId.BDBR_PSNR: "BD-BR (PSNR)",
         csv.CsvFieldId.BDBR_SSIM: "BD-BR (SSIM)",
     }
@@ -399,3 +407,10 @@ class Cfg(metaclass=Singleton):
         """Returns the number that will be used as the parameter to round() when rounding floats
         during CSV file generation."""
         return self.CSV_FLOAT_ROUNDING_ACCURACY
+
+    # Must be set in userconfig.
+    VMAF_REPO_PATH: Path = None
+    @property
+    def vmaf_repo_path(self) -> Path:
+        """Returns the absolute path of the vmaf library repository."""
+        return Path(self.VMAF_REPO_PATH)
