@@ -101,7 +101,11 @@ def compute_metrics(encoding_run: EncodingRun,
         if vmaf:
             console_log.debug(f"ffmpeg: VMAF log: '{vmaf_log_name}'")
 
-        subprocess.check_output(ffmpeg_command, stderr=subprocess.STDOUT, shell=True)
+        subprocess.check_output(
+            subprocess.list2cmdline(ffmpeg_command),
+            stderr=subprocess.STDOUT,
+            shell=True
+        )
 
         # Remove the temporary VMAF model file.
         os.remove(vmaf_model_dest_path1)

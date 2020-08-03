@@ -153,7 +153,7 @@ class Kvazaar(EncoderBase):
             id=Encoder.KVAZAAR,
             user_given_revision=user_given_revision,
             defines = defines,
-            git_repo_path=Cfg().kvz_git_repo_path,
+            git_local_path=Cfg().kvz_git_repo_path,
             git_repo_ssh_url=Cfg().kvz_git_repo_ssh_url
         )
 
@@ -176,11 +176,10 @@ class Kvazaar(EncoderBase):
             # https://docs.microsoft.com/en-us/visualstudio/msbuild/how-to-escape-special-characters-in-msbuild
             # https://docs.microsoft.com/en-us/visualstudio/msbuild/msbuild-special-characters
             MSBUILD_SEMICOLON_ESCAPE = "%3B"
-            msbuild_args = Cfg().kvz_msbuild_args
+            msbuild_args = Cfg().msbuild_args
             msbuild_args.append(f"/p:DefineConstants={MSBUILD_SEMICOLON_ESCAPE.join(self._defines)}")
 
             # Run VsDevCmd.bat, then msbuild.
-            # KVZ_MSBUILD_ARGS has to be a list/tuple so the syntax below is pretty stupid.
             build_cmd = (
                 "call", str(Cfg().vs_vsdevcmd_bat_path),
                 "&&", "msbuild", str(Cfg().kvz_vs_solution_path)
@@ -196,7 +195,7 @@ class Kvazaar(EncoderBase):
             kvz_configure_args = Cfg().KVZ_CONFIGURE_ARGS
             kvz_configure_args.append(cflags_str.strip())
 
-            # Run autogen.sh, then configure, then make. Return 0 on success, 1 on failure.
+            # Run autogen.sh, then configure, then make.
             build_cmd = (
                 "cd", str(Cfg().kvz_git_repo_path),
                 "&&", str(Cfg().kvz_autogen_script_path),
@@ -252,7 +251,7 @@ class Kvazaar(EncoderBase):
             return
 
         encode_cmd = (
-                         self._exe_path,
+            self._exe_path,
             "-i", str(encoding_run.input_sequence.get_filepath()),
             "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
             "-o", str(encoding_run.output_file.get_filepath()),

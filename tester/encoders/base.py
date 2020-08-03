@@ -16,12 +16,15 @@ from pathlib import Path
 class Encoder(Enum):
     """An enumeration to identify the supported encoders."""
 
-    KVAZAAR: int = 1
+    HM: int = 1
+    KVAZAAR: int = 2
 
     @property
     def pretty_name(self):
         if self == Encoder.KVAZAAR:
             return "Kvazaar"
+        elif self == Encoder.HM:
+            return "HM"
         else:
             raise RuntimeError
 
@@ -29,6 +32,8 @@ class Encoder(Enum):
     def short_name(self):
         if self == Encoder.KVAZAAR:
             return "kvazaar"
+        elif self == Encoder.HM:
+            return "hm"
         else:
             raise RuntimeError
 
@@ -119,8 +124,8 @@ class EncoderBase:
                  id: Encoder,
                  user_given_revision: str,
                  defines: list,
-                 git_repo_path: Path,
-                 git_repo_ssh_url: str):
+                 git_local_path: Path,
+                 git_remote_url: str):
 
         self._id: Encoder = id
         self._name: str = id.short_name
@@ -128,10 +133,10 @@ class EncoderBase:
         self._defines: list = defines
         self._define_hash: str = hashlib.md5(str(defines).encode()).hexdigest()
         self._define_hash_short: str = self._define_hash[:Cfg().short_define_hash_len]
-        self._git_local_path: Path = git_repo_path
-        self._git_ssh_url: str = git_repo_ssh_url
+        self._git_local_path: Path = git_local_path
+        self._git_remote_url: str = git_remote_url
 
-        self._git_repo: GitRepository = GitRepository(git_repo_path)
+        self._git_repo: GitRepository = GitRepository(git_local_path)
 
         self._exe_name: str = None
         self._exe_path: Path = None
@@ -201,7 +206,7 @@ class EncoderBase:
 
         # Clone the remote if the local repo doesn't exist yet.
         if not self._git_local_path.exists():
-            cmd_str, output, exception = self._git_repo.clone(self._git_ssh_url)
+            cmd_str, output, exception = self._git_repo.clone(self._git_remote_url)
             if not exception:
                 pass
             else:
@@ -273,7 +278,7 @@ class EncoderBase:
         self._build_log.info(subprocess.list2cmdline(build_cmd))
         try:
             output = subprocess.check_output(
-                build_cmd,
+               subprocess.list2cmdline(build_cmd),
                 shell=True,
                 stderr=subprocess.STDOUT
             )
@@ -336,7 +341,8 @@ class EncoderBase:
         """Meant to be called as the last thing from the dummy_run() method of derived classes."""
         try:
             subprocess.check_output(
-                dummy_cmd,
+                subprocess.list2cmdline(dummy_cmd),
+                shell=True,
                 stderr=subprocess.STDOUT
             )
         except subprocess.CalledProcessError as exception:
@@ -378,7 +384,8 @@ class EncoderBase:
 
         try:
             output = subprocess.check_output(
-                encode_cmd,
+                subprocess.list2cmdline(encode_cmd),
+                shell=True,
                 stderr=subprocess.STDOUT
             )
             with encoding_run.encoding_log_path.open("w") as encoding_log:

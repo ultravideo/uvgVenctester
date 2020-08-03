@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from tester.core.metrics import *
 from tester.encoders.kvazaar import *
+from tester.encoders.hm import *
 
 
 class EncodingRun:
@@ -157,6 +158,17 @@ class Test:
             self.encoder = Kvazaar(encoder_revision, encoder_defines)
             param_sets = [
                 KvazaarParamSet(
+                    quality_param_type,
+                    quality_param_value,
+                    seek,
+                    frames,
+                    cl_args
+                ) for quality_param_value in quality_param_list
+            ]
+        elif encoder_id == Encoder.HM:
+            self.encoder = Hm(encoder_revision, encoder_defines)
+            param_sets = [
+                HmParamSet(
                     quality_param_type,
                     quality_param_value,
                     seek,
