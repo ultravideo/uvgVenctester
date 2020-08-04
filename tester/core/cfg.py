@@ -501,3 +501,8 @@ class Cfg(metaclass=Singleton):
     def cmake_architecture(self) -> str:
         """Returns the -A parameter to be passed to CMake."""
         return self.CMAKE_ARCHITECTURE
+
+    HM_CFG_PATH: str = None
+    @property
+    def hm_cfg_path(self):
+        return Path(self.HM_CFG_PATH)

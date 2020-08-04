@@ -19,11 +19,6 @@ class KvazaarParamSet(ParamSetBase):
                  frames: int,
                  cl_args: str):
 
-        if seek:
-            cl_args += f" --seek {seek}"
-        if frames:
-            cl_args += f" --frames {frames}"
-
         super().__init__(
             quality_param_type,
             quality_param_value,
@@ -35,37 +30,28 @@ class KvazaarParamSet(ParamSetBase):
         # This checks the integrity of the parameters.
         self.to_cmdline_tuple()
 
-    def to_cmdline_tuple(self,
-                         include_quality_param: bool = True) -> tuple:
-        """Reorders command line arguments such that --preset is first,
-        --gop second and all the rest last. Also checks that the args are syntactically valid.
-        Returns the arguments as a string."""
+    def _to_unordered_args_list(self,
+                                include_quality_param: bool = True,
+                                include_seek: bool = True,
+                                include_frames: bool = True) -> list:
 
-        def is_long_option(candidate: str):
-            return candidate.startswith("--")
-
-        def is_short_option(candidate: str):
-            return not is_long_option(candidate) and candidate.startswith("-")
-
-        def is_option(candidate: str):
-            return is_long_option(candidate) or is_short_option(candidate)
-
-        def is_value(candidate: str):
-            return not is_option(candidate)
-
-        cl_args = self._cl_args
+        args = self._cl_args
 
         if include_quality_param:
             if self._quality_param_type == QualityParam.QP:
-                cl_args += f" --qp {self._quality_param_value}"
+                args += f" --qp {self._quality_param_value}"
             elif self._quality_param_type == QualityParam.BITRATE:
-                cl_args += f" --bitrate {self._quality_param_value}"
+                args += f" --bitrate {self._quality_param_value}"
+        if include_seek and self._seek:
+            args += f" --seek {self._seek}"
+        if include_frames and self._frames:
+            args += f" --frames {self._frames}"
 
         split_args: list = []
 
         # Split the arguments such that each option and its value, if any, are separated.
-        for item in cl_args.split():
-            if is_short_option(item):
+        for item in args.split():
+            if ParamSetBase._is_short_option(item):
                 # A short option is of the form -<short form><value> or -<short form> <value>,
                 # so split after the second character.
                 option_name: str = item[:2]
@@ -77,69 +63,11 @@ class KvazaarParamSet(ParamSetBase):
                 for item in item.split("="):
                     split_args.append(item)
 
-        # Put the options and their values into this dict. Value None indicates that the option
-        # is a boolean with no explicit value.
-        option_values = {}
-        i = 0
-        i_max = len(split_args)
-        while i < i_max:
-            option_name = split_args[i]
-            if is_option(option_name) and i + 1 < i_max and is_value(split_args[i + 1]):
-                # Has an explicit value.
-                option_value = split_args[i + 1]
-                i += 2
-            else:
-                # Has an implicit value (boolean).
-                option_value = None
-                i += 1
+        return split_args
 
-            if option_name in option_values:
-                raise RuntimeError(f"KvazaarParamSet: Duplicate option {option_name}")
-
-            option_values[option_name] = option_value
-
-        # Check that no option is specified as both no-<option> and <option>.
-        for option_name in option_values.keys():
-            option_name = option_name.strip("--")
-            if f"--no-{option_name}" in option_values.keys():
-                raise RuntimeError(f"KvazaarParamSet: Conflicting options '--{option_name}' and "
-                                   f"'--no-{option_name}'")
-
-        # Reorder the options. --preset and --gop must be the first, in this order. The order
-        # of the rest doesn't matter.
-
-        # Handle --preset and --gop.
-        reordered_cl_args: list = []
-        for option_name in self.POSITIONAL_ARGS:
-            if option_name in option_values:
-                option_value = option_values[option_name]
-                reordered_cl_args.append(option_name)
-                if option_value:
-                    reordered_cl_args.append(option_value)
-                del option_values[option_name]
-
-        # Handle option flags with implicit boolean values (for example --no-wpp).
-        for option_name in sorted(option_values.keys()):
-            option_value = option_values[option_name]
-            if option_value is None:
-                reordered_cl_args.append(option_name)
-                del option_values[option_name]
-
-        # Handle long options with explicit values (for example --frames 256)
-        for option_name in sorted(option_values.keys()):
-            option_value = option_values[option_name]
-            if is_long_option(option_name):
-                reordered_cl_args.append(option_name)
-                reordered_cl_args.append(option_value)
-
-        # Handle short options with explicit values (for example -n 256).
-        for option_name in sorted(option_values.keys()):
-            option_value = option_values[option_name]
-            if is_short_option(option_name):
-                reordered_cl_args.append(option_name)
-                reordered_cl_args.append(option_value)
-
-        return tuple(reordered_cl_args)
+    @staticmethod
+    def _get_arg_order() -> list:
+        return ["--preset", "--gop"]
 
 
 class Kvazaar(EncoderBase):
@@ -154,7 +82,7 @@ class Kvazaar(EncoderBase):
             user_given_revision=user_given_revision,
             defines = defines,
             git_local_path=Cfg().kvz_git_repo_path,
-            git_repo_ssh_url=Cfg().kvz_git_repo_ssh_url
+            git_remote_url=Cfg().kvz_git_repo_ssh_url
         )
 
         self._exe_src_path: Path = Cfg().kvz_exe_src_path_windows if Cfg().os_name == "Windows"\
@@ -224,23 +152,15 @@ class Kvazaar(EncoderBase):
 
         super().dummy_run_start(param_set)
 
-        dummy_cmd = ()
+        null_device = "NUL" if Cfg().os_name == "Windows" else "/dev/null"
+        RESOLUTION_PLACEHOLDER = "2x2"
 
-        if Cfg().os_name == "Windows":
-            dummy_cmd = (
-                str(self._exe_path),
-                "-i", "NUL",
-                "--input-res", "2x2",
-                "-o", "NUL",
-            ) + param_set.to_cmdline_tuple()
-
-        elif Cfg().os_name == "Linux":
-            dummy_cmd = (
-                self._exe_path,
-                "-i", "/dev/null",
-                "--input-res", "2x2",
-                "-o", "/dev/null",
-            ) + param_set.to_cmdline_tuple()
+        dummy_cmd = (
+            str(self._exe_path),
+            "-i", null_device,
+            "--input-res", RESOLUTION_PLACEHOLDER,
+            "-o", null_device,
+        ) + param_set.to_cmdline_tuple()
 
         return super().dummy_run_finish(dummy_cmd, param_set)
 

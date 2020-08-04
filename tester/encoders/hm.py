@@ -22,9 +22,28 @@ class HmParamSet(ParamSetBase):
             cl_args
         )
 
-    def to_cmdline_tuple(self,
-                         include_quality_param: bool = True) -> tuple:
-        return ("",)
+    @staticmethod
+    def _get_arg_order() -> list:
+        return []
+
+    def _to_unordered_args_list(self,
+                                include_quality_param: bool = True,
+                                include_seek: bool = True,
+                                include_frames: bool = True) -> list:
+
+        args = self._cl_args
+
+        if include_quality_param:
+            if self._quality_param_type == QualityParam.QP:
+                args += f" --QP {self._quality_param_value}"
+            elif self._quality_param_type == QualityParam.BITRATE:
+                args += f" --TargetBitrate {self._quality_param_value}"
+        if include_seek and self._seek:
+            args += f" --FrameSkip {self._seek}"
+        if include_frames and self._frames:
+                args += f" --FramesToBeEncoded {self._frames}"
+
+        return args.split()
 
 
 class Hm(EncoderBase):
@@ -110,3 +129,29 @@ class Hm(EncoderBase):
             )
 
         super().clean_finish(clean_cmd)
+
+    def dummy_run(self,
+                  param_set: ParamSetBase) -> bool:
+
+        super().dummy_run_start(param_set)
+
+        null_device = "NUL" if Cfg().os_name == "Windows" else "/dev/null"
+        FRAMERATE_PLACEHOLDER = "1"
+        WIDTH_PLACEHOLDER = "16"
+        HEIGHT_PLACEHOLDER = "16"
+        FRAMECOUNT_PLACEHOLDER = "1"
+
+        dummy_cmd = (
+            str(self._exe_path),
+            "-c", str(Cfg().hm_cfg_path),
+            "-i", null_device,
+            "-fr", FRAMERATE_PLACEHOLDER,
+            "-wdt", WIDTH_PLACEHOLDER,
+            "-hgt", HEIGHT_PLACEHOLDER,
+            "-b", null_device,
+            # Just in case the parameter set doesn't contain the number of frames parameter
+            # (will be overridden if it does).
+            "-f", FRAMECOUNT_PLACEHOLDER,
+        ) + param_set.to_cmdline_tuple()
+
+        return super().dummy_run_finish(dummy_cmd, param_set)
