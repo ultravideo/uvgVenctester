@@ -20,6 +20,9 @@
 - Python libraries
   - [colorama](https://github.com/tartley/colorama)
   - [vmaf](https://github.com/Netflix/vmaf)
+    - clone the repository
+    - cd to `vmaf/python`
+    - run `python setup.py install`
 
 ## Installation
 
