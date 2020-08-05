@@ -1,3 +1,5 @@
+"""This module defines all functionality specific to HM."""
+
 from __future__ import annotations
 
 from .base import *
