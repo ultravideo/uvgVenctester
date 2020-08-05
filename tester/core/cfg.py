@@ -1,4 +1,5 @@
 """This module defines functionality to enable customization of the tester functionality."""
+import subprocess
 
 from .log import *
 from .singleton import *
@@ -76,6 +77,22 @@ class Cfg(metaclass=Singleton):
         if not self.os_name in SUPPORTED_OSES:
             console_log.error(f"Cfg: Unsupported OS '{Cfg().os_name}'. Expected one of "
                               f"{SUPPORTED_OSES}")
+            raise RuntimeError
+
+        try:
+            proc = subprocess.Popen(("ffmpeg", "-version"), stdout=subprocess.PIPE)
+            if csv.CsvFieldId.VMAF_AVG in self.CSV_ENABLED_FIELDS:
+                for line in proc.stdout:
+                    line = line.split()
+                    if line[0] == "configuration" and not any(x == "--enable-libvmaf" for x in line):
+                        console_log.error("Cfg: VMAF defined in CSV_ENABLED_FIELDS but ffmpeg is not configured with"
+                                          " --enable-libvmaf")
+                        raise RuntimeError
+
+            proc.wait()
+
+        except FileNotFoundError:
+            console_log.error(f"Cfg: Cannot find ffmpeg")
             raise RuntimeError
 
     def _property_names(self) -> list:
