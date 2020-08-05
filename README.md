@@ -6,6 +6,7 @@
 
 ## Supported encoders
 
+- [HM](https://vcgit.hhi.fraunhofer.de/jct-vc/HM)
 - [Kvazaar](https://github.com/ultravideo/kvazaar)
 
 ## Dependencies
@@ -13,13 +14,21 @@
 - Windows 10 or Linux
 - [Ffmpeg](https://ffmpeg.org/)
   - Must be in `PATH` and able to be used as `ffmpeg`
-- [Visual Studio 2019](https://visualstudio.microsoft.com/) (Windows)
-- [GCC](https://gcc.gnu.org/) (Linux)
-  - Must be in `PATH` and able to be used as `gcc`
-- [Python interpreter (3.8+)](https://www.python.org/)
+- [CMake](https://cmake.org)
+  - Must be in `PATH` and able to be used as `cmake`
+- [Python interpreter (3.8+)](https://python.org/)
 - Python libraries
   - [colorama](https://github.com/tartley/colorama)
   - [vmaf](https://github.com/Netflix/vmaf)
+
+Windows 10 only:
+- [Visual Studio 2019](https://visualstudio.microsoft.com/)
+
+Linux only:
+- [Make](https://gnu.org/software/make/)
+  - Must be in `PATH` and able to be used as `make`
+- [GCC](https://gcc.gnu.org/)
+  - Must be in `PATH` and able to be used as `gcc`
 
 ## Installation
 
@@ -46,9 +55,11 @@ Windows only:
 - `KVZ_MSBUILD_PLATFORMTOOLSET`
 - `KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION`
 - `KVZ_VS_SOLUTION_NAME`
+- `MSVC_VERSION`
 - `VS_EDITION`
 - `VS_INSTALL_PATH`
 - `VS_VERSION`
+- `VS_YEAR`
 
 ## Example usage
 

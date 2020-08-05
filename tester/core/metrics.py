@@ -134,9 +134,10 @@ class SubTestMetrics:
     @property
     def bitrate_stdev(self) -> float:
         bitrates = self._get_bitrates()
-        if len(bitrates) > 1:
+        try:
             return statistics.stdev(bitrates)
-        return 0.0
+        except:
+            return 0.0
 
     @property
     def encoding_time_avg(self) -> float:
@@ -146,9 +147,10 @@ class SubTestMetrics:
     @property
     def encoding_time_stdev(self) -> float:
         encoding_times = self._get_encoding_times()
-        if len(encoding_times) > 1:
+        try:
             return statistics.stdev(encoding_times)
-        return 0.0
+        except:
+            return 0.0
 
     @property
     def psnr_avg(self) -> float:
@@ -156,7 +158,7 @@ class SubTestMetrics:
         try:
             # This will fail if PSNR has not been computed.
             return sum(psnr_avgs) / len(psnr_avgs)
-        except TypeError:
+        except:
             return 0.0
 
     @property
@@ -193,7 +195,7 @@ class SubTestMetrics:
     def vmaf_stdev(self) ->  float:
         try:
             return statistics.stdev(self._get_vmaf_avgs())
-        except TypeError:
+        except:
             return 0.0
 
     def get_speedup(self,

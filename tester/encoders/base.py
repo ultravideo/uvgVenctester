@@ -16,12 +16,15 @@ from pathlib import Path
 class Encoder(Enum):
     """An enumeration to identify the supported encoders."""
 
-    KVAZAAR: int = 1
+    HM: int = 1
+    KVAZAAR: int = 2
 
     @property
     def pretty_name(self):
         if self == Encoder.KVAZAAR:
             return "Kvazaar"
+        elif self == Encoder.HM:
+            return "HM"
         else:
             raise RuntimeError
 
@@ -29,6 +32,8 @@ class Encoder(Enum):
     def short_name(self):
         if self == Encoder.KVAZAAR:
             return "kvazaar"
+        elif self == Encoder.HM:
+            return "hm"
         else:
             raise RuntimeError
 
@@ -84,6 +89,135 @@ class ParamSetBase():
     def __hash__(self):
         return hash(self.to_cmdline_str())
 
+    @staticmethod
+    def _get_arg_order() -> list:
+        """If there are arguments that need to be placed before others, this function returns
+        a list of those arguments in the order that they should appear on the command line.
+        Must be implemented in subclasses."""
+        raise NotImplementedError
+
+    @staticmethod
+    def _is_long_option(candidate: str):
+        return candidate.startswith("--")
+
+    @staticmethod
+    def _is_short_option(candidate: str):
+        return not ParamSetBase._is_long_option(candidate) and candidate.startswith("-")
+
+    @staticmethod
+    def _is_option(candidate: str):
+        return ParamSetBase._is_long_option(candidate) or ParamSetBase._is_short_option(candidate)
+
+    @staticmethod
+    def _is_value(candidate: str):
+        return not ParamSetBase._is_option(candidate)
+
+    def _to_unordered_args_list(self,
+                                include_quality_param: bool = True,
+                                include_seek: bool = True,
+                                include_frames: bool = True) -> list:
+        """Returns a list where the option names and values have been split.
+        Must be implemented in subclasses (the encoders parse arguments differently)."""
+        raise NotImplementedError
+
+    def _to_args_dict(self,
+                      include_quality_param: bool = True,
+                      include_seek: bool = True,
+                      include_frames: bool = True) -> dict:
+        """Returns a dict where key = option name, value = option value."""
+
+        args_list = self._to_unordered_args_list(
+            include_quality_param,
+            include_seek,
+            include_frames
+        )
+
+        # Put the options and their values into this dict. Value None indicates that the option
+        # is a boolean with no explicit value.
+        args_dict = {}
+
+        i = 0
+        i_max = len(args_list)
+        while i < i_max:
+            option_name = args_list[i]
+            if ParamSetBase._is_option(option_name) \
+                    and i + 1 < i_max \
+                    and ParamSetBase._is_value(args_list[i + 1]):
+                # Has an explicit value.
+                option_value = args_list[i + 1]
+                i += 2
+            else:
+                # Has an implicit value (boolean).
+                option_value = None
+                i += 1
+
+            if option_name in args_dict:
+                raise RuntimeError(f"{type(self).__name__}: Duplicate option '{option_name}'")
+
+            args_dict[option_name] = option_value
+
+        # Check that no option is specified as both no-<option> and <option>.
+        for option_name in args_dict.keys():
+            option_name = option_name.strip("--")
+            if f"--no-{option_name}" in args_dict.keys():
+                raise RuntimeError(f"{type(self).__name__}: Conflicting options '--{option_name}'"
+                                   f"and '--no-{option_name}'")
+
+        return args_dict
+
+    def to_cmdline_tuple(self,
+                         include_quality_param: bool = True,
+                         include_seek: bool = True,
+                         include_frames: bool = True) -> tuple:
+        """Returns the command line arguments in a tuple that has been ordered."""
+
+        reordered_args_list: list = []
+
+        args_dict = self._to_args_dict(
+            include_quality_param,
+            include_seek,
+            include_frames
+        )
+
+        # Handle arguments that should come before others, if any.
+        for option_name in self._get_arg_order():
+            if option_name in args_dict:
+                option_value = args_dict[option_name]
+                reordered_args_list.append(option_name)
+                if option_value:
+                    reordered_args_list.append(option_value)
+                del args_dict[option_name]
+
+        # Handle option flags with implicit boolean values (for example --no-wpp).
+        for option_name in sorted(args_dict.keys()):
+            option_value = args_dict[option_name]
+            if option_value is None:
+                reordered_args_list.append(option_name)
+                del args_dict[option_name]
+
+        # Handle long options with explicit values (for example --frames 256)
+        for option_name in sorted(args_dict.keys()):
+            option_value = args_dict[option_name]
+            if ParamSetBase._is_long_option(option_name):
+                reordered_args_list.append(option_name)
+                reordered_args_list.append(option_value)
+
+        # Handle short options with explicit values (for example -n 256).
+        for option_name in sorted(args_dict.keys()):
+            option_value = args_dict[option_name]
+            if ParamSetBase._is_short_option(option_name):
+                reordered_args_list.append(option_name)
+                reordered_args_list.append(option_value)
+
+        return tuple(reordered_args_list)
+
+    def to_cmdline_str(self,
+                       include_quality_param: bool = True,
+                       include_seek: bool = True,
+                       include_frames: bool = True) -> str:
+        """Returns the command line arguments in a string that has been ordered."""
+        return " ".join(self.to_cmdline_tuple(include_quality_param, include_seek, include_frames))
+
     def get_quality_param_type(self) -> QualityParam:
         return self._quality_param_type
 
@@ -99,17 +233,6 @@ class ParamSetBase():
     def get_cl_args(self) -> str:
         return self._cl_args
 
-    def to_cmdline_tuple(self,
-                         include_quality_param: bool = True) -> tuple:
-        """Returns the command line arguments as a tuple."""
-        raise NotImplementedError
-
-    def to_cmdline_str(self,
-                       include_quality_param: bool = True) -> str:
-        """Returns the command line arguments as a string."""
-        return " ".join(self.to_cmdline_tuple(include_quality_param))
-
-
 class EncoderBase:
     """An interface representing an encoder. Each encoder module must implement a class that
     inherits this class. The purpose of the class is to provide an interface through
@@ -119,8 +242,8 @@ class EncoderBase:
                  id: Encoder,
                  user_given_revision: str,
                  defines: list,
-                 git_repo_path: Path,
-                 git_repo_ssh_url: str):
+                 git_local_path: Path,
+                 git_remote_url: str):
 
         self._id: Encoder = id
         self._name: str = id.short_name
@@ -128,10 +251,10 @@ class EncoderBase:
         self._defines: list = defines
         self._define_hash: str = hashlib.md5(str(defines).encode()).hexdigest()
         self._define_hash_short: str = self._define_hash[:Cfg().short_define_hash_len]
-        self._git_local_path: Path = git_repo_path
-        self._git_ssh_url: str = git_repo_ssh_url
+        self._git_local_path: Path = git_local_path
+        self._git_remote_url: str = git_remote_url
 
-        self._git_repo: GitRepository = GitRepository(git_repo_path)
+        self._git_repo: GitRepository = GitRepository(git_local_path)
 
         self._exe_name: str = None
         self._exe_path: Path = None
@@ -148,9 +271,9 @@ class EncoderBase:
         # This is set when build() is called.
         self._build_log: logging.Logger = None
 
-        console_log.debug(f"{self._name}: Initialized object:")
+        console_log.debug(f"{type(self).__name__}: Initialized object:")
         for attribute_name in sorted(self.__dict__):
-            console_log.debug(f"{self._name}: {attribute_name} = '{getattr(self, attribute_name)}'")
+            console_log.debug(f"{type(self).__name__}: {attribute_name} = '{getattr(self, attribute_name)}'")
 
     def __eq__(self,
                other: EncoderBase) -> bool:
@@ -195,13 +318,13 @@ class EncoderBase:
         return self._define_hash_short
 
     def prepare_sources(self) -> None:
-        console_log.info(f"{self._name}: Preparing sources")
-        console_log.info(f"{self._name}: Repository: '{self._git_repo._local_repo_path}'")
-        console_log.info(f"{self._name}: Revision: '{self._user_given_revision}'")
+        console_log.info(f"{type(self).__name__}: Preparing sources")
+        console_log.info(f"{type(self).__name__}: Repository: '{self._git_repo._local_repo_path}'")
+        console_log.info(f"{type(self).__name__}: Revision: '{self._user_given_revision}'")
 
         # Clone the remote if the local repo doesn't exist yet.
         if not self._git_local_path.exists():
-            cmd_str, output, exception = self._git_repo.clone(self._git_ssh_url)
+            cmd_str, output, exception = self._git_repo.clone(self._git_remote_url)
             if not exception:
                 pass
             else:
@@ -209,7 +332,7 @@ class EncoderBase:
                 console_log.error(exception.output.decode())
                 raise exception
         else:
-            console_log.info(f"{self._name}: Repository '{self._git_local_path}' "
+            console_log.info(f"{type(self).__name__}: Repository '{self._git_local_path}' "
                              f"already exists")
 
         # Convert the user-given revision into the actual full revision.
@@ -217,7 +340,7 @@ class EncoderBase:
         if not exception:
             self._commit_hash = output.decode().strip()
         else:
-            console_log.error(f"{self._name}: Invalid revision '{self._user_given_revision}'")
+            console_log.error(f"{type(self).__name__}: Invalid revision '{self._user_given_revision}'")
             raise exception
 
         # These can now be evaluated because the repo exists for certain.
@@ -228,7 +351,7 @@ class EncoderBase:
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
         self._build_log_path = Cfg().binaries_dir_path / self._build_log_name
 
-        console_log.info(f"{self._name}: Revision '{self._user_given_revision}' "
+        console_log.info(f"{type(self).__name__}: Revision '{self._user_given_revision}' "
                          f"maps to commit hash '{self._commit_hash}'")
 
     def build(self) -> None:
@@ -239,11 +362,11 @@ class EncoderBase:
         """Meant to be called as the first thing from the build() method of derived classes."""
         assert Cfg().binaries_dir_path.exists()
 
-        console_log.info(f"{self._name}: Building executable '{self._exe_name}'")
-        console_log.info(f"{self._name}: Log: '{self._build_log_name}'")
+        console_log.info(f"{type(self).__name__}: Building executable '{self._exe_name}'")
+        console_log.info(f"{type(self).__name__}: Log: '{self._build_log_name}'")
 
         if (self._exe_path.exists()):
-            console_log.info(f"{self._name}: Executable '{self._exe_name}' already exists")
+            console_log.info(f"{type(self).__name__}: Executable '{self._exe_name}' already exists")
             # Don't build unnecessarily.
             return False
 
@@ -273,7 +396,7 @@ class EncoderBase:
         self._build_log.info(subprocess.list2cmdline(build_cmd))
         try:
             output = subprocess.check_output(
-                build_cmd,
+               subprocess.list2cmdline(build_cmd),
                 shell=True,
                 stderr=subprocess.STDOUT
             )
@@ -289,7 +412,7 @@ class EncoderBase:
 
         # Copy the executable to its destination.
         assert self._exe_src_path.exists()
-        self._build_log.debug(f"{self._name}: Copying file '{self._exe_src_path}' "
+        self._build_log.debug(f"{type(self).__name__}: Copying file '{self._exe_src_path}' "
                               f"to '{self._exe_path}'")
         try:
             shutil.copy(str(self._exe_src_path), str(self._exe_path))
@@ -305,7 +428,7 @@ class EncoderBase:
 
     def clean_start(self) -> None:
         """Meant to be called as the first thing from the clean() method of derived classes."""
-        console_log.info(f"{self._name}: Cleaning build artifacts")
+        console_log.info(f"{type(self).__name__}: Cleaning build artifacts")
 
     def clean_finish(self, clean_cmd: tuple) -> None:
         """Meant to be called as the last thing from the clean() method of derived classes."""
@@ -327,7 +450,7 @@ class EncoderBase:
     def dummy_run_start(self,
                         param_set: ParamSetBase) -> bool:
         """Meant to be called as the first thing from the dummy_run() method of derived classes."""
-        console_log.debug(f"{self._name}: Validating arguments: '{param_set.to_cmdline_str()}'")
+        console_log.debug(f"{type(self).__name__}: Validating arguments: '{param_set.to_cmdline_str()}'")
         return True
 
     def dummy_run_finish(self,
@@ -336,11 +459,12 @@ class EncoderBase:
         """Meant to be called as the last thing from the dummy_run() method of derived classes."""
         try:
             subprocess.check_output(
-                dummy_cmd,
+                subprocess.list2cmdline(dummy_cmd),
+                shell=True,
                 stderr=subprocess.STDOUT
             )
         except subprocess.CalledProcessError as exception:
-            console_log.error(f"{self._name}: Invalid arguments: "
+            console_log.error(f"{type(self).__name__}: Invalid arguments: "
                               f"'{param_set.to_cmdline_str()}'")
             console_log.error(exception.output.decode().strip())
             return False
@@ -355,13 +479,13 @@ class EncoderBase:
                      encoding_run: EncodingRun) -> bool:
         """Meant to be called as the first thing from the encode() method of derived classes."""
 
-        console_log.debug(f"{self._name}: Encoding file '{encoding_run.input_sequence.get_filepath().name}'")
-        console_log.debug(f"{self._name}: Output: '{encoding_run.output_file.get_filepath().name}'")
-        console_log.debug(f"{self._name}: Arguments: '{encoding_run.param_set.to_cmdline_str()}'")
-        console_log.debug(f"{self._name}: Log: '{encoding_run.encoding_log_path.name}'")
+        console_log.debug(f"{type(self).__name__}: Encoding file '{encoding_run.input_sequence.get_filepath().name}'")
+        console_log.debug(f"{type(self).__name__}: Output: '{encoding_run.output_file.get_filepath().name}'")
+        console_log.debug(f"{type(self).__name__}: Arguments: '{encoding_run.param_set.to_cmdline_str()}'")
+        console_log.debug(f"{type(self).__name__}: Log: '{encoding_run.encoding_log_path.name}'")
 
         if encoding_run.output_file.get_filepath().exists():
-            console_log.info(f"{self._name}: File '{encoding_run.output_file.get_filepath().name}' already exists")
+            console_log.info(f"{type(self).__name__}: File '{encoding_run.output_file.get_filepath().name}' already exists")
             # Don't encode unnecessarily.
             return False
 
@@ -378,13 +502,14 @@ class EncoderBase:
 
         try:
             output = subprocess.check_output(
-                encode_cmd,
+                subprocess.list2cmdline(encode_cmd),
+                shell=True,
                 stderr=subprocess.STDOUT
             )
             with encoding_run.encoding_log_path.open("w") as encoding_log:
                 encoding_log.write(output.decode())
         except subprocess.CalledProcessError as exception:
-            console_log.error(f"{self._name}: Encoding failed "
+            console_log.error(f"{type(self).__name__}: Encoding failed "
                               f"(input: '{encoding_run.input_sequence.get_filepath()}', "
                               f"output: '{encoding_run.output_file.get_filepath()}')")
             console_log.error(exception.output.decode().strip())

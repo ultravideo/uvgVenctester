@@ -184,10 +184,16 @@ class Cfg(metaclass=Singleton):
         """Returns the absolute path of the Visual Studio base installation directory."""
         return Path(self.VS_INSTALL_PATH)
 
-    VS_VERSION: str = "2019"
+    VS_YEAR: str = "2019"
+    @property
+    def vs_year(self) -> str:
+        """Returns the Visual Studio year version to be used."""
+        return self.VS_YEAR
+
+    VS_VERSION: str = "16"
     @property
     def vs_version(self) -> str:
-        """Returns the Visual Studio version (year) to be used."""
+        "Returns the Visual Studio version to be used."
         return self.VS_VERSION
 
     VS_EDITION: str = "Enterprise"
@@ -196,11 +202,16 @@ class Cfg(metaclass=Singleton):
         """Returns the Visual Studio edition ("Community" or "Enterprise") to be used."""
         return self.VS_EDITION
 
+    MSVC_VERSION: str = None
+    @property
+    def msvc_version(self) -> str:
+        return self.MSVC_VERSION
+
     @property
     def vs_vsdevcmd_bat_path(self) -> Path:
         """Returns the absolute path of VsDevCmd.bat (Visual Studio command line environment setup
         batch script)."""
-        return self.vs_install_path / self.vs_version / self.vs_edition / "Common7" / "Tools" / "VsDevCmd.bat"
+        return self.vs_install_path / self.vs_year / self.vs_edition / "Common7" / "Tools" / "VsDevCmd.bat"
 
     KVZ_GIT_REPO_NAME: str = "kvazaar"
     @property
@@ -241,47 +252,8 @@ class Cfg(metaclass=Singleton):
         """Returns the absolute path of the Kvazaar executable after compiling on Linux."""
         return self.kvz_git_repo_path / "src" / "kvazaar"
 
-    KVZ_MSBUILD_CONFIGURATION: str = "Release"
-    @property
-    def kvz_msbuild_configuration(self) -> str:
-        """Returns the value of the Configuration property (/p:Configuration)
-        passed to MSBuild when compiling Kvazaar on Windows."""
-        return self.KVZ_MSBUILD_CONFIGURATION
-
-    KVZ_MSBUILD_PLATFORM: str = "x64"
-    @property
-    def kvz_msbuild_platform(self) -> str:
-        """Returns the value of the Platform property (/p:Platform)
-        passed to MSBuild when compiling Kvazaar on Windows."""
-        return self.KVZ_MSBUILD_PLATFORM
-
-    KVZ_MSBUILD_PLATFORMTOOLSET: str = "v142"
-    @property
-    def kvz_msbuild_platformtoolset(self) -> str:
-        """Returns the value of the PlatformToolSet property (/p:PlatformToolSet)
-        passed to MSBuild when compiling Kvazaar on Windows."""
-        return self.KVZ_MSBUILD_PLATFORMTOOLSET
-
-    KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION: str = "10.0"
-    @property
-    def kvz_msbuild_windowstargetplatformversion(self) -> str:
-        """Returns the value of the WindowsTargetPlatformVersion property (/p:WindowsTargetPlatformVersion)
-        passed to MSBuild when compiling Kvazaar on Windows."""
-        return self.KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION
-
-    @property
-    def kvz_msbuild_args(self) -> list:
-        """Returns the additional command line arguments to be passed to MSBuild
-        when compiling Kvazaar on Windows."""
-
-        return [
-            f"/p:Configuration={self.kvz_msbuild_configuration}",
-            f"/p:Platform={self.kvz_msbuild_platform}",
-            f"/p:PlatformToolset={self.kvz_msbuild_platformtoolset}",
-            f"/p:WindowsTargetPlatformVersion={self.kvz_msbuild_windowstargetplatformversion}",
-        ]
-
     KVZ_VS_SOLUTION_NAME: str = "kvazaar_VS2015.sln"
+
     @property
     def kvz_vs_solution_name(self) -> str:
         """Returns the name of the Kvazaar Visual Studio solution."""
@@ -307,11 +279,52 @@ class Cfg(metaclass=Singleton):
         "--disable-shared",
         "--enable-static",
     ]
+
     @property
     def kvz_configure_args(self) -> list:
         """Returns a list of arguments to be passed to the configure script
         when compiling Kvazaar on Linux."""
         return self.KVZ_CONFIGURE_ARGS
+
+    MSBUILD_CONFIGURATION: str = "Release"
+    @property
+    def msbuild_configuration(self) -> str:
+        """Returns the value of the Configuration property (/p:Configuration)
+        passed to MSBuild when compiling on Windows."""
+        return self.MSBUILD_CONFIGURATION
+
+    MSBUILD_PLATFORM: str = "x64"
+    @property
+    def msbuild_platform(self) -> str:
+        """Returns the value of the Platform property (/p:Platform)
+        passed to MSBuild when compiling on Windows."""
+        return self.MSBUILD_PLATFORM
+
+    MSBUILD_PLATFORMTOOLSET: str = "v142"
+    @property
+    def msbuild_platformtoolset(self) -> str:
+        """Returns the value of the PlatformToolSet property (/p:PlatformToolSet)
+        passed to MSBuild when compiling on Windows."""
+        return self.MSBUILD_PLATFORMTOOLSET
+
+    MSBUILD_WINDOWSTARGETPLATFORMVERSION: str = "10.0"
+    @property
+    def msbuild_windowstargetplatformversion(self) -> str:
+        """Returns the value of the WindowsTargetPlatformVersion property (/p:WindowsTargetPlatformVersion)
+        passed to MSBuild when compiling on Windows."""
+        return self.MSBUILD_WINDOWSTARGETPLATFORMVERSION
+
+    @property
+    def msbuild_args(self) -> list:
+        """Returns the additional command line arguments to be passed to MSBuild
+        when compiling on Windows."""
+
+        return [
+            f"/p:Configuration={self.msbuild_configuration}",
+            f"/p:Platform={self.msbuild_platform}",
+            f"/p:PlatformToolset={self.msbuild_platformtoolset}",
+            f"/p:WindowsTargetPlatformVersion={self.msbuild_windowstargetplatformversion}",
+        ]
 
     ENCODING_OUTPUT_DIR_NAME: str = "_output"
     @property
@@ -412,5 +425,84 @@ class Cfg(metaclass=Singleton):
     VMAF_REPO_PATH: Path = None
     @property
     def vmaf_repo_path(self) -> Path:
-        """Returns the absolute path of the vmaf library repository."""
+        """Returns the absolute path of the vmaf Git repository."""
         return Path(self.VMAF_REPO_PATH)
+
+    HM_GIT_REPO_NAME: str = "hm"
+    @property
+    def hm_git_repo_name(self) -> str:
+        """Returns the name of the HM Git repository."""
+        return self.HM_GIT_REPO_NAME
+
+    @property
+    def hm_git_repo_path(self) -> Path:
+        """Returns the absolute path of the HM Git repository."""
+        return self.sources_dir_path / self.hm_git_repo_name
+
+    @property
+    def hm_git_dir_path(self) -> Path:
+        """Returns the absolute path of the .git directory within the HM Git repository."""
+        return self.hm_git_repo_path / ".git"
+
+    HM_GIT_REPO_HTTPS_URL: str = "https://vcgit.hhi.fraunhofer.de/jct-vc/HM.git"
+    @property
+    def hm_git_repo_https_url(self) -> str:
+        """Returns the SSH URL to be used when cloning HM from a remote repository."""
+        return self.HM_GIT_REPO_HTTPS_URL
+
+    HM_EXE_SRC_NAME: str = f"{'TAppEncoder.exe' if platform.system() == 'Windows' else 'TAppEncoderStatic'}"
+    @property
+    def hm_exe_src_name(self) -> str:
+        """Returns the default name the HM executable has when it has been compiled."""
+        return self.HM_EXE_SRC_NAME
+
+    @property
+    def hm_exe_src_path_windows(self) -> Path:
+        """Returns the absolute path of the HM executable after compiling on Windows."""
+        return self.hm_git_repo_path / "bin" / f"vs{self.vs_version}" / f"msvc-{self.msvc_version}"\
+                                     / "x86_64" / "release" / self.hm_exe_src_name
+
+    @property
+    def hm_exe_src_path_linux(self) -> Path:
+        """Returns the absolute path of the HM executable after compiling on Linux."""
+        return self.hm_git_repo_path / "bin" / self.hm_exe_src_name
+
+    HM_VS_SOLUTION_NAME: str = "HM.sln"
+    @property
+    def hm_vs_solution_name(self) -> str:
+        """Returns the name of the HM Visual Studio solution."""
+        return self.HM_VS_SOLUTION_NAME
+
+    HM_VS_PROJECT_NAME: str = r"App\TAppEncoder"
+    @property
+    def hm_vs_project_name(self) -> str:
+        """Returns the name of the HM encoder Visual Studio project."""
+        return self.HM_VS_PROJECT_NAME
+
+    HM_MAKE_TARGET_NAME: str = "TAppEncoder-r"
+    @property
+    def hm_make_target_name(self) -> str:
+        """Returns the name of the HM encoder Make target."""
+        return self.HM_MAKE_TARGET_NAME
+
+    @property
+    def hm_vs_solution_path(self) -> Path:
+        """Returns the absolute path of the HM Visual Studio solution."""
+        return self.hm_git_repo_path / "build" / self.hm_vs_solution_name
+
+    CMAKE_BUILD_SYSTEM_GENERATOR: str = "Visual Studio 16 2019"
+    @property
+    def cmake_build_system_generator(self) -> str:
+        """Returns the -G parameter to be passed to CMake."""
+        return self.CMAKE_BUILD_SYSTEM_GENERATOR
+
+    CMAKE_ARCHITECTURE: str = "x64"
+    @property
+    def cmake_architecture(self) -> str:
+        """Returns the -A parameter to be passed to CMake."""
+        return self.CMAKE_ARCHITECTURE
+
+    HM_CFG_PATH: str = None
+    @property
+    def hm_cfg_path(self):
+        return Path(self.HM_CFG_PATH)
