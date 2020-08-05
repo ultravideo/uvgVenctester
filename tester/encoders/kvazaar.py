@@ -5,6 +5,8 @@ from __future__ import annotations
 from .base import *
 from tester.core.test import *
 
+import os
+
 
 class KvazaarParamSet(ParamSetBase):
     """Represents the command line parameters passed to Kvazaar when encoding."""
@@ -152,14 +154,13 @@ class Kvazaar(EncoderBase):
 
         super().dummy_run_start(param_set)
 
-        null_device = "NUL" if Cfg().os_name == "Windows" else "/dev/null"
         RESOLUTION_PLACEHOLDER = "2x2"
 
         dummy_cmd = (
             str(self._exe_path),
-            "-i", null_device,
+            "-i", os.devnull,
             "--input-res", RESOLUTION_PLACEHOLDER,
-            "-o", null_device,
+            "-o", os.devnull,
         ) + param_set.to_cmdline_tuple()
 
         return super().dummy_run_finish(dummy_cmd, param_set)
@@ -171,7 +172,7 @@ class Kvazaar(EncoderBase):
             return
 
         encode_cmd = (
-            self._exe_path,
+            str(self._exe_path),
             "-i", str(encoding_run.input_sequence.get_filepath()),
             "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
             "-o", str(encoding_run.output_file.get_filepath()),
