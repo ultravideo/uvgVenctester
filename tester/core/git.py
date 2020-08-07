@@ -1,7 +1,32 @@
 """This module defines functionality related to Git."""
 
+from tester.core.log import *
+
 import subprocess
 from pathlib import Path
+
+
+def git_validate_config():
+    try:
+        subprocess.check_output("git --version")
+    except FileNotFoundError:
+        console_log.error("Git: Executable 'git' was not found")
+        raise RuntimeError
+
+
+def git_remote_exists(remote_url: str) -> bool:
+    try:
+        ls_remote_cmd = (
+            "git",
+            "ls-remote", remote_url
+        )
+        subprocess.check_output(
+            subprocess.list2cmdline(ls_remote_cmd),
+            shell=True
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
 
 
 class GitRepository(object):

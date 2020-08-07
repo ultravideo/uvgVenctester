@@ -16,6 +16,24 @@ _SSIM_PATTERN: re.Pattern = re.compile(r".*All:([0-9]+.[0-9]+).*", re.DOTALL)
 _VMAF_PATTERN: re.Pattern = re.compile(r".*\"VMAF score\":([0-9]+.[0-9]+).*", re.DOTALL)
 
 
+def ffmpeg_validate_config():
+    try:
+        proc = subprocess.Popen(("ffmpeg", "-version"), stdout=subprocess.PIPE)
+        if csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields \
+                or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields:
+            for line in proc.stdout:
+                if str(line).startswith("configuration") and not "--enable-libvmaf" in line:
+                    console_log.error("Ffmpeg: VMAF field enabled in CSV but ffmpeg is not "
+                                      "configured with --enable-libvmaf")
+                    raise RuntimeError
+
+        proc.wait()
+
+    except FileNotFoundError:
+        console_log.error(f"Ffmpeg: Executable 'ffmpeg' does not exist")
+        raise RuntimeError
+
+
 def compute_metrics(encoding_run: EncodingRun,
                     psnr: bool,
                     ssim: bool,

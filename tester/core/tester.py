@@ -6,7 +6,16 @@ from tester.core.log import *
 from tester.core.test import *
 from tester.core.video import *
 from tester.encoders.base import *
+from tester.core import cmake
+from tester.core import csv
 from tester.core import ffmpeg
+from tester.core import gcc
+from tester.core import git
+from tester.core import system
+from tester.core import vmaf
+from tester.core import vs
+from tester.encoders import hm
+from tester.encoders import kvazaar
 
 import subprocess
 import time
@@ -29,7 +38,7 @@ class TesterContext:
 
         self._input_sequences: list = []
         for glob in input_sequence_globs:
-            for filepath in Cfg().sequences_dir_path.glob(glob):
+            for filepath in Cfg().tester_sequences_dir_path.glob(glob):
                 self._input_sequences.append(
                     RawVideoSequence(
                         filepath=filepath.resolve(),
@@ -88,39 +97,62 @@ class TesterContext:
 
 
 class Tester:
-    """The tester class the methods of which the user will call."""
-
-    def __init__(self):
-        try:
-            console_log.info("Tester: Initializing")
-            Cfg().read_userconfig()
-            Cfg().validate_all()
-            self._create_base_directories_if_not_exist()
-        except Exception as exception:
-            console_log.error("Tester: Failed to initialize")
-            log_exception(exception)
-            exit(1)
+    """Represents the tester. The end user primarily interacts with this class."""
 
     def create_context(self,
                        tests: list,
                        input_sequence_globs: list) -> TesterContext:
+
         console_log.info("Tester: Creating context")
+
         try:
-            return TesterContext(tests, input_sequence_globs)
+            context = TesterContext(tests, input_sequence_globs)
         except Exception as exception:
-            console_log.info("Tester: Failed to create context")
+            console_log.error("Tester: Failed to create context")
             log_exception(exception)
             exit(1)
+
+        try:
+            console_log.info("Tester: Validating configuration variables")
+
+            # Test the validity of external tools first because the validation of internal
+            # stuff might depend on these (for example Git remote existence checking).
+            system.system_validate_config()
+            git.git_validate_config()
+            cmake.cmake_validate_config()
+            gcc.gcc_validate_config()
+            ffmpeg.ffmpeg_validate_config()
+            vmaf.vmaf_validate_config()
+            vs.vs_validate_config()
+
+            csv.csv_validate_config()
+
+            # Only validate those encoders that are being used.
+            used_encoder_ids = set([test.encoder_id for test in context.get_tests()])
+            if Encoder.HM in used_encoder_ids:
+                hm.hm_validate_config()
+            if Encoder.KVAZAAR in used_encoder_ids:
+                kvazaar.kvazaar_validate_config()
+
+        except Exception as exception:
+            console_log.error("Tester: Configuration variable validation failed")
+            log_exception(exception)
+            exit(1)
+
+        return context
 
     def run_tests(self,
                   context:TesterContext) -> None:
 
         try:
+            self._create_base_directories_if_not_exist()
+
             console_log.info(f"Tester: Building encoders")
             context.validate_initial()
             for test in context.get_tests():
                 console_log.info(f"Tester: Building encoder for test '{test.name}'")
                 test.encoder.build()
+                # TODO: Don't clean if the encoder wasn't built. This is slow for HM, at least.
                 test.encoder.clean()
             context.validate_final()
 
@@ -149,15 +181,15 @@ class Tester:
                             metrics = test.metrics[subtest][encoding_run]
                             metrics.bitrate = encoding_run.output_file.get_bitrate()
 
-                            psnr_needed = bool(metrics.psnr_avg is None)\
-                                          and (CsvFieldId.PSNR_AVG in Cfg().CSV_ENABLED_FIELDS
-                                               or CsvFieldId.PSNR_STDEV in Cfg().CSV_ENABLED_FIELDS)
-                            ssim_needed = bool(metrics.ssim_avg is None)\
-                                          and (CsvFieldId.SSIM_AVG in Cfg().CSV_ENABLED_FIELDS
-                                               or CsvFieldId.SSIM_STDEV in Cfg().CSV_ENABLED_FIELDS)
-                            vmaf_needed = bool(metrics.vmaf_avg is None)\
-                                          and (CsvFieldId.VMAF_AVG in Cfg().CSV_ENABLED_FIELDS
-                                               or CsvFieldId.VMAF_STDEV in Cfg().CSV_ENABLED_FIELDS)
+                            psnr_needed = bool(metrics.psnr_avg is None) \
+                                          and (CsvField.PSNR_AVG in Cfg().csv_enabled_fields
+                                               or CsvField.PSNR_STDEV in Cfg().csv_enabled_fields)
+                            ssim_needed = bool(metrics.ssim_avg is None) \
+                                          and (CsvField.SSIM_AVG in Cfg().csv_enabled_fields
+                                               or CsvField.SSIM_STDEV in Cfg().csv_enabled_fields)
+                            vmaf_needed = bool(metrics.vmaf_avg is None) \
+                                          and (CsvField.VMAF_AVG in Cfg().csv_enabled_fields
+                                               or CsvField.VMAF_STDEV in Cfg().csv_enabled_fields)
 
                             if psnr_needed or ssim_needed or vmaf_needed:
                                 psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
@@ -204,30 +236,30 @@ class Tester:
 
                                 csvfile.add_entry(
                                     {
-                                        CsvFieldId.SEQUENCE_NAME: sequence.get_filepath().name,
-                                        CsvFieldId.SEQUENCE_CLASS: sequence.get_sequence_class(),
-                                        CsvFieldId.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
-                                        CsvFieldId.ENCODER_NAME: test.encoder.get_pretty_name(),
-                                        CsvFieldId.ENCODER_REVISION: test.encoder.get_short_revision(),
-                                        CsvFieldId.ENCODER_DEFINES: test.encoder.get_defines(),
-                                        CsvFieldId.ENCODER_CMDLINE: subtest.param_set.to_cmdline_str(),
-                                        CsvFieldId.QUALITY_PARAM_NAME: subtest.param_set.get_quality_param_type().pretty_name,
-                                        CsvFieldId.QUALITY_PARAM_VALUE: subtest.param_set.get_quality_param_value(),
-                                        CsvFieldId.CONFIG_NAME: test.name,
-                                        CsvFieldId.ANCHOR_NAME: anchor.name,
-                                        CsvFieldId.TIME_SECONDS: test.metrics[subtest].encoding_time_avg,
-                                        CsvFieldId.TIME_STDEV: test.metrics[subtest].encoding_time_stdev,
-                                        CsvFieldId.BITRATE: test.metrics[subtest].bitrate_avg,
-                                        CsvFieldId.BITRATE_STDEV: test.metrics[subtest].bitrate_stdev,
-                                        CsvFieldId.SPEEDUP: test.metrics[subtest].get_speedup(anchor.metrics[sub_anchor]),
-                                        CsvFieldId.PSNR_AVG: test.metrics[subtest].psnr_avg,
-                                        CsvFieldId.PSNR_STDEV: test.metrics[subtest].psnr_stdev,
-                                        CsvFieldId.SSIM_AVG: test.metrics[subtest].ssim_avg,
-                                        CsvFieldId.SSIM_STDEV: test.metrics[subtest].ssim_stdev,
-                                        CsvFieldId.VMAF_AVG: test.metrics[subtest].vmaf_avg,
-                                        CsvFieldId.VMAF_STDEV: test.metrics[subtest].vmaf_stdev,
-                                        CsvFieldId.BDBR_PSNR: test.metrics.get_bdbr_psnr(anchor.metrics),
-                                        CsvFieldId.BDBR_SSIM: test.metrics.get_bdbr_ssim(anchor.metrics),
+                                        CsvField.SEQUENCE_NAME: sequence.get_filepath().name,
+                                        CsvField.SEQUENCE_CLASS: sequence.get_sequence_class(),
+                                        CsvField.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
+                                        CsvField.ENCODER_NAME: test.encoder.get_pretty_name(),
+                                        CsvField.ENCODER_REVISION: test.encoder.get_short_revision(),
+                                        CsvField.ENCODER_DEFINES: test.encoder.get_defines(),
+                                        CsvField.ENCODER_CMDLINE: subtest.param_set.to_cmdline_str(),
+                                        CsvField.QUALITY_PARAM_NAME: subtest.param_set.get_quality_param_type().pretty_name,
+                                        CsvField.QUALITY_PARAM_VALUE: subtest.param_set.get_quality_param_value(),
+                                        CsvField.CONFIG_NAME: test.name,
+                                        CsvField.ANCHOR_NAME: anchor.name,
+                                        CsvField.TIME_SECONDS: test.metrics[subtest].encoding_time_avg,
+                                        CsvField.TIME_STDEV: test.metrics[subtest].encoding_time_stdev,
+                                        CsvField.BITRATE: test.metrics[subtest].bitrate_avg,
+                                        CsvField.BITRATE_STDEV: test.metrics[subtest].bitrate_stdev,
+                                        CsvField.SPEEDUP: test.metrics[subtest].get_speedup(anchor.metrics[sub_anchor]),
+                                        CsvField.PSNR_AVG: test.metrics[subtest].psnr_avg,
+                                        CsvField.PSNR_STDEV: test.metrics[subtest].psnr_stdev,
+                                        CsvField.SSIM_AVG: test.metrics[subtest].ssim_avg,
+                                        CsvField.SSIM_STDEV: test.metrics[subtest].ssim_stdev,
+                                        CsvField.VMAF_AVG: test.metrics[subtest].vmaf_avg,
+                                        CsvField.VMAF_STDEV: test.metrics[subtest].vmaf_stdev,
+                                        CsvField.BDBR_PSNR: test.metrics.get_bdbr_psnr(anchor.metrics),
+                                        CsvField.BDBR_SSIM: test.metrics.get_bdbr_ssim(anchor.metrics),
                                     }
                                 )
 
@@ -269,9 +301,9 @@ class Tester:
 
     def _create_base_directories_if_not_exist(self) -> None:
         for path in [
-            Cfg().binaries_dir_path,
-            Cfg().encoding_output_dir_path,
-            Cfg().sources_dir_path
+            Cfg().tester_binaries_dir_path,
+            Cfg().tester_output_dir_path,
+            Cfg().tester_sources_dir_path
         ]:
             if not path.exists():
                 console_log.debug(f"Tester: Creating directory '{path}'")

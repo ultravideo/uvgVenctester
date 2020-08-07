@@ -3,9 +3,27 @@
 from __future__ import annotations
 
 from .base import *
+from tester.core.cfg import *
 from tester.core.test import *
+from tester.core import cmake
 
+from pathlib import Path
 import os
+
+
+def hm_validate_config():
+    # Using the public property raises an exception, so access the private attribute instead.
+    if Cfg()._hm_cfg_path is None:
+        console_log.error(f"HM: Configuration file path has not been set")
+        raise RuntimeError
+
+    elif not Cfg().hm_cfg_file_path.exists():
+        console_log.error(f"HM: Configuration file '{Cfg().hm_cfg_file_path}' does not exist")
+        raise RuntimeError
+
+    elif not git_remote_exists(Cfg().hm_remote_url):
+        console_log.error(f"HM: Remote '{Cfg().hm_remote_url}' is not available")
+        raise RuntimeError
 
 
 class HmParamSet(ParamSetBase):
@@ -66,12 +84,22 @@ class Hm(EncoderBase):
             id=Encoder.HM,
             user_given_revision=user_given_revision,
             defines = defines,
-            git_local_path=Cfg().hm_git_repo_path,
-            git_remote_url=Cfg().hm_git_repo_https_url
+            git_local_path=Cfg().tester_sources_dir_path / "hm",
+            git_remote_url=Cfg().hm_remote_url
         )
 
-        self._exe_src_path: Path = Cfg().hm_exe_src_path_windows if Cfg().os_name == "Windows"\
-                              else Cfg().hm_exe_src_path_linux
+        self._exe_src_path: Path = None
+        if Cfg().system_os_name == "Windows":
+            self._exe_src_path =\
+                self._git_local_path \
+                / "bin" \
+                / f"vs{Cfg().vs_major_version}" \
+                / f"msvc-{Cfg().vs_msvc_version}" \
+                / "x86_64" \
+                / "release" \
+                / "TAppEncoder.exe"
+        elif Cfg().system_os_name == "Linux":
+            self._exe_src_path = self._git_local_path / "bin" / "TAppEncoderStatic"
 
     def build(self) -> None:
 
@@ -80,37 +108,31 @@ class Hm(EncoderBase):
 
         build_cmd = ()
 
-        if Cfg().os_name == "Windows":
+        if Cfg().system_os_name == "Windows":
 
             # Add defines to msbuild arguments.
-            # Semicolons cannot be used as literals, so use %3B instead. Read these for reference:
-            # https://docs.microsoft.com/en-us/visualstudio/msbuild/how-to-escape-special-characters-in-msbuild
-            # https://docs.microsoft.com/en-us/visualstudio/msbuild/msbuild-special-characters
-            MSBUILD_SEMICOLON_ESCAPE = "%3B"
-            msbuild_args = Cfg().msbuild_args
-            msbuild_args.append(f"/p:DefineConstants={MSBUILD_SEMICOLON_ESCAPE.join(self._defines)}")
+            msbuild_args = vs.get_msbuild_args(add_defines=self._defines)
 
-            # Configure CMake, run VsDevCmd.bat, then msbuild.
+            # Configure CMake, run VsDevCmd.bat, then MSBuild.
             build_cmd = (
-                "cd", str(Cfg().hm_git_repo_path),
+                "cd", str(self._git_local_path),
                 "&&", "mkdir", "build",
                 "&&", "cd", "build",
                 "&&", "cmake", "..",
-                      "-G", Cfg().cmake_build_system_generator,
-                      "-A", Cfg().cmake_architecture,
-                "&&", "call", str(Cfg().vs_vsdevcmd_bat_path),
-                "&&", "msbuild", str(Cfg().hm_vs_solution_path),
-                      f"/t:{Cfg().hm_vs_project_name}",
+                      "-G", cmake.get_cmake_build_system_generator(),
+                      "-A", cmake.get_cmake_architecture(),
+                "&&", "call", vs.get_vsdevcmd_bat_path(),
+                "&&", "msbuild", "HM.sln", f"/t:App\\TAppEncoder",
             ) + tuple(msbuild_args)
 
-        elif Cfg().os_name == "Linux":
+        elif Cfg().system_os_name == "Linux":
 
             # Add defines to make arguments.
             cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self._defines])}".strip()
 
             build_cmd = (
-                "cd", str(Cfg().hm_git_repo_path),
-                "&&", "make", Cfg().hm_make_target_name, cflags_str
+                "cd", str(self._git_local_path),
+                "&&", "make", "TAppEncoder-r", cflags_str
             )
 
         super().build_finish(build_cmd)
@@ -121,20 +143,22 @@ class Hm(EncoderBase):
 
         clean_cmd = ()
 
-        if Cfg().os_name == "Windows":
+        if Cfg().system_os_name == "Windows":
 
             clean_cmd = (
-                "call", str(Cfg().vs_vsdevcmd_bat_path),
-                "&&", "msbuild", str(Cfg().hm_vs_solution_path), f"/t:{Cfg().hm_vs_project_name}:clean"
+                "call", str(vs.get_vsdevcmd_bat_path()),
+                "&&", "cd", str(self._git_local_path),
+                "&&", "cd", "build",
+                "&&", "msbuild", "HM.sln", f"/t:App\\TAppEncoder:clean"
             )
 
-        elif Cfg().os_name == "Linux":
+        elif Cfg().system_os_name == "Linux":
 
             # TODO: This is SUPER slow (the binary seems to be recompiled for whatever reason).
             # TODO: Eliminate?
             clean_cmd = (
-                "cd", str(Cfg().hm_git_repo_path),
-                "&&", "make", "clean", Cfg().hm_make_target_name
+                "cd", str(self._git_local_path),
+                "&&", "make", "clean", "TAppEncoder-r"
             )
 
         super().clean_finish(clean_cmd)
@@ -151,7 +175,7 @@ class Hm(EncoderBase):
 
         dummy_cmd = (
             str(self._exe_path),
-            "-c", str(Cfg().hm_cfg_path),
+            "-c", str(Cfg().hm_cfg_file_path),
             "-i", os.devnull,
             "-fr", FRAMERATE_PLACEHOLDER,
             "-wdt", WIDTH_PLACEHOLDER,
@@ -175,7 +199,7 @@ class Hm(EncoderBase):
 
         encode_cmd = (
             str(self._exe_path),
-            "-c", str(Cfg().hm_cfg_path),
+            "-c", str(Cfg().hm_cfg_file_path),
             "-i", str(encoding_run.input_sequence.get_filepath()),
             "-fr", str(encoding_run.input_sequence.get_framerate()),
             "-wdt", str(encoding_run.input_sequence.get_width()),
