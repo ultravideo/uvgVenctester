@@ -43,7 +43,7 @@ class HmParamSet(ParamSetBase):
             elif self._quality_param_type == QualityParam.BITRATE:
                 args += f" --TargetBitrate={self._quality_param_value}"
         if include_seek and self._seek:
-            args += f" --FrameSkip {self._seek}"
+            args += f" -fs {self._seek}"
         if include_frames and self._frames:
             args += f" -f {self._frames}"
         # TODO: Figure out why this is needed or if it's needed.
