@@ -3,9 +3,17 @@
 from __future__ import annotations
 
 from .base import *
+from tester.core.git import *
 from tester.core.test import *
+from tester.core import vs
 
 import os
+
+
+def kvazaar_validate_config():
+    if not git_remote_exists(Cfg().kvazaar_remote_url):
+        console_log.error(f"Kvazaar: Remote '{Cfg().kvazaar_remote_url}' is unavailable")
+        raise RuntimeError
 
 
 class KvazaarParamSet(ParamSetBase):
@@ -83,12 +91,15 @@ class Kvazaar(EncoderBase):
             id=Encoder.KVAZAAR,
             user_given_revision=user_given_revision,
             defines = defines,
-            git_local_path=Cfg().kvz_git_repo_path,
-            git_remote_url=Cfg().kvz_git_repo_ssh_url
+            git_local_path=Cfg().tester_sources_dir_path / "kvazaar",
+            git_remote_url=Cfg().kvazaar_remote_url
         )
 
-        self._exe_src_path: Path = Cfg().kvz_exe_src_path_windows if Cfg().os_name == "Windows"\
-                              else Cfg().kvz_exe_src_path_linux
+        self._exe_src_path: Path = None
+        if Cfg().system_os_name == "Windows":
+            self._exe_src_path = self._git_local_path / "bin" / "x64-Release" / "kvazaar.exe"
+        elif Cfg().system_os_name == "Linux":
+            self._exe_src_path = self._git_local_path / "src" / "kvazaar"
 
     def build(self) -> None:
 
@@ -97,39 +108,29 @@ class Kvazaar(EncoderBase):
 
         build_cmd = ()
 
-        if Cfg().os_name == "Windows":
-
-            assert Cfg().kvz_vs_solution_path.exists()
+        if Cfg().system_os_name == "Windows":
 
             # Add defines to msbuild arguments.
-            # Semicolons cannot be used as literals, so use %3B instead. Read these for reference:
-            # https://docs.microsoft.com/en-us/visualstudio/msbuild/how-to-escape-special-characters-in-msbuild
-            # https://docs.microsoft.com/en-us/visualstudio/msbuild/msbuild-special-characters
-            MSBUILD_SEMICOLON_ESCAPE = "%3B"
-            msbuild_args = Cfg().msbuild_args
-            msbuild_args.append(f"/p:DefineConstants={MSBUILD_SEMICOLON_ESCAPE.join(self._defines)}")
+            msbuild_args = vs.get_msbuild_args(add_defines=self._defines)
 
             # Run VsDevCmd.bat, then msbuild.
             build_cmd = (
-                "call", str(Cfg().vs_vsdevcmd_bat_path),
-                "&&", "msbuild", str(Cfg().kvz_vs_solution_path)
+                "call", str(vs.get_vsdevcmd_bat_path()),
+                "&&", "msbuild", str(self._git_local_path / "build" / "kvazaar_VS2015.sln")
             ) + tuple(msbuild_args)
 
-        elif Cfg().os_name == "Linux":
-
-            assert Cfg().kvz_configure_script_path.exists()
-            assert Cfg().kvz_autogen_script_path.exists()
+        elif Cfg().system_os_name == "Linux":
 
             # Add defines to configure arguments.
             cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self._defines])}"
-            kvz_configure_args = Cfg().KVZ_CONFIGURE_ARGS
+            kvz_configure_args = ["--disable-shared", "--enable-static",]
             kvz_configure_args.append(cflags_str.strip())
 
             # Run autogen.sh, then configure, then make.
             build_cmd = (
-                "cd", str(Cfg().kvz_git_repo_path),
-                "&&", str(Cfg().kvz_autogen_script_path),
-                "&&", str(Cfg().kvz_configure_script_path),) + tuple(kvz_configure_args) + (
+                "cd", str(self._git_local_path),
+                "&&", "autogen.sh",
+                "&&", "configure",) + tuple(kvz_configure_args) + (
                 "&&", "make",
             )
 
@@ -141,9 +142,9 @@ class Kvazaar(EncoderBase):
 
         clean_cmd = ()
 
-        if Cfg().os_name == "Linux":
+        if Cfg().system_os_name == "Linux":
             clean_cmd = (
-                "cd", str(Cfg().kvz_git_repo_path),
+                "cd", str(self._git_local_path),
                 "&&", "make", "clean",
             )
 

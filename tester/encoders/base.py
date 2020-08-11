@@ -250,7 +250,7 @@ class EncoderBase:
         self._user_given_revision: str = user_given_revision
         self._defines: list = defines
         self._define_hash: str = hashlib.md5(str(defines).encode()).hexdigest()
-        self._define_hash_short: str = self._define_hash[:Cfg().short_define_hash_len]
+        self._define_hash_short: str = self._define_hash[:Cfg().tester_define_hash_len]
         self._git_local_path: Path = git_local_path
         self._git_remote_url: str = git_remote_url
 
@@ -344,12 +344,12 @@ class EncoderBase:
             raise exception
 
         # These can now be evaluated because the repo exists for certain.
-        self._commit_hash_short = self._commit_hash[:Cfg().short_commit_hash_len]
+        self._commit_hash_short = self._commit_hash[:Cfg().tester_commit_hash_len]
         self._exe_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}"\
-                         f"{'.exe' if Cfg().os_name == 'Windows' else ''}"
-        self._exe_path = Cfg().binaries_dir_path / self._exe_name
+                         f"{'.exe' if Cfg().system_os_name == 'Windows' else ''}"
+        self._exe_path = Cfg().tester_binaries_dir_path / self._exe_name
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
-        self._build_log_path = Cfg().binaries_dir_path / self._build_log_name
+        self._build_log_path = Cfg().tester_binaries_dir_path / self._build_log_name
 
         console_log.info(f"{type(self).__name__}: Revision '{self._user_given_revision}' "
                          f"maps to commit hash '{self._commit_hash}'")
@@ -360,7 +360,7 @@ class EncoderBase:
 
     def build_start(self) -> bool:
         """Meant to be called as the first thing from the build() method of derived classes."""
-        assert Cfg().binaries_dir_path.exists()
+        assert Cfg().tester_binaries_dir_path.exists()
 
         console_log.info(f"{type(self).__name__}: Building executable '{self._exe_name}'")
         console_log.info(f"{type(self).__name__}: Log: '{self._build_log_name}'")
@@ -400,7 +400,7 @@ class EncoderBase:
                 shell=True,
                 stderr=subprocess.STDOUT
             )
-            if Cfg().os_name == "Windows":
+            if Cfg().system_os_name == "Windows":
                 # "cp1252" is the encoding the Windows shell uses.
                 self._build_log.info(output.decode(encoding="cp1252"))
             else:
@@ -411,6 +411,7 @@ class EncoderBase:
             raise
 
         # Copy the executable to its destination.
+        print(self._exe_src_path)
         assert self._exe_src_path.exists()
         self._build_log.debug(f"{type(self).__name__}: Copying file '{self._exe_src_path}' "
                               f"to '{self._exe_path}'")

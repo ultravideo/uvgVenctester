@@ -8,518 +8,231 @@ from . import csv # To avoid circular import
 import platform
 import re
 from pathlib import Path
-
-# Import the user's configuration file if it exists.
-try:
-    import userconfig
-except ImportError:
-    userconfig = None
+from typing import Union
 
 
 class Cfg(metaclass=Singleton):
     """Global tester configuration singleton. Contains all variables that can be used to customize
-    the functionality of the tester. Default values can be overridden in userconfig.py."""
+    the functionality of the tester. The user may override values not prefixed with underscores freely."""
 
-    # Regex to recognize configuration variables.
-    __VALID_VARIABLE_PATTERN: re.Pattern = re.compile(r"^[A-Z][0-9A-Z_]+$")
-    # Regex to recognize properties (i.e. getters).
-    __VALID_PROPERTY_PATTERN: re.Pattern = re.compile(r"^[a-z][0-9a-z_]+$")
+    ##########################################################################
+    # CONSTANTS
+    # Do not touch.
+    ##########################################################################
 
-    def __init__(self):
-        pass
+    ##########################################################################
+    # Tester
+    ##########################################################################
 
-    # INTERNAL FUNCTIONS
+    # NOTE: These rely on that the working directory has not been changed since the program
+    # was launched.
+    __TESTER_PROJECT_ROOT_PATH: Path = (Path(__file__).parent / ".." / "..").resolve()
+    __TESTER_ROOT_PATH: Path = (Path(__file__).parent / "..").resolve()
 
-    def read_userconfig(self) -> None:
-        """Reads userconfig.py if it exists and overrides default variable values with those
-        presented in it. Meant to be called by the tester."""
-
-        if userconfig:
-            console_log.info("Cfg: Reading userconfig")
-
-            # Set and print values of variables with valid names.
-            for variable_name in self._user_variable_names():
-                if hasattr(self, variable_name):
-                    value = getattr(userconfig, variable_name)
-                    console_log.debug(f"Cfg: Variable userconfig.{variable_name} = {value}")
-                    setattr(self, variable_name, value)
-
-            # Check that all variables are recognized.
-            for variable_name in self._user_variable_names():
-                if not hasattr(self, variable_name):
-                    console_log.error(f"Cfg: Unknown variable userconfig.{variable_name}")
-                    raise RuntimeError
-        else:
-            console_log.warning("Cfg: Userconfig not found")
-
-    def validate_all(self) -> None:
-        """Validates configuration variables.
-        - If a path does not exist, a warning is issued.
-        Meant to be called by the tester."""
-
-        # Print variable values.
-        for variable_name in self._variable_names():
-            console_log.debug(f"Cfg: Variable {variable_name} = {getattr(self, variable_name)}")
-
-        # Print property values.
-        for property_name in self._property_names():
-            console_log.debug(f"Cfg: Property {property_name} = {getattr(self, property_name)}")
-
-        # Check whether the paths defined by the properties exist - warn if not.
-        for property_name in self._property_names():
-            property = getattr(self, property_name)
-            if isinstance(property, Path) and not property.exists():
-                console_log.warning(f"Cfg: Property {property_name}:"
-                                    f" Path '{getattr(self, property_name)}' does not exist")
-
-        # Only Linux and Windows are supported.
-        SUPPORTED_OSES = ["Linux", "Windows"]
-        if not self.os_name in SUPPORTED_OSES:
-            console_log.error(f"Cfg: Unsupported OS '{Cfg().os_name}'. Expected one of "
-                              f"{SUPPORTED_OSES}")
-            raise RuntimeError
-
-        try:
-            proc = subprocess.Popen(("ffmpeg", "-version"), stdout=subprocess.PIPE)
-            if csv.CsvFieldId.VMAF_AVG in self.CSV_ENABLED_FIELDS:
-                for line in proc.stdout:
-                    line = line.split()
-                    if line[0] == "configuration" and not any(x == "--enable-libvmaf" for x in line):
-                        console_log.error("Cfg: VMAF defined in CSV_ENABLED_FIELDS but ffmpeg is not configured with"
-                                          " --enable-libvmaf")
-                        raise RuntimeError
-
-            proc.wait()
-
-        except FileNotFoundError:
-            console_log.error(f"Cfg: Cannot find ffmpeg")
-            raise RuntimeError
-
-    def _property_names(self) -> list:
-        """Returns the names of all properties (getters) in an alphabetically ordered list."""
-
-        properties = []
-        for property_name in dir(self):
-            is_property = isinstance(getattr(type(self), property_name, None), property)
-            if is_property:
-                properties.append(property_name)
-        return sorted(properties)
-
-    def _variable_names(self) -> list:
-        """Returns the names of all configuration variables in an alphabetically ordered list."""
-
-        variables: list = []
-        for variable_name in dir(self):
-            if self.__VALID_VARIABLE_PATTERN.fullmatch(variable_name):
-                variables.append(variable_name)
-        return sorted(variables)
-
-    def _user_variable_names(self) -> list:
-        """Returns the names of all uppercase variables in userconfig.py in an alphabetically ordered list."""
-        user_variables: list = []
-        for variable_name in dir(userconfig):
-            if variable_name.isupper():
-                user_variables.append(variable_name)
-        return sorted(user_variables)
-
-    # PUBLIC VARIABLES AND PROPERTIES (GETTERS)
-    # Private constants are named with capital letters and start with two underscores.
-    # These must not be touched.
-    # Public variables are named with capital letters. These can be changed freely by the user.
-    # Every constant/variable should have a getter that is declared a property.
-    # Some getters don't require a matching constant/variable because they can be derived from other
-    # constants/variables.
+    ##########################################################################
+    # System
+    ##########################################################################
 
     @property
-    def os_name(self) -> str:
-        """Returns the return value of platform.system()."""
+    def system_os_name(self) -> str:
+        """The return value of platform.system()."""
         return platform.system()
 
-    # Must not be overridden by the user.
-    __PROJECT_ROOT_PATH: Path = (Path(__file__).parent / ".." / "..").resolve()
     @property
-    def project_root_path(self) -> Path:
-        """Returns the absolute path of the Git repository."""
-        return self.__PROJECT_ROOT_PATH
+    def system_cpu_arch(self) -> str:
+        """The CPU architecture. 'x64' if x64, else whatever."""
+        machine = platform.machine()
+        if machine == "AMD64":
+            return "x64"
+        else:
+            return machine
 
-    # Must not be overridden by the user.
-    __TESTER_ROOT_PATH: Path = (Path(__file__).parent / "..").resolve()
+    ##########################################################################
+    # CONFIGURATION VARIABLES
+    # May be overridden by the user.
+    ##########################################################################
+
+    ##########################################################################
+    # Tester
+    ##########################################################################
+
+    _tester_binaries_dir_path: Union[str, Path] = __TESTER_ROOT_PATH / "_binaries"
+    # The following enables the user to override the value as a string.
     @property
-    def tester_root_path(self) -> Path:
-        """Returns the absolute path of the tester root directory."""
-        return self.__TESTER_ROOT_PATH
+    def tester_binaries_dir_path(self) -> Path:
+        """The base directory of encoder binaries."""
+        return Path(self._tester_binaries_dir_path).resolve()
+    @tester_binaries_dir_path.setter
+    def tester_binaries_dir_path(self, value: Union[str, Path]):
+        self._tester_binaries_dir_path = value
 
-    BINARIES_DIR_NAME: str = "_binaries"
+    _tester_sources_dir_path: Union[str, Path] = __TESTER_ROOT_PATH / "_sources"
     @property
-    def binaries_dir_name(self) -> str:
-        """Returns the name of the directory in which executables built by the tester
-        will be placed."""
-        return self.BINARIES_DIR_NAME
+    def tester_sources_dir_path(self) -> Path:
+        """The base directory of encoder sources."""
+        return Path(self._tester_sources_dir_path).resolve()
+    @tester_sources_dir_path.setter
+    def tester_sources_dir_path(self, value: Union[str, Path]):
+        self._tester_sources_dir_path = value
 
+    _tester_output_dir_path: Union[str, Path] = __TESTER_ROOT_PATH / "_output"
     @property
-    def binaries_dir_path(self) -> Path:
-        """Returns the absolute path of the directory in which executables built by the tester
-        will be placed."""
-        return self.tester_root_path / self.binaries_dir_name
+    def tester_output_dir_path(self) -> Path:
+        """The base directory of encoding output."""
+        return Path(self._tester_output_dir_path).resolve()
+    @tester_output_dir_path.setter
+    def tester_output_dir_path(self, value: Union[str, Path]):
+        self._tester_output_dir_path = value
 
-    SOURCES_DIR_NAME: str = "_sources"
+    _tester_input_dir_path: Union[str, Path] = Path.cwd()
     @property
-    def sources_dir_name(self) -> str:
-        """Returns the name of the directory in which source code fetched by the tester
-        will be placed."""
-        return self.SOURCES_DIR_NAME
+    def tester_sequences_dir_path(self) -> Path:
+        """The base directory of input sequences. Sequence paths are relative to this directory."""
+        return Path(self._tester_input_dir_path).resolve()
+    @tester_sequences_dir_path.setter
+    def tester_sequences_dir_path(self, value: Union[str, Path]):
+        self._tester_input_dir_path = value
 
+    """How many characters of the commit hash are included in file names."""
+    tester_commit_hash_len: int = 10
+
+    """How many characters of the define hash are included in file names."""
+    tester_define_hash_len: int = 6
+
+    ##########################################################################
+    # CSV
+    ##########################################################################
+
+    """The field delimiter to be used in the CSV."""
+    csv_field_delimiter: str = ";"
+
+    """The decimal point to be used in the CSV."""
+    csv_decimal_point: str = "."
+
+    """List of enabled CSV fields from left to right."""
+    csv_enabled_fields: list = [
+        csv.CsvField.SEQUENCE_NAME,
+        csv.CsvField.SEQUENCE_CLASS,
+        csv.CsvField.SEQUENCE_FRAMECOUNT,
+        csv.CsvField.ENCODER_NAME,
+        csv.CsvField.ENCODER_REVISION,
+        csv.CsvField.ENCODER_DEFINES,
+        csv.CsvField.ENCODER_CMDLINE,
+        csv.CsvField.QUALITY_PARAM_NAME,
+        csv.CsvField.QUALITY_PARAM_VALUE,
+        csv.CsvField.CONFIG_NAME,
+        csv.CsvField.TIME_SECONDS,
+        csv.CsvField.TIME_STDEV,
+        csv.CsvField.BITRATE,
+        csv.CsvField.BITRATE_STDEV,
+        csv.CsvField.PSNR_AVG,
+        csv.CsvField.PSNR_STDEV,
+        csv.CsvField.SSIM_AVG,
+        csv.CsvField.SSIM_STDEV,
+        csv.CsvField.VMAF_AVG,
+        csv.CsvField.VMAF_STDEV,
+        csv.CsvField.ANCHOR_NAME,
+        csv.CsvField.SPEEDUP,
+        csv.CsvField.BDBR_PSNR,
+        csv.CsvField.BDBR_SSIM,
+    ]
+
+    """Key = CSV field ID, value = CSV field name."""
+    csv_field_names: dict = {
+        csv.CsvField.SEQUENCE_NAME: "Sequence name",
+        csv.CsvField.SEQUENCE_CLASS: "Sequence class",
+        csv.CsvField.SEQUENCE_FRAMECOUNT: "Frames",
+        csv.CsvField.ENCODER_NAME: "Encoder",
+        csv.CsvField.ENCODER_REVISION: "Revision",
+        csv.CsvField.ENCODER_DEFINES: "Defines",
+        csv.CsvField.ENCODER_CMDLINE: "Command",
+        csv.CsvField.QUALITY_PARAM_NAME: "Quality parameter",
+        csv.CsvField.QUALITY_PARAM_VALUE: "Quality parameter value",
+        csv.CsvField.CONFIG_NAME: "Configuration name",
+        csv.CsvField.ANCHOR_NAME: "Anchor name",
+        csv.CsvField.TIME_SECONDS: "Encoding time (s)",
+        csv.CsvField.TIME_STDEV: "Encoding time (stdev)",
+        csv.CsvField.BITRATE: "Bitrate",
+        csv.CsvField.BITRATE_STDEV: "Bitrate (stdev)",
+        csv.CsvField.SPEEDUP: "Speedup",
+        csv.CsvField.PSNR_AVG: "PSNR (avg)",
+        csv.CsvField.PSNR_STDEV: "PSNR (stdev)",
+        csv.CsvField.SSIM_AVG: "SSIM (avg)",
+        csv.CsvField.SSIM_STDEV: "SSIM (stdev)",
+        csv.CsvField.VMAF_AVG: "VMAF (avg)",
+        csv.CsvField.VMAF_STDEV: "VMAF (stdev)",
+        csv.CsvField.BDBR_PSNR: "BD-BR (PSNR)",
+        csv.CsvField.BDBR_SSIM: "BD-BR (SSIM)",
+    }
+
+    """The accuracy with which floats are rounded when generating the output CSV."""
+    csv_float_rounding_accuracy: int = 6
+
+    ##########################################################################
+    # HM
+    ##########################################################################
+
+    """The remote from which HM will be cloned."""
+    hm_remote_url: str = "https://vcgit.hhi.fraunhofer.de/jct-vc/HM.git"
+
+    """The path of the HM configuration file. Must be set by the user."""
+    _hm_cfg_path: Union[str, Path] = None
     @property
-    def sources_dir_path(self) -> Path:
-        """Returns the path of the directory in which source code fetched by the tester
-        will be placed."""
-        return self.tester_root_path / self.sources_dir_name
+    def hm_cfg_file_path(self):
+        return Path(self._hm_cfg_path).resolve()
+    @hm_cfg_file_path.setter
+    def hm_cfg_file_path(self, value: Union[str, Path]):
+        self._hm_cfg_path = value
 
-    SEQUENCES_DIR_PATH: Path = Path.cwd()
-    @property
-    def sequences_dir_path(self) -> Path:
-        """Returns the path of the directory in which input sequences are located."""
-        return Path(self.SEQUENCES_DIR_PATH)
+    ##########################################################################
+    # Kvazaar
+    ##########################################################################
 
-    SHORT_COMMIT_HASH_LEN: int = 16
-    @property
-    def short_commit_hash_len(self) -> int:
-        """Returns the number of characters included in the commit hash part in the names of
-        executables built by the tester."""
-        return self.SHORT_COMMIT_HASH_LEN
+    """The remote from which Kvazaar will be cloned."""
+    kvazaar_remote_url: str = "git@gitlab.tut.fi:TIE/ultravideo/kvazaar.git"
 
-    SHORT_DEFINE_HASH_LEN: int = 8
-    @property
-    def short_define_hash_len(self) -> int:
-        """Returns the number of characters included in the define hash part in the names of
-        executables built by the tester."""
-        return self.SHORT_DEFINE_HASH_LEN
+    ##########################################################################
+    # Visual Studio
+    ##########################################################################
 
-    VS_INSTALL_PATH: Path = Path("C:/") / "Program Files (x86)" / "Microsoft Visual Studio"
+    """The Visual Studio base installation directory."""
+    _vs_install_path: Union[str, Path] = Path("C:/") / "Program Files (x86)" / "Microsoft Visual Studio"
     @property
     def vs_install_path(self) -> Path:
-        """Returns the absolute path of the Visual Studio base installation directory."""
-        return Path(self.VS_INSTALL_PATH)
+        """The Visual Studio base installation directory."""
+        return Path(self._vs_install_path).resolve()
+    @vs_install_path.setter
+    def vs_install_path(self, value: Union[str, Path]):
+        self._vs_install_path = value
 
-    VS_YEAR: str = "2019"
-    @property
-    def vs_year(self) -> str:
-        """Returns the Visual Studio year version to be used."""
-        return self.VS_YEAR
+    """The release year of the Visual Studio version in use (for example 2019 for VS 2019).
+    Must be set by the user."""
+    vs_year_version: str = None
 
-    VS_VERSION: str = "16"
-    @property
-    def vs_version(self) -> str:
-        "Returns the Visual Studio version to be used."
-        return self.VS_VERSION
+    """The version of Visual Studio in use (for example VS 2019 is version 16).
+    Must be set by the user."""
+    vs_major_version: str = None
 
-    VS_EDITION: str = "Enterprise"
-    @property
-    def vs_edition(self) -> str:
-        """Returns the Visual Studio edition ("Community" or "Enterprise") to be used."""
-        return self.VS_EDITION
+    """The edition of Visual Studio in use (Community/Professional/Enterprise).
+    Must be set by the user."""
+    vs_edition: str = None
 
-    MSVC_VERSION: str = None
-    @property
-    def msvc_version(self) -> str:
-        return self.MSVC_VERSION
+    """The version of MSVC in use (for example 19.26). Can be checked with 'cl /version' on the
+    command line. Must be set by the user."""
+    vs_msvc_version: str = None
 
-    @property
-    def vs_vsdevcmd_bat_path(self) -> Path:
-        """Returns the absolute path of VsDevCmd.bat (Visual Studio command line environment setup
-        batch script)."""
-        return self.vs_install_path / self.vs_year / self.vs_edition / "Common7" / "Tools" / "VsDevCmd.bat"
+    """The /p:PlatformToolset parameter to be passed to MSBuild."""
+    vs_msbuild_platformtoolset: str = None
 
-    KVZ_GIT_REPO_NAME: str = "kvazaar"
-    @property
-    def kvz_git_repo_name(self) -> str:
-        """Returns the name the tester will give to the Kvazaar Git repository when fetching
-        source code."""
-        return self.KVZ_GIT_REPO_NAME
+    ##########################################################################
+    # VMAF
+    ##########################################################################
 
-    @property
-    def kvz_git_repo_path(self) -> Path:
-        """Returns the absolute path of the Kvazaar Git repository."""
-        return self.sources_dir_path / self.kvz_git_repo_name
-
-    @property
-    def kvz_git_dir_path(self) -> Path:
-        """Returns the absolute path of the .git directory within the Kvazaar Git repository."""
-        return self.kvz_git_repo_path / ".git"
-
-    KVZ_GIT_REPO_SSH_URL: str = "git@gitlab.tut.fi:TIE/ultravideo/kvazaar.git"
-    @property
-    def kvz_git_repo_ssh_url(self) -> str:
-        """Returns the SSH URL to be used when cloning Kvazaar from a remote repository."""
-        return self.KVZ_GIT_REPO_SSH_URL
-
-    KVZ_EXE_SRC_NAME: str = f"kvazaar{'.exe' if platform.system() == 'Windows' else ''}"
-    @property
-    def kvz_exe_src_name(self) -> str:
-        """Returns the default name the Kvazaar executable has when it has been compiled."""
-        return self.KVZ_EXE_SRC_NAME
-
-    @property
-    def kvz_exe_src_path_windows(self) -> Path:
-        """Returns the absolute path of the Kvazaar executable after compiling on Windows."""
-        return self.kvz_git_repo_path / "bin" / "x64-Release" / self.kvz_exe_src_name
-
-    @property
-    def kvz_exe_src_path_linux(self) -> Path:
-        """Returns the absolute path of the Kvazaar executable after compiling on Linux."""
-        return self.kvz_git_repo_path / "src" / "kvazaar"
-
-    KVZ_VS_SOLUTION_NAME: str = "kvazaar_VS2015.sln"
-
-    @property
-    def kvz_vs_solution_name(self) -> str:
-        """Returns the name of the Kvazaar Visual Studio solution."""
-        return self.KVZ_VS_SOLUTION_NAME
-
-    @property
-    def kvz_vs_solution_path(self) -> Path:
-        """Returns the absolute path of the Kvazaar Visual Studio solution."""
-        return self.kvz_git_repo_path / "build" / self.kvz_vs_solution_name
-
-    @property
-    def kvz_autogen_script_path(self) -> Path:
-        """Returns the absolute path of the autogen.sh script in the Kvazaar Git repository."""
-        return self.kvz_git_repo_path / "autogen.sh"
-
-    @property
-    def kvz_configure_script_path(self) -> Path:
-        """Returns the absolute path of the configure script in the Kvazaar Git repository."""
-        return self.kvz_git_repo_path / "configure"
-
-    KVZ_CONFIGURE_ARGS: list = [
-        # We want a self-contained executable.
-        "--disable-shared",
-        "--enable-static",
-    ]
-
-    @property
-    def kvz_configure_args(self) -> list:
-        """Returns a list of arguments to be passed to the configure script
-        when compiling Kvazaar on Linux."""
-        return self.KVZ_CONFIGURE_ARGS
-
-    MSBUILD_CONFIGURATION: str = "Release"
-    @property
-    def msbuild_configuration(self) -> str:
-        """Returns the value of the Configuration property (/p:Configuration)
-        passed to MSBuild when compiling on Windows."""
-        return self.MSBUILD_CONFIGURATION
-
-    MSBUILD_PLATFORM: str = "x64"
-    @property
-    def msbuild_platform(self) -> str:
-        """Returns the value of the Platform property (/p:Platform)
-        passed to MSBuild when compiling on Windows."""
-        return self.MSBUILD_PLATFORM
-
-    MSBUILD_PLATFORMTOOLSET: str = "v142"
-    @property
-    def msbuild_platformtoolset(self) -> str:
-        """Returns the value of the PlatformToolSet property (/p:PlatformToolSet)
-        passed to MSBuild when compiling on Windows."""
-        return self.MSBUILD_PLATFORMTOOLSET
-
-    MSBUILD_WINDOWSTARGETPLATFORMVERSION: str = "10.0"
-    @property
-    def msbuild_windowstargetplatformversion(self) -> str:
-        """Returns the value of the WindowsTargetPlatformVersion property (/p:WindowsTargetPlatformVersion)
-        passed to MSBuild when compiling on Windows."""
-        return self.MSBUILD_WINDOWSTARGETPLATFORMVERSION
-
-    @property
-    def msbuild_args(self) -> list:
-        """Returns the additional command line arguments to be passed to MSBuild
-        when compiling on Windows."""
-
-        return [
-            f"/p:Configuration={self.msbuild_configuration}",
-            f"/p:Platform={self.msbuild_platform}",
-            f"/p:PlatformToolset={self.msbuild_platformtoolset}",
-            f"/p:WindowsTargetPlatformVersion={self.msbuild_windowstargetplatformversion}",
-        ]
-
-    ENCODING_OUTPUT_DIR_NAME: str = "_output"
-    @property
-    def encoding_output_dir_name(self) -> str:
-        """Returns the name of the directory in which encoded video files
-        will be placed by the tester."""
-        return self.ENCODING_OUTPUT_DIR_NAME
-
-    @property
-    def encoding_output_dir_path(self) -> Path:
-        """Returns the absolute path of the directory in which encoded video files
-        will be placed by the tester."""
-        return self.tester_root_path / self.encoding_output_dir_name
-
-    CSV_FIELD_SEPARATOR: str = ";"
-    @property
-    def csv_field_separator(self) -> str:
-        """Returns the character to be used as the field separator when generating CSV files."""
-        return self.CSV_FIELD_SEPARATOR
-
-    CSV_DECIMAL_POINT: str = "."
-    @property
-    def csv_decimal_point(self) -> str:
-        """Returns the character to be used as the decimal point when generating CSV files."""
-        return self.CSV_DECIMAL_POINT
-
-    CSV_ENABLED_FIELDS: list = [
-        csv.CsvFieldId.SEQUENCE_NAME,
-        csv.CsvFieldId.SEQUENCE_CLASS,
-        csv.CsvFieldId.SEQUENCE_FRAMECOUNT,
-        csv.CsvFieldId.ENCODER_NAME,
-        csv.CsvFieldId.ENCODER_REVISION,
-        csv.CsvFieldId.ENCODER_DEFINES,
-        csv.CsvFieldId.ENCODER_CMDLINE,
-        csv.CsvFieldId.QUALITY_PARAM_NAME,
-        csv.CsvFieldId.QUALITY_PARAM_VALUE,
-        csv.CsvFieldId.CONFIG_NAME,
-        csv.CsvFieldId.TIME_SECONDS,
-        csv.CsvFieldId.TIME_STDEV,
-        csv.CsvFieldId.BITRATE,
-        csv.CsvFieldId.BITRATE_STDEV,
-        csv.CsvFieldId.PSNR_AVG,
-        csv.CsvFieldId.PSNR_STDEV,
-        csv.CsvFieldId.SSIM_AVG,
-        csv.CsvFieldId.SSIM_STDEV,
-        csv.CsvFieldId.VMAF_AVG,
-        csv.CsvFieldId.VMAF_STDEV,
-        csv.CsvFieldId.ANCHOR_NAME,
-        csv.CsvFieldId.SPEEDUP,
-        csv.CsvFieldId.BDBR_PSNR,
-        csv.CsvFieldId.BDBR_SSIM,
-    ]
-    @property
-    def csv_enabled_fields(self) -> list:
-        """Returns the CSV field IDs in the order they will appear in the CSV file."""
-        return self.CSV_ENABLED_FIELDS
-
-    CSV_FIELD_NAMES: dict = {
-        csv.CsvFieldId.SEQUENCE_NAME: "Sequence name",
-        csv.CsvFieldId.SEQUENCE_CLASS: "Sequence class",
-        csv.CsvFieldId.SEQUENCE_FRAMECOUNT: "Frames",
-        csv.CsvFieldId.ENCODER_NAME: "Encoder",
-        csv.CsvFieldId.ENCODER_REVISION: "Revision",
-        csv.CsvFieldId.ENCODER_DEFINES: "Defines",
-        csv.CsvFieldId.ENCODER_CMDLINE: "Command",
-        csv.CsvFieldId.QUALITY_PARAM_NAME: "Quality parameter",
-        csv.CsvFieldId.QUALITY_PARAM_VALUE: "Quality parameter value",
-        csv.CsvFieldId.CONFIG_NAME: "Configuration name",
-        csv.CsvFieldId.ANCHOR_NAME: "Anchor name",
-        csv.CsvFieldId.TIME_SECONDS: "Encoding time (s)",
-        csv.CsvFieldId.TIME_STDEV: "Encoding time (stdev)",
-        csv.CsvFieldId.BITRATE: "Bitrate",
-        csv.CsvFieldId.BITRATE_STDEV: "Bitrate (stdev)",
-        csv.CsvFieldId.SPEEDUP: "Speedup",
-        csv.CsvFieldId.PSNR_AVG: "PSNR (avg)",
-        csv.CsvFieldId.PSNR_STDEV: "PSNR (stdev)",
-        csv.CsvFieldId.SSIM_AVG: "SSIM (avg)",
-        csv.CsvFieldId.SSIM_STDEV: "SSIM (stdev)",
-        csv.CsvFieldId.VMAF_AVG: "VMAF (avg)",
-        csv.CsvFieldId.VMAF_STDEV: "VMAF (stdev)",
-        csv.CsvFieldId.BDBR_PSNR: "BD-BR (PSNR)",
-        csv.CsvFieldId.BDBR_SSIM: "BD-BR (SSIM)",
-    }
-    @property
-    def csv_field_names(self) -> dict:
-        """Returns the CSV field names in a dict where the key is the field ID and the value
-        is the name of the field as a string."""
-        return self.CSV_FIELD_NAMES
-
-    CSV_FLOAT_ROUNDING_ACCURACY: int = 6
-    @property
-    def csv_float_rounding_accuracy(self) -> int:
-        """Returns the number that will be used as the parameter to round() when rounding floats
-        during CSV file generation."""
-        return self.CSV_FLOAT_ROUNDING_ACCURACY
-
-    # Must be set in userconfig.
-    VMAF_REPO_PATH: Path = None
+    _vmaf_repo_path: Union[str, Path] = None
     @property
     def vmaf_repo_path(self) -> Path:
-        """Returns the absolute path of the vmaf Git repository."""
-        return Path(self.VMAF_REPO_PATH)
-
-    HM_GIT_REPO_NAME: str = "hm"
-    @property
-    def hm_git_repo_name(self) -> str:
-        """Returns the name of the HM Git repository."""
-        return self.HM_GIT_REPO_NAME
-
-    @property
-    def hm_git_repo_path(self) -> Path:
-        """Returns the absolute path of the HM Git repository."""
-        return self.sources_dir_path / self.hm_git_repo_name
-
-    @property
-    def hm_git_dir_path(self) -> Path:
-        """Returns the absolute path of the .git directory within the HM Git repository."""
-        return self.hm_git_repo_path / ".git"
-
-    HM_GIT_REPO_HTTPS_URL: str = "https://vcgit.hhi.fraunhofer.de/jct-vc/HM.git"
-    @property
-    def hm_git_repo_https_url(self) -> str:
-        """Returns the SSH URL to be used when cloning HM from a remote repository."""
-        return self.HM_GIT_REPO_HTTPS_URL
-
-    HM_EXE_SRC_NAME: str = f"{'TAppEncoder.exe' if platform.system() == 'Windows' else 'TAppEncoderStatic'}"
-    @property
-    def hm_exe_src_name(self) -> str:
-        """Returns the default name the HM executable has when it has been compiled."""
-        return self.HM_EXE_SRC_NAME
-
-    @property
-    def hm_exe_src_path_windows(self) -> Path:
-        """Returns the absolute path of the HM executable after compiling on Windows."""
-        return self.hm_git_repo_path / "bin" / f"vs{self.vs_version}" / f"msvc-{self.msvc_version}"\
-                                     / "x86_64" / "release" / self.hm_exe_src_name
-
-    @property
-    def hm_exe_src_path_linux(self) -> Path:
-        """Returns the absolute path of the HM executable after compiling on Linux."""
-        return self.hm_git_repo_path / "bin" / self.hm_exe_src_name
-
-    HM_VS_SOLUTION_NAME: str = "HM.sln"
-    @property
-    def hm_vs_solution_name(self) -> str:
-        """Returns the name of the HM Visual Studio solution."""
-        return self.HM_VS_SOLUTION_NAME
-
-    HM_VS_PROJECT_NAME: str = r"App\TAppEncoder"
-    @property
-    def hm_vs_project_name(self) -> str:
-        """Returns the name of the HM encoder Visual Studio project."""
-        return self.HM_VS_PROJECT_NAME
-
-    HM_MAKE_TARGET_NAME: str = "TAppEncoder-r"
-    @property
-    def hm_make_target_name(self) -> str:
-        """Returns the name of the HM encoder Make target."""
-        return self.HM_MAKE_TARGET_NAME
-
-    @property
-    def hm_vs_solution_path(self) -> Path:
-        """Returns the absolute path of the HM Visual Studio solution."""
-        return self.hm_git_repo_path / "build" / self.hm_vs_solution_name
-
-    CMAKE_BUILD_SYSTEM_GENERATOR: str = "Visual Studio 16 2019"
-    @property
-    def cmake_build_system_generator(self) -> str:
-        """Returns the -G parameter to be passed to CMake."""
-        return self.CMAKE_BUILD_SYSTEM_GENERATOR
-
-    CMAKE_ARCHITECTURE: str = "x64"
-    @property
-    def cmake_architecture(self) -> str:
-        """Returns the -A parameter to be passed to CMake."""
-        return self.CMAKE_ARCHITECTURE
-
-    HM_CFG_PATH: str = None
-    @property
-    def hm_cfg_path(self):
-        return Path(self.HM_CFG_PATH)
+        """The path of the VMAF repository. Must be set by the user."""
+        return Path(self._vmaf_repo_path).resolve()
+    @vmaf_repo_path.setter
+    def vmaf_repo_path(self, value: Union[str, Path]):
+        self._vmaf_repo_path = value

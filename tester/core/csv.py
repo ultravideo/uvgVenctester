@@ -1,5 +1,6 @@
 """This module defines functionality related to generating the CSV output file."""
 
+from tester.core.log import *
 from tester.core import cfg
 
 import math
@@ -7,7 +8,14 @@ from pathlib import Path
 from enum import *
 
 
-class CsvFieldId(Enum):
+def csv_validate_config():
+    for field in cfg.Cfg().csv_enabled_fields:
+        if not field in cfg.Cfg().csv_field_names.keys():
+            console_log.error(f"CSV: Field '{field}' is enabled but does not have a name")
+            raise RuntimeError
+
+
+class CsvField(Enum):
     """An enumeration to identify the different CSV fields."""
     NONE: int = 0
     SEQUENCE_NAME: int = 1
@@ -51,14 +59,14 @@ class CsvFile():
             header_row = ""
             for field_id in cfg.Cfg().csv_enabled_fields:
                 header_row += cfg.Cfg().csv_field_names[field_id]
-                header_row += cfg.Cfg().csv_field_separator
+                header_row += cfg.Cfg().csv_field_delimiter
             file.write(header_row + "\n")
 
     def add_entry(self,
                   values_by_field: dict) -> None:
 
-        config_name = values_by_field[CsvFieldId.CONFIG_NAME]
-        anchor_name = values_by_field[CsvFieldId.ANCHOR_NAME]
+        config_name = values_by_field[CsvField.CONFIG_NAME]
+        anchor_name = values_by_field[CsvField.ANCHOR_NAME]
 
         new_row = ""
         for field_id in cfg.Cfg().csv_enabled_fields:
@@ -77,12 +85,12 @@ class CsvFile():
             # If the config has no anchor, i.e. the anchor name is the same as the config name,
             # give special treatment to certain fields.
             # TODO: Make values user-configurable?
-            if field_id == CsvFieldId.ANCHOR_NAME and anchor_name == config_name:
+            if field_id == CsvField.ANCHOR_NAME and anchor_name == config_name:
                 value = "-"
-            elif field_id == CsvFieldId.SPEEDUP and anchor_name == config_name:
+            elif field_id == CsvField.SPEEDUP and anchor_name == config_name:
                 value = "-"
 
-            new_row += f"{value}{cfg.Cfg().csv_field_separator}"
+            new_row += f"{value}{cfg.Cfg().csv_field_delimiter}"
 
         with self._filepath.open("a") as file:
             file.write(new_row + "\n")
