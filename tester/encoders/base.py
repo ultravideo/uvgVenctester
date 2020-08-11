@@ -18,6 +18,7 @@ class Encoder(Enum):
 
     HM: int = 1
     KVAZAAR: int = 2
+    VTM: int = 3
 
     @property
     def pretty_name(self):
@@ -25,6 +26,8 @@ class Encoder(Enum):
             return "Kvazaar"
         elif self == Encoder.HM:
             return "HM"
+        elif self == Encoder.VTM:
+            return "VTM"
         else:
             raise RuntimeError
 
@@ -34,6 +37,8 @@ class Encoder(Enum):
             return "kvazaar"
         elif self == Encoder.HM:
             return "hm"
+        elif self == Encoder.VTM:
+            return "vtm"
         else:
             raise RuntimeError
 
@@ -411,7 +416,6 @@ class EncoderBase:
             raise
 
         # Copy the executable to its destination.
-        print(self._exe_src_path)
         assert self._exe_src_path.exists()
         self._build_log.debug(f"{type(self).__name__}: Copying file '{self._exe_src_path}' "
                               f"to '{self._exe_path}'")

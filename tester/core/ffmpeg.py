@@ -18,10 +18,10 @@ _VMAF_PATTERN: re.Pattern = re.compile(r".*\"VMAF score\":([0-9]+.[0-9]+).*", re
 
 def ffmpeg_validate_config():
     try:
-        proc = subprocess.Popen(("ffmpeg", "-version"), stdout=subprocess.PIPE)
+        output = subprocess.check_output("ffmpeg -version", shell=True)
         if csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields \
                 or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields:
-            for line in proc.stdout:
+            for line in output.decode().split("\n"):
                 if str(line).startswith("configuration") and not "--enable-libvmaf" in line:
                     console_log.error("Ffmpeg: VMAF field enabled in CSV but ffmpeg is not "
                                       "configured with --enable-libvmaf")

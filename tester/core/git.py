@@ -8,7 +8,7 @@ from pathlib import Path
 
 def git_validate_config():
     try:
-        subprocess.check_output("git --version")
+        subprocess.check_output("git --version", shell=True)
     except FileNotFoundError:
         console_log.error("Git: Executable 'git' was not found")
         raise RuntimeError

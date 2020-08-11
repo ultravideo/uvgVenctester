@@ -42,7 +42,7 @@ class Cfg(metaclass=Singleton):
     def system_cpu_arch(self) -> str:
         """The CPU architecture. 'x64' if x64, else whatever."""
         machine = platform.machine()
-        if machine == "AMD64":
+        if machine in ["AMD64", "x86_64"]:
             return "x64"
         else:
             return machine
@@ -236,3 +236,9 @@ class Cfg(metaclass=Singleton):
     @vmaf_repo_path.setter
     def vmaf_repo_path(self, value: Union[str, Path]):
         self._vmaf_repo_path = value
+
+    ##########################################################################
+    # VTM
+    ##########################################################################
+
+    vtm_remote_url: str = "https://vcgit.hhi.fraunhofer.de/jvet/VVCSoftware_VTM.git"

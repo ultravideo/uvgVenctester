@@ -16,6 +16,7 @@ from tester.core import vmaf
 from tester.core import vs
 from tester.encoders import hm
 from tester.encoders import kvazaar
+from tester.encoders import vtm
 
 import subprocess
 import time
@@ -121,7 +122,7 @@ class Tester:
             git.git_validate_config()
             cmake.cmake_validate_config()
             gcc.gcc_validate_config()
-            ffmpeg.ffmpeg_validate_config()
+            #ffmpeg.ffmpeg_validate_config()
             vmaf.vmaf_validate_config()
             vs.vs_validate_config()
 
@@ -133,6 +134,8 @@ class Tester:
                 hm.hm_validate_config()
             if Encoder.KVAZAAR in used_encoder_ids:
                 kvazaar.kvazaar_validate_config()
+            if Encoder.VTM in used_encoder_ids:
+                vtm.vtm_validate_config()
 
         except Exception as exception:
             console_log.error("Tester: Configuration variable validation failed")

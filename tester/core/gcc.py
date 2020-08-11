@@ -12,13 +12,13 @@ def gcc_validate_config():
         return
 
     try:
-        subprocess.check_output("gcc --version")
+        subprocess.check_output("gcc --version", shell=True)
     except FileNotFoundError:
         console_log.error("GCC: Executable 'gcc' was not found")
         raise RuntimeError
 
     try:
-        subprocess.check_output("make --version")
+        subprocess.check_output("make --version", shell=True)
     except FileNotFoundError:
         console_log.error("Make: Executable 'make' was not found")
         raise RuntimeError
