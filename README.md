@@ -20,9 +20,9 @@
 - Python libraries
   - [colorama](https://github.com/tartley/colorama)
   - [vmaf](https://github.com/Netflix/vmaf)
-    - clone the repository
-    - cd to `vmaf/python`
-    - run `python setup.py install`
+    1. Clone the repository
+    2. Go to vmaf/python
+    3. Run `python setup.py install`
 
 Windows 10 only:
 - [Visual Studio 2019](https://visualstudio.microsoft.com/)
@@ -49,42 +49,51 @@ Check that the configuration variables (see the Customization section below) mat
 
 Windows/Linux:
 
-- `CSV_DECIMAL_POINT`
-- `CSV_FIELD_SEPARATOR`
-- `VMAF_REPO_PATH`
+- `csv_decimal_point`
+- `csv_field_delimiter`
+- `vmaf_repo_path`
+- `hm_cfg_path` (if HM is being used)
+
 
 Windows only:
-
-- `KVZ_MSBUILD_PLATFORMTOOLSET`
-- `KVZ_MSBUILD_WINDOWSTARGETPLATFORMVERSION`
-- `KVZ_VS_SOLUTION_NAME`
-- `MSVC_VERSION`
-- `VS_EDITION`
-- `VS_INSTALL_PATH`
-- `VS_VERSION`
-- `VS_YEAR`
+- `vs_install_path`
+- `vs_year_version`
+- `vs_major_version`
+- `vs_edition`
+- `vs_msvc_version`
+- `vs_msbuild_platformtoolset`
 
 ## Example usage
 
-### 1. Import the tester API.
+### 1. Set the required configuration variables.
 
-`main.py`:
+- This example is on Windows
+
+`userconfig.py`:
 ```python
-from tester.core.tester import *
+from tester.core.cfg import *
+
+Cfg().vmaf_repo_path = "vmaf"
+Cfg().hm_cfg_path = "encoder_randomaccess_main.cfg"
+Cfg().vs_install_path = r"C:\Microsoft Visual Studio"
+Cfg().vs_year_version = "2019"
+Cfg().vs_major_version = "16"
+Cfg().vs_edition = "Enterprise"
+Cfg().vs_msvc_version = "19.26"
+Cfg().vs_msbuild_platformtoolset = "v142"
 ```
 
-### 2. Initialize the tester.
-
-- NOTE: This has to be done at this point - otherwise the tester may not work correctly (`userconfig.py` is read when the tester is initialized)!
+### 2. Import your configuration file and the tester library.
 
 `main.py`:
 ```python
-tester = Tester()
+import userconfig
+from tester.core.tester import *
 ```
 
 ### 3. Specify the video sequences you want to have encoded.
 
-- The file paths are relative to `SEQUENCES_DIR_PATH` (default: current working directory)
+- The file paths are relative to `tester_input_dir_path` (default: current working directory)
 - Wildcards can be used
 - The file names must contain the resolution, and may contain the framerate and frame count (`<name>_<width>x<height>_<framerate>_<frame count>.yuv`)
     - If the name doesn't contain the framerate, it is assumed to be 25 FPS
@@ -141,7 +150,7 @@ configs = [
 ]
 ```
 
-Required parameters for `Test.__init__()` and `Test.clone()`:
+Required parameters for `Test()`:
 - `name` The name of the test configuration
     - Arbitrary, but must be unique
 - `quality_param_type` The quality parameter to be used (QP or bitrate)
@@ -158,7 +167,7 @@ Required parameters for `Test.__init__()` and `Test.clone()`:
 - `input_sequences` A list containing the names of the raw video sequences to be encoded
     - All configurations must have the same `input_sequences`
 
-Optional parameters for `Test.__init__()` and `Test.clone()`:
+Optional parameters for `Test()`:
 - `seek` An integer specifying how many frames at the start of each input file will be skipped
     - Default: 0
     - Applies to every sequence
@@ -170,10 +179,13 @@ Optional parameters for `Test.__init__()` and `Test.clone()`:
 - `rounds` An integer specifying how many times a test is repeated
     - Default: 1
 
-### 5. Create a new testing context.
+`Test.clone()` accepts the same parameters as `Test()`.
+
+### 5. Initialize the tester and create a testing context.
 
 `main.py`:
 ```python
+tester = Tester()
 context = tester.create_context(tests, input_sequence_globs)
 ```
 
@@ -202,32 +214,36 @@ tester.generate_csv(context, "mycsv.csv")
 
 ## Customization
 
-Any configuration variable (named with capital letters, **not** prefixed with underscores) in `tester.core.cfg` can be overridden in `userconfig.py`.
+Any public property/attribute of `tester.core.cfg.Cfg` can be overridden by the user.
 
-#### Example: Setting Visual Studio installation path
+#### Example: Specifying Visual Studio and related tools
 
 `userconfig.py`:
 ```python
-# This makes the tester search for Visual Studio command line tools under
-# "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community".
-VS_INSTALL_PATH = r"C:\Program Files (x86)\Microsoft Visual Studio"
-VS_VERSION = "2019"
-VS_EDITION = "Community"
+from tester.core.cfg import *
+
+Cfg().vs_install_path = r"C:\Microsoft Visual Studio"
+Cfg().vs_year_version = "2019"
+Cfg().vs_major_version = "16"
+Cfg().vs_edition = "Enterprise"
+Cfg().vs_msvc_version = "19.26"
+Cfg().vs_msbuild_platformtoolset = "v142"
 ```
 
 #### Example: Customizing CSV output
 
 `userconfig.py`:
 ```python
+from tester.core.cfg import *
 from tester.core.csv import *
 
 # You might have to set these depending on your system language settings.
-CSV_DECIMAL_POINT = ","
-CSV_FIELD_SEPARATOR = ";"
+Cfg().csv_decimal_point = ","
+Cfg().csv_field_delimiter = ";"
 
 # Enabled fields from left to right. Any field not included in this list will be omitted from the CSV.
 # The list of all possible values can be found in tester.core.csv.
-CSV_ENABLED_FIELDS = [
+Cfg().csv_enabled_fields = [
     CsvFieldId.SEQUENCE_NAME,
     CsvFieldId.CONFIG_NAME,
     CsvFieldId.ENCODER_CMDLINE,
@@ -235,7 +251,7 @@ CSV_ENABLED_FIELDS = [
 ]
 
 # Must include all the fields listed in CSV_ENABLED_FIELDS.
-CSV_FIELD_NAMES = {
+Cfg().csv_field_names = {
     CsvFieldId.SEQUENCE_NAME = "Input sequence",
     CsvFieldId.CONFIG_NAME = "Config",
     CsvFieldId.ENCODER_CMDLINE = "Command line arguments",
