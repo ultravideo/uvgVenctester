@@ -40,12 +40,12 @@ class EncodingRun:
         self.ssim_log_path: Path = output_dir_path / f"{base_filename}_ssim_log.txt"
         self.vmaf_log_path: Path = output_dir_path / f"{base_filename}_vmaf_log.txt"
 
-        self.output_file = HevcVideoFile(
-            filepath=output_dir_path / f"{base_filename}.hevc",
+        self.output_file = EncodedVideoFile(
+            filepath=output_dir_path / f"{base_filename}{'.hevc' if encoder.get_id() != Encoder.VTM else '.vvc'}",
             width=input_sequence.get_width(),
             height=input_sequence.get_height(),
             framerate=input_sequence.get_framerate(),
-            framecount=input_sequence.get_framecount(),
+            frames=input_sequence.get_framecount(),
             duration_seconds=input_sequence.get_duration_seconds()
         )
 
@@ -137,13 +137,22 @@ class Test:
 
         # Expand sequence globs.
         self.sequences = []
+
+        # HM and VTM skip frames if --TemporalSubsampleRatio is specified (in the config file).
+        skip = None
+        if encoder_id == Encoder.HM:
+            skip = hm_get_temporal_subsample_ratio()
+        elif encoder_id == Encoder.VTM:
+            skip = vtm_get_temporal_subsample_ratio()
+
         for glob in input_sequences:
             for filepath in Cfg().tester_sequences_dir_path.glob(glob):
                 self.sequences.append(
                     RawVideoSequence(
                         filepath,
                         seek=seek,
-                        frames=frames
+                        frames=frames,
+                        skip=skip
                     )
                 )
 

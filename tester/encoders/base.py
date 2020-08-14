@@ -462,6 +462,7 @@ class EncoderBase:
                          dummy_cmd: tuple,
                          param_set: ParamSetBase) -> bool:
         """Meant to be called as the last thing from the dummy_run() method of derived classes."""
+
         try:
             subprocess.check_output(
                 subprocess.list2cmdline(dummy_cmd),

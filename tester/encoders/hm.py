@@ -6,6 +6,7 @@ from .base import *
 from tester.core.cfg import *
 from tester.core.test import *
 from tester.core import cmake
+from tester.core import vs
 
 from pathlib import Path
 import os
@@ -13,7 +14,7 @@ import os
 
 def hm_validate_config():
     # Using the public property raises an exception, so access the private attribute instead.
-    if Cfg()._hm_cfg_path is None:
+    if Cfg()._hm_cfg_file_path is None:
         console_log.error(f"HM: Configuration file path has not been set")
         raise RuntimeError
 
@@ -24,6 +25,20 @@ def hm_validate_config():
     elif not git_remote_exists(Cfg().hm_remote_url):
         console_log.error(f"HM: Remote '{Cfg().hm_remote_url}' is not available")
         raise RuntimeError
+
+
+def hm_get_temporal_subsample_ratio() -> int:
+
+    hm_validate_config()
+
+    pattern = re.compile(r"TemporalSubsampleRatio.*: ([0-9]+)", re.DOTALL)
+    lines = Cfg().hm_cfg_file_path.open("r").readlines()
+    for line in lines:
+        match = pattern.match(line)
+        if match:
+            return int(match[1])
+
+    return 0
 
 
 class HmParamSet(ParamSetBase):

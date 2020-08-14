@@ -5,6 +5,7 @@ from __future__ import annotations
 from .base import *
 from tester.core.cfg import *
 from tester.core.test import *
+from tester.core import ffmpeg
 from tester.core import cmake
 
 from pathlib import Path
@@ -13,9 +14,32 @@ import os
 
 def vtm_validate_config():
 
-    if not git_remote_exists(Cfg().hm_remote_url):
-        console_log.error(f"VTM: Remote '{Cfg().hm_remote_url}' is not available")
+    # Using the public property raises an exception, so access the private attribute instead.
+    if Cfg()._vtm_cfg_file_path is None:
+        console_log.error(f"VTM: Configuration file path has not been set")
         raise RuntimeError
+
+    elif not Cfg().vtm_cfg_file_path.exists():
+        console_log.error(f"VTM: Configuration file '{Cfg().vtm_cfg_file_path}' does not exist")
+        raise RuntimeError
+
+    elif not git_remote_exists(Cfg().vtm_remote_url):
+        console_log.error(f"VTM: Remote '{Cfg().vtm_remote_url}' is not available")
+        raise RuntimeError
+
+
+def vtm_get_temporal_subsample_ratio() -> int:
+
+    vtm_validate_config()
+
+    pattern = re.compile(r"TemporalSubsampleRatio.*: ([0-9]+)", re.DOTALL)
+    lines = Cfg().vtm_cfg_file_path.open("r").readlines()
+    for line in lines:
+        match = pattern.match(line)
+        if match:
+            return int(match[1])
+
+    return 0
 
 
 class VtmParamSet(ParamSetBase):
@@ -44,7 +68,26 @@ class VtmParamSet(ParamSetBase):
                                 include_quality_param: bool = True,
                                 include_seek: bool = True,
                                 include_frames: bool = True) -> list:
-        return ["--asd", "5"]
+
+        args = self._cl_args
+
+        if include_quality_param:
+            if self._quality_param_type == QualityParam.QP:
+                args += f" --QP={self._quality_param_value}"
+            elif self._quality_param_type == QualityParam.BITRATE:
+                args += f" --TargetBitrate={self._quality_param_value}"
+        if include_seek and self._seek:
+            args += f" -fs {self._seek}"
+        if include_frames and self._frames:
+            args += f" -f {self._frames}"
+
+        # TODO: Figure out why this is needed or if it's needed.
+        if not "--SEIDecodedPictureHash" in args:
+            args += " --SEIDecodedPictureHash=3"
+        if not "--ConformanceWindowMode" in args:
+            args += " --ConformanceWindowMode=1"
+
+        return args.split()
 
 
 class Vtm(EncoderBase):
@@ -134,3 +177,59 @@ class Vtm(EncoderBase):
             )
 
         super().clean_finish(clean_cmd)
+
+    def dummy_run(self,
+                  param_set: ParamSetBase) -> bool:
+
+        super().dummy_run_start(param_set)
+
+        FRAMERATE_PLACEHOLDER = "1"
+        WIDTH_PLACEHOLDER = "16"
+        HEIGHT_PLACEHOLDER = "16"
+        FRAMECOUNT_PLACEHOLDER = "1"
+
+        dummy_sequence_path = ffmpeg.generate_dummy_sequence()
+
+        dummy_cmd = (
+            str(self._exe_path),
+            "-c", str(Cfg().vtm_cfg_file_path),
+            "-i", str(dummy_sequence_path),
+            "-fr", FRAMERATE_PLACEHOLDER,
+            "-wdt", WIDTH_PLACEHOLDER,
+            "-hgt", HEIGHT_PLACEHOLDER,
+            # Just in case the parameter set doesn't contain the number of frames parameter.
+            "-f", FRAMECOUNT_PLACEHOLDER,
+            "-b", os.devnull,
+            "-o", os.devnull,
+        ) + param_set.to_cmdline_tuple(include_frames=False)
+
+        return_value = super().dummy_run_finish(dummy_cmd, param_set)
+
+        os.remove(str(dummy_sequence_path))
+
+        return return_value
+
+    def encode(self,
+               encoding_run: EncodingRun) -> None:
+
+        if not super().encode_start(encoding_run):
+            return
+
+        # VTM is stupid.
+        framecount = encoding_run.param_set.get_frames()
+
+        encode_cmd = (
+            str(self._exe_path),
+            "-c", str(Cfg().vtm_cfg_file_path),
+            "-i", str(encoding_run.input_sequence.get_filepath()),
+            "-fr", str(encoding_run.input_sequence.get_framerate()),
+            "-wdt", str(encoding_run.input_sequence.get_width()),
+            "-hgt", str(encoding_run.input_sequence.get_height()),
+            "-b", str(encoding_run.output_file.get_filepath()),
+            "-o", os.devnull,
+        ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=bool(framecount))
+
+        if not framecount:
+            encode_cmd += ("-f", str(encoding_run.input_sequence.get_framecount()))
+
+        super().encode_finish(encode_cmd, encoding_run)

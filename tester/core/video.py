@@ -79,7 +79,8 @@ class RawVideoSequence(VideoFileBase):
                  chroma: int = 420,
                  bits_per_pixel: int = 8,
                  seek: int = 0,
-                 frames: int = 0):
+                 frames: int = 0,
+                 skip: int = None):
 
         assert filepath.exists()
         assert (not width and not height) or (width and height)
@@ -121,6 +122,8 @@ class RawVideoSequence(VideoFileBase):
 
         self._sequence_class = RawVideoSequence.guess_sequence_class_from_filepath(filepath)
 
+        self._skip = skip
+
         console_log.debug(f"{type(self).__name__}: Initialized object:")
         for attribute_name in sorted(self.__dict__):
             console_log.debug(f"{type(self).__name__}: "
@@ -157,6 +160,9 @@ class RawVideoSequence(VideoFileBase):
 
     def get_sequence_class(self) -> str:
         return self._sequence_class
+
+    def get_skip(self) -> int:
+        return self._skip
 
     @staticmethod
     def guess_sequence_class_from_filepath(filepath: Path) -> str:
@@ -223,24 +229,24 @@ class RawVideoSequence(VideoFileBase):
             raise RuntimeError
 
 
-class HevcVideoFile(VideoFileBase):
-    """Represents a HEVC file encoded by an encoder."""
+class EncodedVideoFile(VideoFileBase):
+    """Represents an encoded video file (HEVC/VVC)."""
 
     def __init__(self,
                  filepath: Path,
                  width: int,
                  height: int,
                  framerate: int,
-                 framecount: int,
+                 frames: int,
                  duration_seconds: float):
 
-        assert filepath.suffix == ".hevc"
+        assert filepath.suffix in (".hevc", ".vvc")
 
         super().__init__(
             filepath,
             width,
             height,
             framerate,
-            framecount,
+            frames,
             duration_seconds
         )

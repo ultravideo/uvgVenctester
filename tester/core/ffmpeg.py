@@ -1,5 +1,7 @@
 """This module defines functionality related to ffmpeg."""
 
+from __future__ import annotations
+
 from tester.core.log import *
 from tester.core.video import *
 from tester.core.test import *
@@ -26,8 +28,6 @@ def ffmpeg_validate_config():
                     console_log.error("Ffmpeg: VMAF field enabled in CSV but ffmpeg is not "
                                       "configured with --enable-libvmaf")
                     raise RuntimeError
-
-        proc.wait()
 
     except FileNotFoundError:
         console_log.error(f"Ffmpeg: Executable 'ffmpeg' does not exist")
@@ -167,3 +167,35 @@ def compute_metrics(encoding_run: EncodingRun,
         if isinstance(exception, subprocess.CalledProcessError):
             console_log.error(exception.output.decode())
         raise
+
+
+def generate_dummy_sequence() -> Path:
+
+    dummy_sequence_path = Cfg()._tester_input_dir_path / '_dummy.yuv'
+
+    console_log.debug(f"ffmpeg: Dummy sequence '{dummy_sequence_path}' already exists")
+
+    if dummy_sequence_path.exists():
+        console_log.debug(f"ffmpeg: Generating dummy sequence '{dummy_sequence_path}'")
+        return dummy_sequence_path
+
+    ffmpeg_cmd = (
+        "ffmpeg",
+        "-f", "lavfi",
+        "-i", "mandelbrot=size=16x16",
+        "-vframes", "60",
+        "-pix_fmt", "yuv420p",
+        "-f", "yuv4mpegpipe", str(dummy_sequence_path),
+    )
+
+    try:
+        subprocess.check_output(subprocess.list2cmdline(ffmpeg_cmd),
+                                shell=True,
+                                stderr=subprocess.STDOUT)
+    except Exception as exception:
+        console_log.error(f"ffmpeg: Failed to generate dummy sequence '{dummy_sequence_path}'")
+        if isinstance(exception, subprocess.CalledProcessError):
+            console_log.error(exception.output.decode())
+        raise
+
+    return dummy_sequence_path

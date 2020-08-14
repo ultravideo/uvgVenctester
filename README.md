@@ -52,7 +52,7 @@ Windows/Linux:
 - `csv_decimal_point`
 - `csv_field_delimiter`
 - `vmaf_repo_path`
-- `hm_cfg_path` (if HM is being used)
+- `hm_cfg_file_path` (if HM is being used)
 
 
 Windows only:
@@ -74,7 +74,8 @@ Windows only:
 from tester.core.cfg import *
 
 Cfg().vmaf_repo_path = "vmaf"
-Cfg().hm_cfg_path = "encoder_randomaccess_main.cfg"
+Cfg().hm_cfg_file_path = "encoder_randomaccess_main.cfg"
+Cfg().vtm_cfg_file_path = "encoder_randomaccess_vtm.cfg"
 Cfg().vs_install_path = r"C:\Microsoft Visual Studio"
 Cfg().vs_year_version = "2019"
 Cfg().vs_major_version = "16"

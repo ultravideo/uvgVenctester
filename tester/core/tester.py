@@ -137,6 +137,12 @@ class Tester:
             if Encoder.VTM in used_encoder_ids:
                 vtm.vtm_validate_config()
 
+            if Encoder.HM in used_encoder_ids and Encoder.VTM in used_encoder_ids:
+                if not hm_get_temporal_subsample_ratio() == vtm_get_temporal_subsample_ratio():
+                    console_log.error("Tester: Values of TemporalSubsampleRatio don't match "
+                                      "in the configuration files of HM and VTM")
+                    raise RuntimeError
+
         except Exception as exception:
             console_log.error("Tester: Configuration variable validation failed")
             log_exception(exception)
