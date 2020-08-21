@@ -173,7 +173,7 @@ class RawVideoSequence:
         self._width = width
         self._height = height
         self._framerate = framerate
-        # This doesn't take step into account:
+        # This doesn't take step (only encoding every nth frame) into account:
         self._frames = frames
         # This takes step into account:
         self._framecount = framecount
