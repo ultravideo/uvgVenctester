@@ -8,6 +8,7 @@
 
 - [HM](https://vcgit.hhi.fraunhofer.de/jct-vc/HM)
 - [Kvazaar](https://github.com/ultravideo/kvazaar)
+- [VTM](https://vcgit.hhi.fraunhofer.de/jvet/VVCSoftware_VTM)
 
 ## Dependencies
 
@@ -48,12 +49,11 @@ The tester clones source code from gitlab.tut.fi using SSH. Make sure you have a
 Check that the configuration variables (see the Customization section below) match your system and override them if needed. In particular, check the following:
 
 Windows/Linux:
-
 - `csv_decimal_point`
 - `csv_field_delimiter`
 - `vmaf_repo_path`
-- `hm_cfg_path` (if HM is being used)
-
+- `hm_cfg_file_path` (if HM is being used)
+- `vtm_cfg_file_path` (if VTM is being used)
 
 Windows only:
 - `vs_install_path`
@@ -74,7 +74,8 @@ Windows only:
 from tester.core.cfg import *
 
 Cfg().vmaf_repo_path = "vmaf"
-Cfg().hm_cfg_path = "encoder_randomaccess_main.cfg"
+Cfg().hm_cfg_file_path = "encoder_randomaccess_main.cfg"
+Cfg().vtm_cfg_file_path = "encoder_randomaccess_vtm.cfg"
 Cfg().vs_install_path = r"C:\Microsoft Visual Studio"
 Cfg().vs_year_version = "2019"
 Cfg().vs_major_version = "16"

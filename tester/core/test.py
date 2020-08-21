@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from tester.core.metrics import *
-from tester.encoders.kvazaar import *
 from tester.encoders.hm import *
+from tester.encoders.kvazaar import *
+from tester.encoders.vtm import *
 
 
 class EncodingRun:
@@ -39,14 +40,19 @@ class EncodingRun:
         self.ssim_log_path: Path = output_dir_path / f"{base_filename}_ssim_log.txt"
         self.vmaf_log_path: Path = output_dir_path / f"{base_filename}_vmaf_log.txt"
 
-        self.output_file = HevcVideoFile(
-            filepath=output_dir_path / f"{base_filename}.hevc",
+        output_file_path: Path = output_dir_path / f"{base_filename}{'.hevc' if encoder.get_id() != Encoder.VTM else '.vvc'}"
+        self.output_file = EncodedVideoFile(
+            filepath=output_file_path,
             width=input_sequence.get_width(),
             height=input_sequence.get_height(),
             framerate=input_sequence.get_framerate(),
-            framecount=input_sequence.get_framecount(),
+            frames=input_sequence.get_framecount(),
             duration_seconds=input_sequence.get_duration_seconds()
         )
+
+        self.decoded_output_file_path: Path = None
+        if encoder.get_id() == Encoder.VTM:
+            self.decoded_output_file_path: Path = output_dir_path / f"{base_filename}_decoded.yuv"
 
     def __eq__(self,
                other: EncodingRun):
@@ -109,8 +115,8 @@ class Test:
                  quality_param_list: list,
                  cl_args: str,
                  input_sequences: list,
-                 seek: int = 0,
-                 frames: int = 0,
+                 seek: int = None,
+                 frames: int = None,
                  rounds: int = 1,
                  **kwargs):
         # Kwargs are ignored, they are here just to enable easy cloning.
@@ -136,13 +142,23 @@ class Test:
 
         # Expand sequence globs.
         self.sequences = []
+
+        # HM and VTM only encode every nth frame if --TemporalSubsampleRatio is specified
+        # (in the config file).
+        step = None
+        if encoder_id == Encoder.HM:
+            step = hm_get_temporal_subsample_ratio()
+        elif encoder_id == Encoder.VTM:
+            step = vtm_get_temporal_subsample_ratio()
+
         for glob in input_sequences:
             for filepath in Cfg().tester_sequences_dir_path.glob(glob):
                 self.sequences.append(
                     RawVideoSequence(
                         filepath,
                         seek=seek,
-                        frames=frames
+                        frames=frames,
+                        step=step
                     )
                 )
 
@@ -169,6 +185,17 @@ class Test:
             self.encoder = Hm(encoder_revision, encoder_defines)
             param_sets = [
                 HmParamSet(
+                    quality_param_type,
+                    quality_param_value,
+                    seek,
+                    frames,
+                    cl_args
+                ) for quality_param_value in quality_param_list
+            ]
+        elif encoder_id == Encoder.VTM:
+            self.encoder = Vtm(encoder_revision, encoder_defines)
+            param_sets = [
+                VtmParamSet(
                     quality_param_type,
                     quality_param_value,
                     seek,

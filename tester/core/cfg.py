@@ -42,7 +42,7 @@ class Cfg(metaclass=Singleton):
     def system_cpu_arch(self) -> str:
         """The CPU architecture. 'x64' if x64, else whatever."""
         machine = platform.machine()
-        if machine == "AMD64":
+        if machine in ["AMD64", "x86_64"]:
             return "x64"
         else:
             return machine
@@ -176,13 +176,13 @@ class Cfg(metaclass=Singleton):
     hm_remote_url: str = "https://vcgit.hhi.fraunhofer.de/jct-vc/HM.git"
 
     """The path of the HM configuration file. Must be set by the user."""
-    _hm_cfg_path: Union[str, Path] = None
+    _hm_cfg_file_path: Union[str, Path] = None
     @property
     def hm_cfg_file_path(self):
-        return Path(self._hm_cfg_path).resolve()
+        return Path(self._hm_cfg_file_path).resolve()
     @hm_cfg_file_path.setter
     def hm_cfg_file_path(self, value: Union[str, Path]):
-        self._hm_cfg_path = value
+        self._hm_cfg_file_path = value
 
     ##########################################################################
     # Kvazaar
@@ -236,3 +236,19 @@ class Cfg(metaclass=Singleton):
     @vmaf_repo_path.setter
     def vmaf_repo_path(self, value: Union[str, Path]):
         self._vmaf_repo_path = value
+
+    ##########################################################################
+    # VTM
+    ##########################################################################
+
+    vtm_remote_url: str = "https://vcgit.hhi.fraunhofer.de/jvet/VVCSoftware_VTM.git"
+
+
+    """The path of the VTM configuration file. Must be set by the user."""
+    _vtm_cfg_file_path: Union[str, Path] = None
+    @property
+    def vtm_cfg_file_path(self):
+        return Path(self._vtm_cfg_file_path).resolve()
+    @vtm_cfg_file_path.setter
+    def vtm_cfg_file_path(self, value: Union[str, Path]):
+        self._vtm_cfg_file_path = value

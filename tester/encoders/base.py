@@ -18,6 +18,7 @@ class Encoder(Enum):
 
     HM: int = 1
     KVAZAAR: int = 2
+    VTM: int = 3
 
     @property
     def pretty_name(self):
@@ -25,6 +26,8 @@ class Encoder(Enum):
             return "Kvazaar"
         elif self == Encoder.HM:
             return "HM"
+        elif self == Encoder.VTM:
+            return "VTM"
         else:
             raise RuntimeError
 
@@ -34,6 +37,8 @@ class Encoder(Enum):
             return "kvazaar"
         elif self == Encoder.HM:
             return "hm"
+        elif self == Encoder.VTM:
+            return "vtm"
         else:
             raise RuntimeError
 
@@ -411,7 +416,6 @@ class EncoderBase:
             raise
 
         # Copy the executable to its destination.
-        print(self._exe_src_path)
         assert self._exe_src_path.exists()
         self._build_log.debug(f"{type(self).__name__}: Copying file '{self._exe_src_path}' "
                               f"to '{self._exe_path}'")
@@ -458,6 +462,7 @@ class EncoderBase:
                          dummy_cmd: tuple,
                          param_set: ParamSetBase) -> bool:
         """Meant to be called as the last thing from the dummy_run() method of derived classes."""
+
         try:
             subprocess.check_output(
                 subprocess.list2cmdline(dummy_cmd),
@@ -515,3 +520,11 @@ class EncoderBase:
                               f"output: '{encoding_run.output_file.get_filepath()}')")
             console_log.error(exception.output.decode().strip())
             raise
+
+
+class DecoderBase:
+    """An interface representing a decoder, in case decoding is required. At the time of writing
+    (August 2020), only VTM requires decoding, but this class is here anyway."""
+
+    def __init__(self):
+        raise NotImplementedError
