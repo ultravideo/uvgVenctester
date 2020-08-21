@@ -34,7 +34,8 @@ class VideoFileBase:
         self._framecount: int = framecount
 
     def __hash__(self):
-        return hash(str(self._filepath))
+        path = str(self._filepath).lower() if Cfg().system_os_name == "Windows" else str(self._filepath)
+        return hash(path)
 
     def __eq__(self,
                other: VideoFileBase):
