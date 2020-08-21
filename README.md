@@ -8,6 +8,7 @@
 
 - [HM](https://vcgit.hhi.fraunhofer.de/jct-vc/HM)
 - [Kvazaar](https://github.com/ultravideo/kvazaar)
+- [VTM](https://vcgit.hhi.fraunhofer.de/jvet/VVCSoftware_VTM)
 
 ## Dependencies
 
@@ -48,12 +49,11 @@ The tester clones source code from gitlab.tut.fi using SSH. Make sure you have a
 Check that the configuration variables (see the Customization section below) match your system and override them if needed. In particular, check the following:
 
 Windows/Linux:
-
 - `csv_decimal_point`
 - `csv_field_delimiter`
 - `vmaf_repo_path`
 - `hm_cfg_file_path` (if HM is being used)
-
+- `vtm_cfg_file_path` (if VTM is being used)
 
 Windows only:
 - `vs_install_path`
