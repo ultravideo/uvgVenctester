@@ -55,11 +55,13 @@ def compute_metrics(encoding_run: EncodingRun,
     shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
     shutil.copy(str(vmaf_model_src_path2), str(vmaf_model_dest_path2))
 
-    # Build the filter based on which metrics are to be computed.
+    # Build the filter based on which metrics are to be computed:
 
     no_of_metrics = sum(int(boolean) for boolean in (psnr, ssim, vmaf))
 
-    split1 = f"[0:v]split={no_of_metrics}"
+    # Adjust for frame step (it could be that only every <step>th frame of the input sequence was encoded).
+    split1 = f"[0:v]select=not(mod(n\\,{encoding_run.input_sequence.get_step()}))[select1_out]; " \
+             f"[select1_out]split={no_of_metrics}"
     split2 = f"[1:v]split={no_of_metrics}"
     filters = []
 
@@ -85,28 +87,59 @@ def compute_metrics(encoding_run: EncodingRun,
                     f"{split2}; "\
                     f"{'; '.join(filters)}"
 
-    # The path of the HEVC file as well as the log files will contain spaces,
-    # so the easiest solution is to change the working directory and
-    # use relative filepaths.
+    # VTM output is in YUV format, so use different command.
+    if encoding_run.decoded_output_file_path:
+        ffmpeg_command = (
+            # Change working directory to make relative paths work.
+            "cd", f"{encoding_run.output_file.get_filepath().parent}",
+            "&&", "ffmpeg",
 
-    ffmpeg_command = (
-        # Change working directory to make relative paths work.
-        "cd", str(encoding_run.output_file.get_filepath().parent),
-        "&&", "ffmpeg",
-              "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
-              "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
-              "-f", "rawvideo",
-              "-r", "1", # set FPS to 1 to...
-              "-ss", f"{encoding_run.input_sequence.get_seek()}", # ...seek the starting frame
-              "-t", f"{encoding_run.input_sequence.get_framecount()}",
-              "-i", str(encoding_run.input_sequence.get_filepath()),
-              "-r", "1",
-              "-t", f"{encoding_run.input_sequence.get_framecount()}",
-              "-i", encoding_run.output_file.get_filepath().name,
-              "-c:v", "rawvideo",
-              "-filter_complex", ffmpeg_filter,
-              "-f", "null", "-",
-    )
+                  # YUV input
+                  "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+                  "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
+                  "-f", "rawvideo",
+                  "-r", f"{encoding_run.input_sequence.get_step()}", # multiply framerate by step
+                  "-ss", f"{encoding_run.input_sequence.get_seek()}",
+                  "-t", f"{encoding_run.input_sequence.get_framecount()}",
+                  "-i", f"{encoding_run.input_sequence.get_filepath()}",
+
+                  # YUV output decoded from VVC output
+                  "-s:v", f"{encoding_run.output_file.get_width()}x{encoding_run.output_file.get_height()}",
+                  "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
+                  "-f", "rawvideo",
+                  "-r", "1",
+                  "-t", f"{encoding_run.input_sequence.get_framecount()}",
+                  "-i", f"{encoding_run.decoded_output_file_path.name}",
+
+                  "-c:v", "rawvideo",
+                  "-filter_complex", ffmpeg_filter,
+                  "-f", "null", "-",
+        )
+
+    else:
+
+        ffmpeg_command = (
+            "cd", f"{encoding_run.output_file.get_filepath().parent}",
+            "&&", "ffmpeg",
+
+                  # YUV input
+                  "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+                  "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
+                  "-f", "rawvideo",
+                  "-r", "1",
+                  "-ss", f"{encoding_run.input_sequence.get_seek()}",
+                  "-t", f"{encoding_run.input_sequence.get_framecount()}",
+                  "-i", f"{encoding_run.input_sequence.get_filepath()}",
+
+                  # HEVC output
+                  "-r", "1",
+                  "-t", f"{encoding_run.input_sequence.get_framecount()}",
+                  "-i", f"{encoding_run.output_file.get_filepath().name}",
+
+                  "-c:v", "rawvideo",
+                  "-filter_complex", ffmpeg_filter,
+                  "-f", "null", "-",
+        )
 
     try:
         console_log.debug(f"ffmpeg: Computing metrics")
@@ -129,7 +162,7 @@ def compute_metrics(encoding_run: EncodingRun,
         os.remove(vmaf_model_dest_path1)
         os.remove(vmaf_model_dest_path2)
 
-        # Ugly but simple.
+        # Ugly but simple:
 
         psnr_avg = None
         if psnr:

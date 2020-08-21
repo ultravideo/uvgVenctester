@@ -520,3 +520,11 @@ class EncoderBase:
                               f"output: '{encoding_run.output_file.get_filepath()}')")
             console_log.error(exception.output.decode().strip())
             raise
+
+
+class DecoderBase:
+    """An interface representing a decoder, in case decoding is required. At the time of writing
+    (August 2020), only VTM requires decoding, but this class is here anyway."""
+
+    def __init__(self):
+        raise NotImplementedError

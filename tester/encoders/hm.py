@@ -38,7 +38,7 @@ def hm_get_temporal_subsample_ratio() -> int:
         if match:
             return int(match[1])
 
-    return 0
+    return None
 
 
 class HmParamSet(ParamSetBase):
