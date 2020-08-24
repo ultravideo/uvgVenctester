@@ -68,6 +68,12 @@ class VideoFileBase:
         file_size_bits = self._filepath.stat().st_size * 8
         return file_size_bits / self.get_duration_seconds()
 
+    def get_suffixless_name(self):
+        return self._filepath.parts[-1].replace(self._filepath.suffix, "")
+
+    def __str__(self):
+        return f"{self._filepath.parts[-1]}"
+
 
 class RawVideoSequence(VideoFileBase):
     """Represents a YUV file (or part of it, in case seek and frames are not 0)."""
