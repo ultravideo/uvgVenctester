@@ -11,6 +11,7 @@ import os
 
 
 def kvazaar_validate_config():
+    return
     if not git_remote_exists(Cfg().kvazaar_remote_url):
         console_log.error(f"Kvazaar: Remote '{Cfg().kvazaar_remote_url}' is unavailable")
         raise RuntimeError

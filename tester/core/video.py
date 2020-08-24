@@ -69,6 +69,12 @@ class VideoFileBase:
         file_size_bits = self._filepath.stat().st_size * 8
         return file_size_bits / self.get_duration_seconds()
 
+    def get_suffixless_name(self):
+        return self._filepath.parts[-1].replace(self._filepath.suffix, "")
+
+    def __str__(self):
+        return f"{self._filepath.parts[-1]}"
+
 
 class RawVideoSequence:
     """Represents a YUV file (or part of it if seek, framecount and/or step have been defined)."""
@@ -195,7 +201,8 @@ class RawVideoSequence:
                               f"{attribute_name} = {getattr(self, attribute_name)}")
 
     def __hash__(self):
-        return hash(str(self._filepath))
+        path = str(self._filepath).lower() if Cfg().system_os_name == "Windows" else str(self._filepath)
+        return hash(path)
 
     def __eq__(self,
                other: VideoFileBase):
@@ -255,6 +262,9 @@ class RawVideoSequence:
 
     def get_bitrate(self) -> float:
         return self._bitrate
+
+    def get_suffixless_name(self):
+        return self._filepath.parts[-1].replace(self._filepath.suffix, "")
 
     @staticmethod
     def guess_sequence_class(filepath: Path) -> str:
