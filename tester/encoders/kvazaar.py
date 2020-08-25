@@ -11,7 +11,6 @@ import os
 
 
 def kvazaar_validate_config():
-    return
     if not git_remote_exists(Cfg().kvazaar_remote_url):
         console_log.error(f"Kvazaar: Remote '{Cfg().kvazaar_remote_url}' is unavailable")
         raise RuntimeError
@@ -178,6 +177,7 @@ class Kvazaar(EncoderBase):
             "-i", str(encoding_run.input_sequence.get_filepath()),
             "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
             "-o", str(encoding_run.output_file.get_filepath()),
+            "-f", str(encoding_run.frames),
         ) + encoding_run.param_set.to_cmdline_tuple()
 
         super().encode_finish(encode_cmd, encoding_run)

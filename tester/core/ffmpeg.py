@@ -100,7 +100,7 @@ def compute_metrics(encoding_run: EncodingRun,
                   "-f", "rawvideo",
                   "-r", f"{encoding_run.input_sequence.get_step()}", # multiply framerate by step
                   "-ss", f"{encoding_run.input_sequence.get_seek()}",
-                  "-t", f"{encoding_run.input_sequence.get_framecount()}",
+                  "-t", f"{encoding_run.frames}",
                   "-i", f"{encoding_run.input_sequence.get_filepath()}",
 
                   # YUV output decoded from VVC output
@@ -108,7 +108,7 @@ def compute_metrics(encoding_run: EncodingRun,
                   "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                   "-f", "rawvideo",
                   "-r", "1",
-                  "-t", f"{encoding_run.input_sequence.get_framecount()}",
+                  "-t", f"{encoding_run.frames}",
                   "-i", f"{encoding_run.decoded_output_file_path.name}",
 
                   "-c:v", "rawvideo",
@@ -128,12 +128,12 @@ def compute_metrics(encoding_run: EncodingRun,
                   "-f", "rawvideo",
                   "-r", "1",
                   "-ss", f"{encoding_run.input_sequence.get_seek()}",
-                  "-t", f"{encoding_run.input_sequence.get_framecount()}",
+                  "-t", f"{encoding_run.frames}",
                   "-i", f"{encoding_run.input_sequence.get_filepath()}",
 
                   # HEVC output
                   "-r", "1",
-                  "-t", f"{encoding_run.input_sequence.get_framecount()}",
+                  "-t", f"{encoding_run.frames}",
                   "-i", f"{encoding_run.output_file.get_filepath().name}",
 
                   "-c:v", "rawvideo",

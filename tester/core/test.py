@@ -26,6 +26,7 @@ class EncodingRun:
         self.encoder: EncoderBase = encoder
         self.param_set: ParamSetBase = param_set
         self.input_sequence: RawVideoSequence = input_sequence
+        self.frames = param_set.get_frames() or input_sequence.get_framecount()
 
         qp_name = param_set.get_quality_param_type().short_name
         qp_value = param_set.get_quality_param_value()
@@ -162,7 +163,7 @@ class Test:
                         filepath,
                         seek=seek,
                         frames=frames,
-                        step=step
+                        step=step or 1
                     )
                 )
 

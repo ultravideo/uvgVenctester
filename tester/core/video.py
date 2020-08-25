@@ -83,117 +83,65 @@ class RawVideoSequence:
                  filepath: Path,
                  width: int = None,
                  height: int = None,
-                 framerate: int = None,
-                 chroma: int = None,
-                 bit_depth: int = None,
-                 seek: int = None,
+                 framerate: int = 25,
+                 chroma: int = 420,
+                 bit_depth: int = 8,
+                 seek: int = 0,
                  frames: int = None,
-                 step: int = None):
+                 step: int = 1):
 
-        if width is None and height is None:
-            width, height = RawVideoSequence.guess_resolution(filepath)
-        assert width and height
+        stats = {
+            "width": width,
+            "height": height,
+            "fps": framerate,
+            "chroma": chroma,
+            "bit_depth": bit_depth,
+            "total_frames": frames,
+        }
 
-        filename_framerate = RawVideoSequence.guess_framerate(filepath)
-        if framerate is None:
-            if filename_framerate:
-                framerate = filename_framerate
-            else:
-                DEFAULT_FRAMERATE = 25
-                console_log.info(f"{type(self).__name__}: Assuming framerate of '{filepath.name}' to be {DEFAULT_FRAMERATE}")
-                framerate = DEFAULT_FRAMERATE
-        else:
-            if filename_framerate and filename_framerate != framerate:
-                console_log.error(f"{type(self).__name__}: Given framerate '{framerate}' doesn't match name '{filepath.name}'")
-                raise RuntimeError
-        assert framerate
+        stats.update(self.guess_values(filepath))
 
-        filename_chroma = RawVideoSequence.guess_chroma(filepath)
-        if chroma is None:
-            if filename_chroma:
-                chroma = filename_chroma
-            else:
-                DEFAULT_CHROMA = 420
-                console_log.info(f"{type(self).__name__}: Assuming chroma of '{filepath.name}' to be {DEFAULT_CHROMA}")
-                chroma = DEFAULT_CHROMA
-        else:
-            if filename_chroma and filename_chroma != chroma:
-                console_log.error(f"{type(self).__name__}: Given chroma '{framerate}' doesn't match name '{filepath.name}'")
-                raise RuntimeError
-        assert chroma in (400, 420)
+        if stats["total_frames"] is None:
+            stats["total_frames"] = self.guess_total_framecount(filepath, **stats)
 
-        filename_bitdepth = RawVideoSequence.guess_bit_depth(filepath)
-        if bit_depth is None:
-            if filename_bitdepth:
-                bit_depth = filename_bitdepth
-            else:
-                DEFAULT_BITDEPTH = 8
-                console_log.info(f"{type(self).__name__}: Assuming bit depth of '{filepath.name}' to be {DEFAULT_BITDEPTH}")
-                bit_depth = DEFAULT_BITDEPTH
-        else:
-            if filename_bitdepth and filename_bitdepth != chroma:
-                console_log.error(f"{type(self).__name__}: Given bit depth '{framerate}' doesn't match name '{filepath.name}'")
-                raise RuntimeError
-        assert bit_depth in (8, 10)
+        for key, value in stats.items():
+            setattr(self, "_" + key, value)
 
         if seek is None:
             seek = 0
 
-        if step is None:
-            step = 1
+        assert self._width and self._height
+        assert self._fps
+        assert self._chroma in (400, 420)
+        assert self._bit_depth in (8, 10)
+        assert self._total_frames
+        assert self._total_frames > seek
 
-        file_total_framecount = RawVideoSequence.guess_total_framecount(
-            filepath,
-            width,
-            height,
-            chroma,
-            bit_depth
-        )
-        assert file_total_framecount
-        assert file_total_framecount > seek
-
-        if frames is None:
-            frames = file_total_framecount - seek
-        assert frames
+        self._frames = self._total_frames
+        assert self._total_frames
 
         # Only ever <step>th frame is encoded.
-        framecount = math.ceil(frames / step)
+        framecount = math.ceil(self._frames / step)
         assert framecount
-        assert framecount <= file_total_framecount - seek
+        assert framecount <= self._total_frames - seek
 
-        if not framerate:
-            framerate = RawVideoSequence.guess_framerate(filepath)
-
-        if not chroma:
-            chroma = RawVideoSequence.guess_chroma(filepath)
-
-        filename_bitdepth = RawVideoSequence.guess_bit_depth(filepath)
-        if bit_depth and filename_bitdepth:
-            assert filename_bitdepth == bit_depth
-        if not bit_depth:
-            bit_depth = filename_bitdepth
 
         sequence_class = RawVideoSequence.guess_sequence_class(filepath)
 
         self._filepath = filepath
-        self._width = width
-        self._height = height
-        self._framerate = framerate
-        # This doesn't take step into account:
-        self._frames = frames
         # This takes step into account:
         self._framecount = framecount
-        self._duration_seconds: float = framecount / framerate
+        self._duration_seconds: float = framecount / self._fps
         self._seek: int = seek
-        self._chroma: int = chroma
-        self._bit_depth: int = bit_depth
         self._step: int = step
         self._sequence_class: str = sequence_class
 
         # For bitrate calculation.
-        self._bytes_per_pixel: int = 1 if bit_depth == 8 else 2
-        self._pixels_per_frame: int = width * height if chroma == 400 else int(width * height * 1.5)
-        self._bitrate: int = int(self._framerate * self._pixels_per_frame * self._bytes_per_pixel * 8)
+        self._bytes_per_pixel: int = 1 if self._bit_depth == 8 else 2
+        self._pixels_per_frame: int = self._width * self._height \
+            if self._chroma == 400\
+            else int(self._width * self._height * 1.5)
+        self._bitrate: int = int(self._fps * self._pixels_per_frame * self._bytes_per_pixel * 8)
 
         console_log.debug(f"{type(self).__name__}: Initialized object:")
         for attribute_name in sorted(self.__dict__):
@@ -249,7 +197,7 @@ class RawVideoSequence:
         return self._height
 
     def get_framerate(self) -> int:
-        return self._framerate
+        return self._fps
 
     def get_frames(self) -> int:
         return self._frames
@@ -267,38 +215,47 @@ class RawVideoSequence:
         return self._filepath.parts[-1].replace(self._filepath.suffix, "")
 
     @staticmethod
+    def guess_values(filepath: Path):
+        file = filepath.parts[-1]
+        first_pattern = re.compile(".+_(\d+)x(\d+)_(\d+)_?(\d+)?.yuv")
+        second_pattern = re.compile(".+_(\d+)x(\d+)_(\d+)fps_(\d+)bit_(\d+).yuv")
+
+        match = first_pattern.match(file)
+        if match:
+            result = {
+                "width": int(match[1]),
+                "height": int(match[2]),
+                "fps": int(match[3]),
+            }
+            if match.lastindex == 4:
+                result["total_frames"] = int(match[4])
+
+            return result
+        match = second_pattern.match(file)
+        if match:
+            return {
+                "width": int(match[1]),
+                "height": int(match[2]),
+                "fps": int(match[3]),
+                "bit_depth": int(match[4]),
+                "chroma": int(match[5])
+            }
+
+    @staticmethod
     def guess_sequence_class(filepath: Path) -> str:
-        regex_pattern = re.compile("hevc-([a-z])", re.IGNORECASE)
+        regex_pattern = re.compile("(hevc-[a-z])", re.IGNORECASE)
         match = regex_pattern.search(str(filepath))
         if match:
             return match[1]
         else:
-            return None
-
-    @staticmethod
-    def guess_resolution(filepath: Path) -> (int, int):
-        resolution_pattern = re.compile("([0-9]+)x([0-9]+)")
-        match = resolution_pattern.search(filepath.name)
-        if match:
-            return int(match[1]), int(match[2])
-        else:
-            return None, None
-
-    @staticmethod
-    def guess_framerate(filepath: Path) -> int:
-        framerate_pattern = re.compile("[0-9]+x[0-9]+_([0-9]+)fps")
-        match = framerate_pattern.search(filepath.name)
-        if match:
-            return int(match[1])
-        else:
-            return None
+            return "Unknown"
 
     @staticmethod
     def guess_total_framecount(filepath: Path,
                                width: int,
                                height: int,
                                chroma: int,
-                               bit_depth: int) -> int:
+                               bit_depth: int, **kwargs) -> int:
         # There is no reason to have the frame count in the file name because it can be computed.
         """
         framecount_pattern = re.compile("[0-9]+x[0-9]+_[0-9]+fps_([0-9]+)")
@@ -312,24 +269,6 @@ class RawVideoSequence:
         bytes_per_pixel = 1 if bit_depth == 8 else 2
         pixels_per_frame = width * height if chroma == 400 else int(width * height * 1.5)
         return file_size_bytes // (pixels_per_frame * bytes_per_pixel)
-
-    @staticmethod
-    def guess_bit_depth(filepath: Path) -> int:
-        bitdepth_pattern = re.compile("[0-9]+x[0-9]+_[0-9]+fps_([0-9]+)bit")
-        match = bitdepth_pattern.search(filepath.name)
-        if match:
-            return int(match[1])
-        else:
-            return None
-
-    @staticmethod
-    def guess_chroma(filepath: Path) -> int:
-        chroma_pattern = re.compile("[0-9]+x[0-9]+_[0-9]+fps_[0-9]+bit_([0-9]+)")
-        match = chroma_pattern.search(filepath.name)
-        if match:
-            return int(match[1])
-        else:
-            return None
 
 
 class EncodedVideoFile(VideoFileBase):
