@@ -33,7 +33,7 @@ class EncodingRun:
         base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
                         f"{qp_name}{qp_value}_{round_number}"
         output_dir_path = Cfg().tester_output_dir_path \
-                          / f"{encoder.get_name()}_{encoder.get_short_revision()}_" \
+                          / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
                             f"{encoder.get_short_define_hash()}" \
                           / param_set.to_cmdline_str(include_quality_param=False)
 

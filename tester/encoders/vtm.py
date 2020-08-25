@@ -128,7 +128,7 @@ class Vtm(EncoderBase):
 
     def build(self) -> None:
 
-        if not super().build_start():
+        if not self.build_start():
             return
 
         build_cmd = ()
@@ -160,7 +160,7 @@ class Vtm(EncoderBase):
                 "&&", "make", "EncoderApp-r", cflags_str
             )
 
-        super().build_finish(build_cmd)
+        self.build_finish(build_cmd)
 
         self._build_decoder()
 
@@ -208,7 +208,7 @@ class Vtm(EncoderBase):
 
     def clean(self) -> None:
 
-        super().clean_start()
+        self.clean_start()
 
         clean_cmd = ()
 
@@ -228,7 +228,7 @@ class Vtm(EncoderBase):
                 "&&", "make", "clean", "EncoderApp-r"
             )
 
-        super().clean_finish(clean_cmd)
+        self.clean_finish(clean_cmd)
 
         self._clean_decoder()
 
@@ -265,7 +265,7 @@ class Vtm(EncoderBase):
     def dummy_run(self,
                   param_set: ParamSetBase) -> bool:
 
-        super().dummy_run_start(param_set)
+        self.dummy_run_start(param_set)
 
         FRAMERATE_PLACEHOLDER = "1"
         WIDTH_PLACEHOLDER = "16"
@@ -287,7 +287,7 @@ class Vtm(EncoderBase):
             "-o", os.devnull,
         ) + param_set.to_cmdline_tuple(include_frames=False)
 
-        return_value = super().dummy_run_finish(dummy_cmd, param_set)
+        return_value = self.dummy_run_finish(dummy_cmd, param_set)
 
         os.remove(str(dummy_sequence_path))
 
@@ -296,7 +296,7 @@ class Vtm(EncoderBase):
     def encode(self,
                encoding_run: EncodingRun) -> None:
 
-        if not super().encode_start(encoding_run):
+        if not self.encode_start(encoding_run):
             return
 
         # VTM is stupid.
@@ -317,7 +317,7 @@ class Vtm(EncoderBase):
         if not framecount:
             encode_cmd += ("-f", str(encoding_run.input_sequence.get_framecount()))
 
-        super().encode_finish(encode_cmd, encoding_run)
+        self.encode_finish(encode_cmd, encoding_run)
 
         # Decode the output because ffmpeg can't decode VVC.
         self._decode(encoding_run)

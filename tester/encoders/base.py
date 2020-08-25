@@ -31,17 +31,6 @@ class Encoder(Enum):
         else:
             raise RuntimeError
 
-    @property
-    def short_name(self):
-        if self == Encoder.KVAZAAR:
-            return "kvazaar"
-        elif self == Encoder.HM:
-            return "hm"
-        elif self == Encoder.VTM:
-            return "vtm"
-        else:
-            raise RuntimeError
-
 
 class QualityParam(Enum):
     """An enumeration to identify the supported quality parameter types."""
@@ -251,7 +240,7 @@ class EncoderBase:
                  git_remote_url: str):
 
         self._id: Encoder = id
-        self._name: str = id.short_name
+        self._name: str = id.pretty_name
         self._user_given_revision: str = user_given_revision
         self._defines: list = defines
         self._define_hash: str = hashlib.md5(str(defines).encode()).hexdigest()
@@ -276,9 +265,9 @@ class EncoderBase:
         # This is set when build() is called.
         self._build_log: logging.Logger = None
 
-        console_log.debug(f"{type(self).__name__}: Initialized object:")
+        console_log.debug(f"{self._name}: Initialized object:")
         for attribute_name in sorted(self.__dict__):
-            console_log.debug(f"{type(self).__name__}: {attribute_name} = '{getattr(self, attribute_name)}'")
+            console_log.debug(f"{self._name}: {attribute_name} = '{getattr(self, attribute_name)}'")
 
     def __eq__(self,
                other: EncoderBase) -> bool:
@@ -323,9 +312,9 @@ class EncoderBase:
         return self._define_hash_short
 
     def prepare_sources(self) -> None:
-        console_log.info(f"{type(self).__name__}: Preparing sources")
-        console_log.info(f"{type(self).__name__}: Repository: '{self._git_repo._local_repo_path}'")
-        console_log.info(f"{type(self).__name__}: Revision: '{self._user_given_revision}'")
+        console_log.info(f"{self._name}: Preparing sources")
+        console_log.info(f"{self._name}: Repository: '{self._git_repo._local_repo_path}'")
+        console_log.info(f"{self._name}: Revision: '{self._user_given_revision}'")
 
         # Clone the remote if the local repo doesn't exist yet.
         if not self._git_local_path.exists():
@@ -337,7 +326,7 @@ class EncoderBase:
                 console_log.error(exception.output.decode())
                 raise exception
         else:
-            console_log.info(f"{type(self).__name__}: Repository '{self._git_local_path}' "
+            console_log.info(f"{self._name}: Repository '{self._git_local_path}' "
                              f"already exists")
 
         # Convert the user-given revision into the actual full revision.
@@ -345,7 +334,7 @@ class EncoderBase:
         if not exception:
             self._commit_hash = output.decode().strip()
         else:
-            console_log.error(f"{type(self).__name__}: Invalid revision '{self._user_given_revision}'")
+            console_log.error(f"{self._name}: Invalid revision '{self._user_given_revision}'")
             raise exception
 
         # These can now be evaluated because the repo exists for certain.
@@ -356,7 +345,7 @@ class EncoderBase:
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
         self._build_log_path = Cfg().tester_binaries_dir_path / self._build_log_name
 
-        console_log.info(f"{type(self).__name__}: Revision '{self._user_given_revision}' "
+        console_log.info(f"{self._name}: Revision '{self._user_given_revision}' "
                          f"maps to commit hash '{self._commit_hash}'")
 
     def build(self) -> None:
@@ -367,11 +356,11 @@ class EncoderBase:
         """Meant to be called as the first thing from the build() method of derived classes."""
         assert Cfg().tester_binaries_dir_path.exists()
 
-        console_log.info(f"{type(self).__name__}: Building executable '{self._exe_name}'")
-        console_log.info(f"{type(self).__name__}: Log: '{self._build_log_name}'")
+        console_log.info(f"{self._name}: Building executable '{self._exe_name}'")
+        console_log.info(f"{self._name}: Log: '{self._build_log_name}'")
 
         if (self._exe_path.exists()):
-            console_log.info(f"{type(self).__name__}: Executable '{self._exe_name}' already exists")
+            console_log.info(f"{self._name}: Executable '{self._exe_name}' already exists")
             # Don't build unnecessarily.
             return False
 
@@ -417,7 +406,7 @@ class EncoderBase:
 
         # Copy the executable to its destination.
         assert self._exe_src_path.exists()
-        self._build_log.debug(f"{type(self).__name__}: Copying file '{self._exe_src_path}' "
+        self._build_log.debug(f"{self._name}: Copying file '{self._exe_src_path}' "
                               f"to '{self._exe_path}'")
         try:
             shutil.copy(str(self._exe_src_path), str(self._exe_path))
@@ -433,7 +422,7 @@ class EncoderBase:
 
     def clean_start(self) -> None:
         """Meant to be called as the first thing from the clean() method of derived classes."""
-        console_log.info(f"{type(self).__name__}: Cleaning build artifacts")
+        console_log.info(f"{self._name}: Cleaning build artifacts")
 
     def clean_finish(self, clean_cmd: tuple) -> None:
         """Meant to be called as the last thing from the clean() method of derived classes."""
@@ -455,7 +444,7 @@ class EncoderBase:
     def dummy_run_start(self,
                         param_set: ParamSetBase) -> bool:
         """Meant to be called as the first thing from the dummy_run() method of derived classes."""
-        console_log.debug(f"{type(self).__name__}: Validating arguments: '{param_set.to_cmdline_str()}'")
+        console_log.debug(f"{self._name}: Validating arguments: '{param_set.to_cmdline_str()}'")
         return True
 
     def dummy_run_finish(self,
@@ -470,7 +459,7 @@ class EncoderBase:
                 stderr=subprocess.STDOUT
             )
         except subprocess.CalledProcessError as exception:
-            console_log.error(f"{type(self).__name__}: Invalid arguments: "
+            console_log.error(f"{self._name}: Invalid arguments: "
                               f"'{param_set.to_cmdline_str()}'")
             console_log.error(exception.output.decode().strip())
             return False
@@ -485,13 +474,13 @@ class EncoderBase:
                      encoding_run: EncodingRun) -> bool:
         """Meant to be called as the first thing from the encode() method of derived classes."""
 
-        console_log.debug(f"{type(self).__name__}: Encoding file '{encoding_run.input_sequence.get_filepath().name}'")
-        console_log.debug(f"{type(self).__name__}: Output: '{encoding_run.output_file.get_filepath().name}'")
-        console_log.debug(f"{type(self).__name__}: Arguments: '{encoding_run.param_set.to_cmdline_str()}'")
-        console_log.debug(f"{type(self).__name__}: Log: '{encoding_run.encoding_log_path.name}'")
+        console_log.debug(f"{self._name}: Encoding file '{encoding_run.input_sequence.get_filepath().name}'")
+        console_log.debug(f"{self._name}: Output: '{encoding_run.output_file.get_filepath().name}'")
+        console_log.debug(f"{self._name}: Arguments: '{encoding_run.param_set.to_cmdline_str()}'")
+        console_log.debug(f"{self._name}: Log: '{encoding_run.encoding_log_path.name}'")
 
         if encoding_run.output_file.get_filepath().exists():
-            console_log.info(f"{type(self).__name__}: File '{encoding_run.output_file.get_filepath().name}' already exists")
+            console_log.info(f"{self._name}: File '{encoding_run.output_file.get_filepath().name}' already exists")
             # Don't encode unnecessarily.
             return False
 
@@ -515,7 +504,7 @@ class EncoderBase:
             with encoding_run.encoding_log_path.open("w") as encoding_log:
                 encoding_log.write(output.decode())
         except subprocess.CalledProcessError as exception:
-            console_log.error(f"{type(self).__name__}: Encoding failed "
+            console_log.error(f"{self._name}: Encoding failed "
                               f"(input: '{encoding_run.input_sequence.get_filepath()}', "
                               f"output: '{encoding_run.output_file.get_filepath()}')")
             console_log.error(exception.output.decode().strip())

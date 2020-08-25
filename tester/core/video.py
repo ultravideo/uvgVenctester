@@ -129,6 +129,11 @@ class RawVideoSequence:
         sequence_class = RawVideoSequence.guess_sequence_class(filepath)
 
         self._filepath = filepath
+        self._width = width
+        self._height = height
+        self._framerate = framerate
+        # This doesn't take step (only encoding every nth frame) into account:
+        self._frames = frames
         # This takes step into account:
         self._framecount = framecount
         self._duration_seconds: float = framecount / self._fps

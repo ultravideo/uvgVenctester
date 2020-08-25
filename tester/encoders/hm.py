@@ -118,7 +118,7 @@ class Hm(EncoderBase):
 
     def build(self) -> None:
 
-        if not super().build_start():
+        if not self.build_start():
             return
 
         build_cmd = ()
@@ -150,11 +150,11 @@ class Hm(EncoderBase):
                 "&&", "make", "TAppEncoder-r", cflags_str
             )
 
-        super().build_finish(build_cmd)
+        self.build_finish(build_cmd)
 
     def clean(self) -> None:
 
-        super().clean_start()
+        self.clean_start()
 
         clean_cmd = ()
 
@@ -176,12 +176,12 @@ class Hm(EncoderBase):
                 "&&", "make", "clean", "TAppEncoder-r"
             )
 
-        super().clean_finish(clean_cmd)
+        self.clean_finish(clean_cmd)
 
     def dummy_run(self,
                   param_set: ParamSetBase) -> bool:
 
-        super().dummy_run_start(param_set)
+        self.dummy_run_start(param_set)
 
         FRAMERATE_PLACEHOLDER = "1"
         WIDTH_PLACEHOLDER = "16"
@@ -201,12 +201,12 @@ class Hm(EncoderBase):
             "-o", os.devnull,
         ) + param_set.to_cmdline_tuple(include_frames=False)
 
-        return super().dummy_run_finish(dummy_cmd, param_set)
+        return self.dummy_run_finish(dummy_cmd, param_set)
 
     def encode(self,
                encoding_run: EncodingRun) -> None:
 
-        if not super().encode_start(encoding_run):
+        if not self.encode_start(encoding_run):
             return
 
         # HM is stupid.
@@ -227,4 +227,4 @@ class Hm(EncoderBase):
         if not framecount:
             encode_cmd += ("-f", str(encoding_run.input_sequence.get_framecount()))
 
-        super().encode_finish(encode_cmd, encoding_run)
+        self.encode_finish(encode_cmd, encoding_run)

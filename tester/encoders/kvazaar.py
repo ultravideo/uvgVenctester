@@ -103,7 +103,7 @@ class Kvazaar(EncoderBase):
 
     def build(self) -> None:
 
-        if not super().build_start():
+        if not self.build_start():
             return
 
         build_cmd = ()
@@ -134,11 +134,11 @@ class Kvazaar(EncoderBase):
                 "&&", "make",
             )
 
-        super().build_finish(build_cmd)
+        self.build_finish(build_cmd)
 
     def clean(self) -> None:
 
-        super().clean_start()
+        self.clean_start()
 
         clean_cmd = ()
 
@@ -148,12 +148,12 @@ class Kvazaar(EncoderBase):
                 "&&", "make", "clean",
             )
 
-        super().clean_finish(clean_cmd)
+        self.clean_finish(clean_cmd)
 
     def dummy_run(self,
                   param_set: KvazaarParamSet) -> bool:
 
-        super().dummy_run_start(param_set)
+        self.dummy_run_start(param_set)
 
         RESOLUTION_PLACEHOLDER = "2x2"
 
@@ -164,12 +164,12 @@ class Kvazaar(EncoderBase):
             "-o", os.devnull,
         ) + param_set.to_cmdline_tuple()
 
-        return super().dummy_run_finish(dummy_cmd, param_set)
+        return self.dummy_run_finish(dummy_cmd, param_set)
 
     def encode(self,
                encoding_run: EncodingRun) -> None:
 
-        if not super().encode_start(encoding_run):
+        if not self.encode_start(encoding_run):
             return
 
         encode_cmd = (
@@ -180,4 +180,4 @@ class Kvazaar(EncoderBase):
             "-f", str(encoding_run.frames),
         ) + encoding_run.param_set.to_cmdline_tuple()
 
-        super().encode_finish(encode_cmd, encoding_run)
+        self.encode_finish(encode_cmd, encoding_run)
