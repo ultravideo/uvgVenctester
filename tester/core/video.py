@@ -268,7 +268,7 @@ class RawVideoSequence:
 
     @staticmethod
     def guess_sequence_class(filepath: Path) -> str:
-        regex_pattern = re.compile("hevc-([a-z])]", re.IGNORECASE)
+        regex_pattern = re.compile("hevc-([a-z])", re.IGNORECASE)
         match = regex_pattern.search(str(filepath))
         if match:
             return match[1]
