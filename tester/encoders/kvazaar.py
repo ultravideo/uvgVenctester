@@ -177,6 +177,7 @@ class Kvazaar(EncoderBase):
             "-i", str(encoding_run.input_sequence.get_filepath()),
             "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
             "-o", str(encoding_run.output_file.get_filepath()),
+            "-f", str(encoding_run.frames),
         ) + encoding_run.param_set.to_cmdline_tuple()
 
         self.encode_finish(encode_cmd, encoding_run)

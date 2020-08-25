@@ -42,6 +42,7 @@ class CsvField(Enum):
     VMAF_STDEV: int = 22
     BDBR_PSNR: int = 23
     BDBR_SSIM: int = 24
+    BDBR_VMAF: int = 25
 
 
 class CsvFile():
@@ -86,8 +87,6 @@ class CsvFile():
             # give special treatment to certain fields.
             # TODO: Make values user-configurable?
             if field_id == CsvField.ANCHOR_NAME and anchor_name == config_name:
-                value = "-"
-            elif field_id == CsvField.SPEEDUP and anchor_name == config_name:
                 value = "-"
 
             new_row += f"{value}{cfg.Cfg().csv_field_delimiter}"

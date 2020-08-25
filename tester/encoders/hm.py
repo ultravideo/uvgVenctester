@@ -220,6 +220,7 @@ class Hm(EncoderBase):
             "-wdt", str(encoding_run.input_sequence.get_width()),
             "-hgt", str(encoding_run.input_sequence.get_height()),
             "-b", str(encoding_run.output_file.get_filepath()),
+            "-f", str(encoding_run.frames),
             "-o", os.devnull,
         ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=bool(framecount))
 

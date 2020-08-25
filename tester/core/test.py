@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from tester.core.metrics import *
+from tester.core import metrics
+from tester.core.video import RawVideoSequence, EncodedVideoFile
+from tester.encoders.base import QualityParam
 from tester.encoders.hm import *
 from tester.encoders.kvazaar import *
 from tester.encoders.vtm import *
@@ -24,6 +26,7 @@ class EncodingRun:
         self.encoder: EncoderBase = encoder
         self.param_set: ParamSetBase = param_set
         self.input_sequence: RawVideoSequence = input_sequence
+        self.frames = param_set.get_frames() or input_sequence.get_framecount()
 
         qp_name = param_set.get_quality_param_type().short_name
         qp_value = param_set.get_quality_param_value()
@@ -61,6 +64,9 @@ class EncodingRun:
 
     def __hash__(self):
         return hash(self.input_sequence.get_filepath().name) + hash(self.output_file.get_filepath().name)
+
+    def __str__(self):
+        return f"{self.encoder.get_name()} {self.input_sequence} {self.param_set.get_cl_args()} {self.round_number}"
 
 
 class SubTest:
@@ -138,7 +144,6 @@ class Test:
         self.sequences: list = None
         self.encoder: EncoderBase = None
         self.subtests: list = None
-        self.metrics: TestMetrics = TestMetrics(self)
 
         # Expand sequence globs.
         self.sequences = []
@@ -158,7 +163,7 @@ class Test:
                         filepath,
                         seek=seek,
                         frames=frames,
-                        step=step
+                        step=step or 1
                     )
                 )
 
@@ -217,6 +222,8 @@ class Test:
                 rounds
             )
             self.subtests.append(subtest)
+
+        self.metrics: metrics.TestMetrics = metrics.TestMetrics(self)
 
     def clone(self,
               **kwargs) -> Test:

@@ -187,16 +187,16 @@ class Tester:
                         try:
                             console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
 
-                            metrics = test.metrics[subtest][encoding_run]
-                            metrics.bitrate = encoding_run.output_file.get_bitrate()
+                            metrics = test.metrics[sequence][encoding_run.param_set.get_quality_param_value()][encoding_run.round_number]
+                            metrics["bitrate"] = encoding_run.output_file.get_bitrate()
 
-                            psnr_needed = bool(metrics.psnr_avg is None) \
+                            psnr_needed = "psnr" not in metrics \
                                           and (CsvField.PSNR_AVG in Cfg().csv_enabled_fields
                                                or CsvField.PSNR_STDEV in Cfg().csv_enabled_fields)
-                            ssim_needed = bool(metrics.ssim_avg is None) \
+                            ssim_needed = "ssim" not in metrics \
                                           and (CsvField.SSIM_AVG in Cfg().csv_enabled_fields
                                                or CsvField.SSIM_STDEV in Cfg().csv_enabled_fields)
-                            vmaf_needed = bool(metrics.vmaf_avg is None) \
+                            vmaf_needed = "vmaf" not in metrics \
                                           and (CsvField.VMAF_AVG in Cfg().csv_enabled_fields
                                                or CsvField.VMAF_STDEV in Cfg().csv_enabled_fields)
 
@@ -208,11 +208,11 @@ class Tester:
                                     vmaf=vmaf_needed
                                 )
                                 if psnr_needed:
-                                    metrics.psnr_avg = psnr_avg
+                                    metrics["psnr"] = psnr_avg
                                 if ssim_needed:
-                                    metrics.ssim_avg = ssim_avg
+                                    metrics["ssim"] = ssim_avg
                                 if vmaf_needed:
-                                    metrics.vmaf_avg = vmaf_avg
+                                    metrics["vmaf"] = vmaf_avg
                             else:
                                 console_log.info(f"Tester: Metrics for '{encoding_run.name}' already exist")
 
@@ -243,6 +243,8 @@ class Tester:
                                 console_log.info(f"Tester: Adding CSV entry for "
                                                  f"'{subtest.name}/{sequence.get_filepath().name}'")
 
+                                metric = test.metrics[sequence][subtest.param_set.get_quality_param_value()]
+                                anchor_metric = anchor.metrics[sequence][subtest.param_set.get_quality_param_value()]
                                 csvfile.add_entry(
                                     {
                                         CsvField.SEQUENCE_NAME: sequence.get_filepath().name,
@@ -256,19 +258,20 @@ class Tester:
                                         CsvField.QUALITY_PARAM_VALUE: subtest.param_set.get_quality_param_value(),
                                         CsvField.CONFIG_NAME: test.name,
                                         CsvField.ANCHOR_NAME: anchor.name,
-                                        CsvField.TIME_SECONDS: test.metrics[subtest].encoding_time_avg,
-                                        CsvField.TIME_STDEV: test.metrics[subtest].encoding_time_stdev,
-                                        CsvField.BITRATE: test.metrics[subtest].bitrate_avg,
-                                        CsvField.BITRATE_STDEV: test.metrics[subtest].bitrate_stdev,
-                                        CsvField.SPEEDUP: test.metrics[subtest].get_speedup(anchor.metrics[sub_anchor]),
-                                        CsvField.PSNR_AVG: test.metrics[subtest].psnr_avg,
-                                        CsvField.PSNR_STDEV: test.metrics[subtest].psnr_stdev,
-                                        CsvField.SSIM_AVG: test.metrics[subtest].ssim_avg,
-                                        CsvField.SSIM_STDEV: test.metrics[subtest].ssim_stdev,
-                                        CsvField.VMAF_AVG: test.metrics[subtest].vmaf_avg,
-                                        CsvField.VMAF_STDEV: test.metrics[subtest].vmaf_stdev,
-                                        CsvField.BDBR_PSNR: test.metrics.get_bdbr_psnr(anchor.metrics),
-                                        CsvField.BDBR_SSIM: test.metrics.get_bdbr_ssim(anchor.metrics),
+                                        CsvField.TIME_SECONDS: metric["encoding_time_avg"],
+                                        CsvField.TIME_STDEV: metric["encoding_time_stdev"],
+                                        CsvField.BITRATE: metric["bitrate_avg"],
+                                        CsvField.BITRATE_STDEV: metric["bitrate_stdev"],
+                                        CsvField.SPEEDUP: metric.speedup(anchor_metric),
+                                        CsvField.PSNR_AVG: metric["psnr_avg"],
+                                        CsvField.PSNR_STDEV: metric["psnr_stdev"],
+                                        CsvField.SSIM_AVG: metric["ssim_avg"],
+                                        CsvField.SSIM_STDEV: metric["ssim_stdev"],
+                                        CsvField.VMAF_AVG: metric["vmaf_avg"],
+                                        CsvField.VMAF_STDEV: metric["vmaf_stdev"],
+                                        CsvField.BDBR_PSNR: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "psnr"),
+                                        CsvField.BDBR_SSIM: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "ssim"),
+                                        CsvField.BDBR_VMAF: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "vmaf"),
                                     }
                                 )
 
@@ -298,8 +301,8 @@ class Tester:
                 subtest = encoding_run.parent
                 test = subtest.parent
 
-                metrics = test.metrics[subtest][encoding_run]
-                metrics.encoding_time = encoding_time_seconds
+                metrics = test.metrics[encoding_run]
+                metrics["encoding_time"] = encoding_time_seconds
             else:
                 console_log.info(f"Tester: Encoding output for '{encoding_run.name}' already exists")
 

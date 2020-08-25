@@ -1,302 +1,134 @@
-"""This module defines functionality related video quality metrics."""
-
 from __future__ import annotations
 
-from tester.core.test import *
-from tester.core.cfg import *
-from tester.core.video import *
-from tester.encoders.base import *
-
-import functools
 import json
 import statistics
 from pathlib import Path
+from typing import Iterable, Union
 from vmaf.tools.bd_rate_calculator import BDrateCalculator
+
+from tester.core.cfg import Cfg
+import tester.core.test as test
+
+from tester.core.video import VideoFileBase, RawVideoSequence
+from tester.encoders.base import QualityParam
 
 
 class EncodingRunMetrics:
 
     def __init__(self,
-                 parent: SubTestMetrics,
-                 encoding_run: EncodingRun):
+                 file_path: Path):
+        self.filepath: Path = file_path
 
-        self.parent: SubTestMetrics = parent
-        self.encoding_run: EncodingRun = encoding_run
-        self.filepath: Path = encoding_run.metrics_path
-
-        self.result_bitrate: float = None
-        self.result_encoding_time: float = None
-        self.result_psnr_avg: float = None
-        self.result_ssim_avg: float = None
-        self.result_vmaf_avg: float = None
+        self._data = {}
 
         if self.filepath.exists():
             self._read_in()
 
-    @property
-    def encoding_time(self) -> float:
-        if self.filepath.exists():
-            self._read_in()
-        return self.result_encoding_time
+    def __getitem__(self, item):
+        return self._data[item]
 
-    @encoding_time.setter
-    def encoding_time(self,
-                      encoding_time_as_seconds: float) -> None:
-        self.result_encoding_time = encoding_time_as_seconds
-        self._write_out()
-
-    @property
-    def psnr_avg(self) -> float:
-        if self.filepath.exists():
-            self._read_in()
-        return self.result_psnr_avg
-
-    @psnr_avg.setter
-    def psnr_avg(self,
-                 psnr_avg: float) -> None:
-        self.result_psnr_avg = psnr_avg
-        self._write_out()
-
-    @property
-    def ssim_avg(self) -> float:
-        if self.filepath.exists():
-            self._read_in()
-        return self.result_ssim_avg
-
-    @ssim_avg.setter
-    def ssim_avg(self,
-                 ssim_avg: float) -> None:
-        self.result_ssim_avg = ssim_avg
-        self._write_out()
-
-    @property
-    def bitrate(self) -> float:
-        if self.filepath.exists():
-            self._read_in()
-        return self.result_bitrate
-
-    @bitrate.setter
-    def bitrate(self,
-                bitrate: float) -> None:
-        self.result_bitrate = bitrate
-        self._write_out()
-
-    @property
-    def vmaf_avg(self) -> float:
-        if self.filepath.exists():
-            self._read_in()
-        return self.result_vmaf_avg
-
-    @vmaf_avg.setter
-    def vmaf_avg(self,
-                 vmaf_avg: float) -> None:
-        self.result_vmaf_avg = vmaf_avg
+    def __setitem__(self, key, value):
+        self._data[key] = value
         self._write_out()
 
     def _write_out(self) -> None:
         with self.filepath.open("w") as file:
-            json_dict = {}
-            for attribute_name in self.__dict__:
-                if attribute_name.startswith("result"):
-                    json_dict[attribute_name] = getattr(self, attribute_name)
-            json.dump(json_dict, file)
+            json.dump(self._data, file)
 
     def _read_in(self) -> None:
-        with self.filepath.open("r") as file:
-            json_dict = json.load(file)
-            for attribute_name in json_dict.keys():
-                setattr(self, attribute_name, json_dict[attribute_name])
-
-
-class SubTestMetrics:
-
-    def __init__(self,
-                 parent: TestMetrics,
-                 subtest: SubTest):
-
-        self.parent: TestMetrics = parent
-        self.subtest: SubTest = subtest
-        # Key: EncodingRun, value: EncodingRunMetrics
-        # Populated dynamically in __getitem__
-        self.run_metrics: dict = {}
-
-    def __getitem__(self,
-                    item: EncodingRun) -> EncodingRunMetrics:
-        if not item in self.run_metrics.keys():
-            self.run_metrics[item] = EncodingRunMetrics(self, item)
-        return self.run_metrics[item]
-
-    @property
-    def bitrate_avg(self) -> float:
-        bitrates = self._get_bitrates()
-        return sum(bitrates) / len(bitrates)
-
-    @property
-    def bitrate_stdev(self) -> float:
-        bitrates = self._get_bitrates()
         try:
-            return statistics.stdev(bitrates)
-        except:
-            return 0.0
+            with self.filepath.open("r") as file:
+                self._data = json.load(file)
+        except FileNotFoundError:
+            pass
 
-    @property
-    def encoding_time_avg(self) -> float:
-        encoding_times = self._get_encoding_times()
-        return sum(encoding_times) / len(encoding_times)
-
-    @property
-    def encoding_time_stdev(self) -> float:
-        encoding_times = self._get_encoding_times()
-        try:
-            return statistics.stdev(encoding_times)
-        except:
-            return 0.0
-
-    @property
-    def psnr_avg(self) -> float:
-        psnr_avgs = self._get_psnr_avgs()
-        try:
-            # This will fail if PSNR has not been computed.
-            return sum(psnr_avgs) / len(psnr_avgs)
-        except:
-            return 0.0
-
-    @property
-    def psnr_stdev(self) -> float:
-        try:
-            return statistics.stdev(self._get_psnr_avgs())
-        except:
-            return 0.0
-
-    @property
-    def ssim_avg(self) -> float:
-        ssim_avgs = self._get_ssim_avgs()
-        try:
-            return sum(ssim_avgs) / len(ssim_avgs)
-        except TypeError:
-            return 0.0
-
-    @property
-    def ssim_stdev(self) -> float:
-        try:
-            return statistics.stdev(self._get_ssim_avgs())
-        except:
-            return 0.0
-
-    @property
-    def vmaf_avg(self) -> float:
-        vmaf_avgs = self._get_vmaf_avgs()
-        try:
-            return sum(vmaf_avgs) / len(vmaf_avgs)
-        except TypeError:
-            return 0.0
-
-    @property
-    def vmaf_stdev(self) ->  float:
-        try:
-            return statistics.stdev(self._get_vmaf_avgs())
-        except:
-            return 0.0
-
-    def get_speedup(self,
-                    anchor: SubTestMetrics) -> float:
-        return anchor.encoding_time_avg / self.encoding_time_avg
-
-    def _get_bitrates(self) -> list:
-        return [metrics.bitrate for metrics in self.run_metrics.values()]
-
-    def _get_encoding_times(self) -> list:
-        return [metrics.encoding_time for metrics in self.run_metrics.values()]
-
-    def _get_psnr_avgs(self) -> list:
-        return [metrics.psnr_avg for metrics in self.run_metrics.values()]
-
-    def _get_ssim_avgs(self) -> list:
-        return [metrics.ssim_avg for metrics in self.run_metrics.values()]
-
-    def _get_vmaf_avgs(self) -> list:
-        return [metrics.vmaf_avg for metrics in self.run_metrics.values()]
+    def __contains__(self, item):
+        return item in self._data
 
 
-class TestMetrics:
+class EncodingQualityRunMetrics:
 
-    def __init__(self,
-                 parent: Test):
+    def __init__(self, rounds: int, base_path: Path):
+        self._rounds = [EncodingRunMetrics(Path(str(base_path).format(x + 1))) for x in range(rounds)]
 
-        self.parent: Test = parent
-        # Key: SubTest, value: SubTestMetrics
-        # Populated dynamically in __getitem__
-        self.subtest_metrics: dict = {}
+    def __getitem__(self, item: Union[str, int]):
+        if isinstance(item, str):
+            assert (item.endswith("_avg") or item.endswith("_stdev"))
 
-    def __getitem__(self,
-                    item: SubTest) -> SubTestMetrics:
-        if not item in self.subtest_metrics.keys():
-            self.subtest_metrics[item] = SubTestMetrics(self, item)
-        return self.subtest_metrics[item]
+            value, type_ = self.__split_suffix(item, ["_avg", "_stdev"])
 
-    def get_bdbr_psnr(self,
-                      anchor: TestMetrics) -> float:
+            all_ = [x[value] for x in self._rounds]
 
-        if self is anchor:
-            return 0
+            if type_ == "avg":
+                return sum(all_) / len(all_)
 
-        psnr_list = []
-        anchor_psnr_list = []
+            elif type_ == "stdev":
+                return statistics.stdev(all_) if len(all_) > 1 else 0.0
 
-        for subtest_metrics in self.subtest_metrics.values():
-            psnr_list.append((
-                subtest_metrics.bitrate_avg,
-                subtest_metrics.psnr_avg
-            ))
-
-        for anchor_subtest_metrics in anchor.subtest_metrics.values():
-            anchor_psnr_list.append((
-                anchor_subtest_metrics.bitrate_avg,
-                anchor_subtest_metrics.psnr_avg
-            ))
-
-        return TestMetrics._compute_bdbr(psnr_list, anchor_psnr_list)
-
-    def get_bdbr_ssim(self,
-                      anchor: TestMetrics) -> float:
-
-        if self is anchor:
-            return 0
-
-        ssim_list = []
-        anchor_ssim_list = []
-
-        for subtest_metrics in self.subtest_metrics.values():
-            ssim_list.append((
-                subtest_metrics.bitrate_avg,
-                subtest_metrics.ssim_avg
-            ))
-
-        for anchor_subtest_metrics in anchor.subtest_metrics.values():
-            anchor_ssim_list.append((
-                anchor_subtest_metrics.bitrate_avg,
-                anchor_subtest_metrics.ssim_avg
-            ))
-
-        return TestMetrics._compute_bdbr(ssim_list, anchor_ssim_list)
+        elif isinstance(item, int):
+            return self._rounds[item - 1]
 
     @staticmethod
-    def _compute_bdbr(bitrate_metric_tuple_list: list,
-                      anchor_bitrate_metric_tuple_list: list) -> float:
+    def __split_suffix(item: str, suffixes):
+        for suffix in suffixes:
+            if item.endswith(suffix):
+                return item.replace(suffix, ""), suffix[1:]
 
-        def bitrate_metric_tuple_list_asc_sort_by_bitrate(a, b):
-            return -1 if a[0] < b[0] else 1
+    def speedup(self, anchor: EncodingQualityRunMetrics):
+        return anchor["encoding_time_avg"] / self["encoding_time_avg"]
 
-        sort_key = functools.cmp_to_key(bitrate_metric_tuple_list_asc_sort_by_bitrate)
 
-        bitrate_metric_tuple_list = sorted(bitrate_metric_tuple_list, key=sort_key)
-        anchor_bitrate_metric_tuple_list = sorted(anchor_bitrate_metric_tuple_list, key=sort_key)
+class SequenceMetrics:
+    def __init__(self,
+                 path_prefix: Path,
+                 sequence: VideoFileBase,
+                 quality_type: QualityParam,
+                 quality_values: Iterable,
+                 rounds: int):
+        base_paths = {x: path_prefix /
+                         f"{sequence.get_suffixless_name()}_{quality_type.short_name}{x}_{{}}_metrics.json" for x in
+                      quality_values}
 
+        self._data = {x: EncodingQualityRunMetrics(rounds, base_paths[x]) for x in quality_values}
+
+    def get_quality_with_bitrates(self, quality_metric: str):
+        return [(item["bitrate_avg"], item[f"{quality_metric}_avg"]) for item in self._data.values()]
+
+    def compute_bdbr_to_anchor(self, anchor: SequenceMetrics, quality_metric: str):
+        return self._compute_bdbr(anchor.get_quality_with_bitrates(quality_metric),
+                                  self.get_quality_with_bitrates(quality_metric))
+
+    @staticmethod
+    def _compute_bdbr(anchor_values, compared_values):
         try:
-            bdbr = BDrateCalculator().CalcBDRate(
-                bitrate_metric_tuple_list,
-                anchor_bitrate_metric_tuple_list)
+            bdbr = BDrateCalculator.CalcBDRate(
+                sorted(anchor_values, key=lambda x: x[0]),
+                sorted(compared_values, key=lambda x: x[0]),
+            )
         except AssertionError:
             bdbr = float("NaN")
 
         return bdbr
+
+    def __getitem__(self, item):
+        return self._data[item]
+
+
+class TestMetrics:
+    def __init__(self, test: "Test"):
+        base_path = Cfg().tester_output_dir_path /\
+                    f"{test.encoder.get_name()}" \
+                    f"_{test.encoder.get_short_revision()}" \
+                    f"_{test.encoder.get_short_define_hash()}" / \
+                    test.subtests[0].param_set.to_cmdline_str(False)
+        self.seq_data = {
+            seq: SequenceMetrics(base_path, seq, test.quality_param_type, test.quality_param_list, test.rounds)
+            for seq
+            in test.sequences
+        }
+
+    def __getitem__(self, item):
+        if isinstance(item, RawVideoSequence):
+            return self.seq_data[item]
+        elif isinstance(item, test.EncodingRun):
+            return self.seq_data[item.input_sequence][item.param_set.get_quality_param_value()][item.round_number]
