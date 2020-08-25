@@ -1,0 +1,6 @@
+_sources
+_binaries
+_output
+*.pyc
+venv
+__pycache__
