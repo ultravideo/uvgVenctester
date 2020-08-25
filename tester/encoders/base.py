@@ -235,14 +235,14 @@ class EncoderBase:
     def __init__(self,
                  id: Encoder,
                  user_given_revision: str,
-                 defines: list,
+                 defines: Iterable,
                  git_local_path: Path,
                  git_remote_url: str):
 
         self._id: Encoder = id
         self._name: str = id.pretty_name
         self._user_given_revision: str = user_given_revision
-        self._defines: list = defines
+        self._defines: Iterable = defines
         self._define_hash: str = hashlib.md5(str(defines).encode()).hexdigest()
         self._define_hash_short: str = self._define_hash[:Cfg().tester_define_hash_len]
         self._git_local_path: Path = git_local_path

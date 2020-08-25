@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Iterable
+
 from tester.core import metrics
 from tester.core.video import RawVideoSequence, EncodedVideoFile
 from tester.encoders.base import QualityParam
@@ -115,12 +117,12 @@ class Test:
                  name: str,
                  encoder_id: Encoder,
                  encoder_revision: str,
-                 encoder_defines: list,
-                 anchor_names: list,
-                 quality_param_type: QualityParam,
-                 quality_param_list: list,
+                 anchor_names: Iterable,
                  cl_args: str,
-                 input_sequences: list,
+                 input_sequences: Iterable,
+                 encoder_defines: Iterable = (),
+                 quality_param_type: QualityParam = QualityParam.QP,
+                 quality_param_list: Iterable = (22, 27, 32, 37),
                  seek: int = None,
                  frames: int = None,
                  rounds: int = 1,
@@ -131,12 +133,12 @@ class Test:
         self.name: str = name
         self.encoder_id: Encoder = encoder_id
         self.encoder_revision: str = encoder_revision
-        self.encoder_defines: list = encoder_defines
-        self.anchor_names: list = anchor_names
+        self.encoder_defines: Iterable = encoder_defines
+        self.anchor_names: Iterable = anchor_names
         self.quality_param_type: QualityParam = quality_param_type
-        self.quality_param_list: list = quality_param_list
+        self.quality_param_list: Iterable = quality_param_list
         self.cl_args: str = cl_args
-        self.input_sequences: list = input_sequences
+        self.input_sequences: Iterable = input_sequences
         self.seek: int = seek
         self.frames: int = frames
         self.rounds: int = rounds
