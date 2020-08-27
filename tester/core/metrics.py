@@ -4,11 +4,11 @@ import json
 import statistics
 from pathlib import Path
 from typing import Iterable, Union
+
 from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
-from tester.core.cfg import Cfg
 import tester.core.test as test
-
+from tester.core.cfg import Cfg
 from tester.core.video import VideoFileBase, RawVideoSequence
 from tester.encoders.base import QualityParam
 

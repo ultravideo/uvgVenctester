@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from tester.core.cfg import *
-from tester.core.git import *
-from tester.core.log import *
-from tester.core.test import *
-
 import hashlib
+import logging
 import shutil
+import subprocess
 from enum import Enum
 from pathlib import Path
+from typing import Iterable
+
+import tester
+import tester.core.git as git
+from tester.core.log import console_log, setup_build_log
 
 
 class Encoder(Enum):
@@ -244,11 +246,11 @@ class EncoderBase:
         self._user_given_revision: str = user_given_revision
         self._defines: Iterable = defines
         self._define_hash: str = hashlib.md5(str(defines).encode()).hexdigest()
-        self._define_hash_short: str = self._define_hash[:Cfg().tester_define_hash_len]
+        self._define_hash_short: str = self._define_hash[:tester.Cfg().tester_define_hash_len]
         self._git_local_path: Path = git_local_path
         self._git_remote_url: str = git_remote_url
 
-        self._git_repo: GitRepository = GitRepository(git_local_path)
+        self._git_repo: git.GitRepository = git.GitRepository(git_local_path)
 
         self._exe_name: str = None
         self._exe_path: Path = None
@@ -338,12 +340,12 @@ class EncoderBase:
             raise exception
 
         # These can now be evaluated because the repo exists for certain.
-        self._commit_hash_short = self._commit_hash[:Cfg().tester_commit_hash_len]
+        self._commit_hash_short = self._commit_hash[:tester.Cfg().tester_commit_hash_len]
         self._exe_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}"\
-                         f"{'.exe' if Cfg().system_os_name == 'Windows' else ''}"
-        self._exe_path = Cfg().tester_binaries_dir_path / self._exe_name
+                         f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}"
+        self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_name
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
-        self._build_log_path = Cfg().tester_binaries_dir_path / self._build_log_name
+        self._build_log_path = tester.Cfg().tester_binaries_dir_path / self._build_log_name
 
         console_log.info(f"{self._name}: Revision '{self._user_given_revision}' "
                          f"maps to commit hash '{self._commit_hash}'")
@@ -354,7 +356,7 @@ class EncoderBase:
 
     def build_start(self) -> bool:
         """Meant to be called as the first thing from the build() method of derived classes."""
-        assert Cfg().tester_binaries_dir_path.exists()
+        assert tester.Cfg().tester_binaries_dir_path.exists()
 
         console_log.info(f"{self._name}: Building executable '{self._exe_name}'")
         console_log.info(f"{self._name}: Log: '{self._build_log_name}'")

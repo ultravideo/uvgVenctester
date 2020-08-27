@@ -1,14 +1,11 @@
 """This module defines functionality to enable customization of the tester functionality."""
-import subprocess
-
-from .log import *
-from .singleton import *
-from . import csv # To avoid circular import
 
 import platform
-import re
 from pathlib import Path
 from typing import Union
+
+import tester.core.csv as csv
+from .singleton import Singleton
 
 
 class Cfg(metaclass=Singleton):

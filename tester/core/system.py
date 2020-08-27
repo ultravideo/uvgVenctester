@@ -1,7 +1,7 @@
 """This module defines functionality related to the system the tester is running on."""
 
-from tester.core.cfg import *
-from tester.core.log import *
+from tester.core.cfg import Cfg
+from tester.core.log import console_log
 
 
 def system_validate_config():

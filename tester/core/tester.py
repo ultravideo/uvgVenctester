@@ -1,26 +1,18 @@
 """This module defines functionality related to testing."""
-
-from tester.core.cfg import *
-from tester.core.csv import *
-from tester.core.log import *
-from tester.core.test import *
-from tester.core.video import *
-from tester.encoders.base import *
-from tester.core import cmake
-from tester.core import csv
-from tester.core import ffmpeg
-from tester.core import gcc
-from tester.core import git
-from tester.core import system
-from tester.core import vmaf
-from tester.core import vs
-from tester.encoders import hm
-from tester.encoders import kvazaar
-from tester.encoders import vtm
-
 import subprocess
 import time
 from pathlib import Path
+
+import tester.core.cmake as cmake
+import tester.encoders.hm as hm
+import tester.encoders.kvazaar as kvazaar
+import tester.encoders.vtm as vtm
+from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs
+from tester.core.cfg import Cfg
+from tester.core.log import console_log, log_exception
+from tester.core.test import Test
+from tester.core.video import RawVideoSequence
+from tester.encoders.base import Encoder
 
 
 class TesterContext:
@@ -138,7 +130,7 @@ class Tester:
                 vtm.vtm_validate_config()
 
             if Encoder.HM in used_encoder_ids and Encoder.VTM in used_encoder_ids:
-                if not hm_get_temporal_subsample_ratio() == vtm_get_temporal_subsample_ratio():
+                if not hm.hm_get_temporal_subsample_ratio() == vtm.vtm_get_temporal_subsample_ratio():
                     console_log.error("Tester: Values of TemporalSubsampleRatio don't match "
                                       "in the configuration files of HM and VTM")
                     raise RuntimeError
@@ -191,14 +183,14 @@ class Tester:
                             metrics["bitrate"] = encoding_run.output_file.get_bitrate()
 
                             psnr_needed = "psnr" not in metrics \
-                                          and (CsvField.PSNR_AVG in Cfg().csv_enabled_fields
-                                               or CsvField.PSNR_STDEV in Cfg().csv_enabled_fields)
+                                          and (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
+                                               or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields)
                             ssim_needed = "ssim" not in metrics \
-                                          and (CsvField.SSIM_AVG in Cfg().csv_enabled_fields
-                                               or CsvField.SSIM_STDEV in Cfg().csv_enabled_fields)
+                                          and (csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields
+                                               or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields)
                             vmaf_needed = "vmaf" not in metrics \
-                                          and (CsvField.VMAF_AVG in Cfg().csv_enabled_fields
-                                               or CsvField.VMAF_STDEV in Cfg().csv_enabled_fields)
+                                          and (csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields
+                                               or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields)
 
                             if psnr_needed or ssim_needed or vmaf_needed:
                                 psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
@@ -230,7 +222,7 @@ class Tester:
         console_log.info(f"Tester: Generating CSV file '{csv_filepath}'")
 
         try:
-            csvfile = CsvFile(filepath=Path(csv_filepath))
+            csvfile = csv.CsvFile(filepath=Path(csv_filepath))
 
             for sequence in context.get_input_sequences():
                 for test in context.get_tests():
@@ -247,31 +239,31 @@ class Tester:
                                 anchor_metric = anchor.metrics[sequence][subtest.param_set.get_quality_param_value()]
                                 csvfile.add_entry(
                                     {
-                                        CsvField.SEQUENCE_NAME: sequence.get_filepath().name,
-                                        CsvField.SEQUENCE_CLASS: sequence.get_sequence_class(),
-                                        CsvField.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
-                                        CsvField.ENCODER_NAME: test.encoder.get_pretty_name(),
-                                        CsvField.ENCODER_REVISION: test.encoder.get_short_revision(),
-                                        CsvField.ENCODER_DEFINES: test.encoder.get_defines(),
-                                        CsvField.ENCODER_CMDLINE: subtest.param_set.to_cmdline_str(),
-                                        CsvField.QUALITY_PARAM_NAME: subtest.param_set.get_quality_param_type().pretty_name,
-                                        CsvField.QUALITY_PARAM_VALUE: subtest.param_set.get_quality_param_value(),
-                                        CsvField.CONFIG_NAME: test.name,
-                                        CsvField.ANCHOR_NAME: anchor.name,
-                                        CsvField.TIME_SECONDS: metric["encoding_time_avg"],
-                                        CsvField.TIME_STDEV: metric["encoding_time_stdev"],
-                                        CsvField.BITRATE: metric["bitrate_avg"],
-                                        CsvField.BITRATE_STDEV: metric["bitrate_stdev"],
-                                        CsvField.SPEEDUP: metric.speedup(anchor_metric),
-                                        CsvField.PSNR_AVG: metric["psnr_avg"],
-                                        CsvField.PSNR_STDEV: metric["psnr_stdev"],
-                                        CsvField.SSIM_AVG: metric["ssim_avg"],
-                                        CsvField.SSIM_STDEV: metric["ssim_stdev"],
-                                        CsvField.VMAF_AVG: metric["vmaf_avg"],
-                                        CsvField.VMAF_STDEV: metric["vmaf_stdev"],
-                                        CsvField.BDBR_PSNR: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "psnr"),
-                                        CsvField.BDBR_SSIM: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "ssim"),
-                                        CsvField.BDBR_VMAF: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "vmaf"),
+                                        csv.CsvField.SEQUENCE_NAME: sequence.get_filepath().name,
+                                        csv.CsvField.SEQUENCE_CLASS: sequence.get_sequence_class(),
+                                        csv.CsvField.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
+                                        csv.CsvField.ENCODER_NAME: test.encoder.get_pretty_name(),
+                                        csv.CsvField.ENCODER_REVISION: test.encoder.get_short_revision(),
+                                        csv.CsvField.ENCODER_DEFINES: test.encoder.get_defines(),
+                                        csv.CsvField.ENCODER_CMDLINE: subtest.param_set.to_cmdline_str(),
+                                        csv.CsvField.QUALITY_PARAM_NAME: subtest.param_set.get_quality_param_type().pretty_name,
+                                        csv.CsvField.QUALITY_PARAM_VALUE: subtest.param_set.get_quality_param_value(),
+                                        csv.CsvField.CONFIG_NAME: test.name,
+                                        csv.CsvField.ANCHOR_NAME: anchor.name,
+                                        csv.CsvField.TIME_SECONDS: metric["encoding_time_avg"],
+                                        csv.CsvField.TIME_STDEV: metric["encoding_time_stdev"],
+                                        csv.CsvField.BITRATE: metric["bitrate_avg"],
+                                        csv.CsvField.BITRATE_STDEV: metric["bitrate_stdev"],
+                                        csv.CsvField.SPEEDUP: metric.speedup(anchor_metric),
+                                        csv.CsvField.PSNR_AVG: metric["psnr_avg"],
+                                        csv.CsvField.PSNR_STDEV: metric["psnr_stdev"],
+                                        csv.CsvField.SSIM_AVG: metric["ssim_avg"],
+                                        csv.CsvField.SSIM_STDEV: metric["ssim_stdev"],
+                                        csv.CsvField.VMAF_AVG: metric["vmaf_avg"],
+                                        csv.CsvField.VMAF_STDEV: metric["vmaf_stdev"],
+                                        csv.CsvField.BDBR_PSNR: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "psnr"),
+                                        csv.CsvField.BDBR_SSIM: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "ssim"),
+                                        csv.CsvField.BDBR_VMAF: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "vmaf"),
                                     }
                                 )
 

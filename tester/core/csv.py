@@ -1,11 +1,11 @@
 """This module defines functionality related to generating the CSV output file."""
 
-from tester.core.log import *
-from tester.core import cfg
-
 import math
+from enum import Enum
 from pathlib import Path
-from enum import *
+
+from tester.core import cfg
+from tester.core.log import console_log
 
 
 def csv_validate_config():

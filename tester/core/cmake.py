@@ -1,6 +1,8 @@
 """This module defines functionality related to CMake."""
+import subprocess
 
-from tester.core.cfg import *
+from tester.core.cfg import Cfg
+from tester.core.log import console_log
 
 CMAKE_ARCHITECTURE: str = "x64"
 

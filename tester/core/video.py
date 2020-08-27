@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from tester.encoders.base import *
-from tester.core.log import *
-
-from pathlib import *
 import math
 import re
+from pathlib import Path
+
+from tester.core.cfg import Cfg
+from tester.core.log import console_log
 
 
 class VideoFileBase:
@@ -129,11 +129,7 @@ class RawVideoSequence:
         sequence_class = RawVideoSequence.guess_sequence_class(filepath)
 
         self._filepath = filepath
-        self._width = width
-        self._height = height
-        self._framerate = framerate
         # This doesn't take step (only encoding every nth frame) into account:
-        self._frames = frames
         # This takes step into account:
         self._framecount = framecount
         self._duration_seconds: float = framecount / self._fps

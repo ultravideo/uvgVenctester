@@ -1,9 +1,9 @@
 """This module defines functionality related to Git."""
 
-from tester.core.log import *
-
 import subprocess
 from pathlib import Path
+
+from tester.core.log import console_log
 
 
 def git_validate_config():

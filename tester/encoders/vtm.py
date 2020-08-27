@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from .base import *
-from tester.core.cfg import *
-from tester.core.test import *
-from tester.core import ffmpeg
-from tester.core import cmake
-
-from pathlib import Path
 import os
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import tester
+import tester.core.test as test
+from tester.core import ffmpeg, cmake, git, vs
+from tester.core.cfg import Cfg
+from tester.core.log import console_log
+from . import EncoderBase, ParamSetBase
 
 
 def vtm_validate_config():
@@ -23,7 +27,7 @@ def vtm_validate_config():
         console_log.error(f"VTM: Configuration file '{Cfg().vtm_cfg_file_path}' does not exist")
         raise RuntimeError
 
-    elif not git_remote_exists(Cfg().vtm_remote_url):
+    elif not git.git_remote_exists(Cfg().vtm_remote_url):
         console_log.error(f"VTM: Remote '{Cfg().vtm_remote_url}' is not available")
         raise RuntimeError
 
@@ -46,7 +50,7 @@ class VtmParamSet(ParamSetBase):
     """Represents the command line parameters passed to VTM when encoding."""
 
     def __init__(self,
-                 quality_param_type: QualityParam,
+                 quality_param_type: tester.QualityParam,
                  quality_param_value: int,
                  seek: int,
                  frames: int,
@@ -72,9 +76,9 @@ class VtmParamSet(ParamSetBase):
         args = self._cl_args
 
         if include_quality_param:
-            if self._quality_param_type == QualityParam.QP:
+            if self._quality_param_type == tester.QualityParam.QP:
                 args += f" --QP={self._quality_param_value}"
-            elif self._quality_param_type == QualityParam.BITRATE:
+            elif self._quality_param_type == tester.QualityParam.BITRATE:
                 args += f" --TargetBitrate={self._quality_param_value}"
         if include_seek and self._seek:
             args += f" -fs {self._seek}"
@@ -98,7 +102,7 @@ class Vtm(EncoderBase):
                  defines: list):
 
         super().__init__(
-            id=Encoder.VTM,
+            id=tester.Encoder.VTM,
             user_given_revision=user_given_revision,
             defines = defines,
             git_local_path=Cfg().tester_sources_dir_path / "vtm",
@@ -151,7 +155,7 @@ class Vtm(EncoderBase):
             ) + tuple(msbuild_args)
 
         elif Cfg().system_os_name == "Linux":
-            
+
             # Add defines to make arguments.
             cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self._defines])}".strip()
 
@@ -222,7 +226,7 @@ class Vtm(EncoderBase):
             )
 
         elif Cfg().system_os_name == "Linux":
-            
+
             clean_cmd = (
                 "cd", str(self._git_local_path),
                 "&&", "make", "clean", "EncoderApp-r"
@@ -294,7 +298,7 @@ class Vtm(EncoderBase):
         return return_value
 
     def encode(self,
-               encoding_run: EncodingRun) -> None:
+               encoding_run: test.EncodingRun) -> None:
 
         if not self.encode_start(encoding_run):
             return
@@ -323,7 +327,7 @@ class Vtm(EncoderBase):
         self._decode(encoding_run)
 
     def _decode(self,
-                encoding_run: EncodingRun):
+                encoding_run: test.EncodingRun):
 
         decode_cmd = (
             str(self._decoder_exe_path),

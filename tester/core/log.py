@@ -7,6 +7,7 @@ from pathlib import Path
 
 # For printing colored text.
 import colorama
+
 colorama.init()
 
 

@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from tester.core.log import *
-from tester.core.video import *
-from tester.core.test import *
-
 import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
+
+import tester.core.csv as csv
+import tester.core.test as test
+from tester.core.cfg import Cfg
+from tester.core.log import console_log
 
 # Compile Regex patterns only once for better performance.
 _PSNR_PATTERN: re.Pattern = re.compile(r".*psnr_avg:([0-9]+.[0-9]+).*", re.DOTALL)
@@ -34,7 +35,7 @@ def ffmpeg_validate_config():
         raise RuntimeError
 
 
-def compute_metrics(encoding_run: EncodingRun,
+def compute_metrics(encoding_run: test.EncodingRun,
                     psnr: bool,
                     ssim: bool,
                     vmaf: bool) -> (float, float, float):

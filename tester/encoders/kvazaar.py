@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
-from .base import *
-from tester.core.git import *
-from tester.core.test import *
-from tester.core import vs
-
 import os
+from pathlib import Path
+from typing import Iterable
+
+import tester
+import tester.core.git as git
+import tester.core.test as test
+from tester.core import vs
+from tester.core.log import console_log
+from . import ParamSetBase, EncoderBase
 
 
 def kvazaar_validate_config():
-    return
-    if not git_remote_exists(Cfg().kvazaar_remote_url):
-        console_log.error(f"Kvazaar: Remote '{Cfg().kvazaar_remote_url}' is unavailable")
+    if not git.git_remote_exists(tester.Cfg().kvazaar_remote_url):
+        console_log.error(f"Kvazaar: Remote '{tester.Cfg().kvazaar_remote_url}' is unavailable")
         raise RuntimeError
 
 
@@ -24,7 +27,7 @@ class KvazaarParamSet(ParamSetBase):
     POSITIONAL_ARGS = ("--preset", "--gop")
 
     def __init__(self,
-                 quality_param_type: QualityParam,
+                 quality_param_type: tester.QualityParam,
                  quality_param_value: int,
                  seek: int,
                  frames: int,
@@ -49,9 +52,9 @@ class KvazaarParamSet(ParamSetBase):
         args = self._cl_args
 
         if include_quality_param:
-            if self._quality_param_type == QualityParam.QP:
+            if self._quality_param_type == tester.QualityParam.QP:
                 args += f" --qp {self._quality_param_value}"
-            elif self._quality_param_type == QualityParam.BITRATE:
+            elif self._quality_param_type == tester.QualityParam.BITRATE:
                 args += f" --bitrate {self._quality_param_value}"
         if include_seek and self._seek:
             args += f" --seek {self._seek}"
@@ -89,17 +92,17 @@ class Kvazaar(EncoderBase):
                  defines: Iterable):
 
         super().__init__(
-            id=Encoder.KVAZAAR,
+            id=tester.Encoder.KVAZAAR,
             user_given_revision=user_given_revision,
             defines = defines,
-            git_local_path=Cfg().tester_sources_dir_path / "kvazaar",
-            git_remote_url=Cfg().kvazaar_remote_url
+            git_local_path=tester.Cfg().tester_sources_dir_path / "kvazaar",
+            git_remote_url=tester.Cfg().kvazaar_remote_url
         )
 
         self._exe_src_path: Path = None
-        if Cfg().system_os_name == "Windows":
+        if tester.Cfg().system_os_name == "Windows":
             self._exe_src_path = self._git_local_path / "bin" / "x64-Release" / "kvazaar.exe"
-        elif Cfg().system_os_name == "Linux":
+        elif tester.Cfg().system_os_name == "Linux":
             self._exe_src_path = self._git_local_path / "src" / "kvazaar"
 
     def build(self) -> None:
@@ -109,7 +112,7 @@ class Kvazaar(EncoderBase):
 
         build_cmd = ()
 
-        if Cfg().system_os_name == "Windows":
+        if tester.Cfg().system_os_name == "Windows":
 
             # Add defines to msbuild arguments.
             msbuild_args = vs.get_msbuild_args(add_defines=self._defines)
@@ -120,7 +123,7 @@ class Kvazaar(EncoderBase):
                 "&&", "msbuild", str(self._git_local_path / "build" / "kvazaar_VS2015.sln")
             ) + tuple(msbuild_args)
 
-        elif Cfg().system_os_name == "Linux":
+        elif tester.Cfg().system_os_name == "Linux":
 
             # Add defines to configure arguments.
             cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self._defines])}"
@@ -143,7 +146,7 @@ class Kvazaar(EncoderBase):
 
         clean_cmd = ()
 
-        if Cfg().system_os_name == "Linux":
+        if tester.Cfg().system_os_name == "Linux":
             clean_cmd = (
                 "cd", str(self._git_local_path),
                 "&&", "make", "clean",
@@ -168,7 +171,7 @@ class Kvazaar(EncoderBase):
         return self.dummy_run_finish(dummy_cmd, param_set)
 
     def encode(self,
-               encoding_run: EncodingRun) -> None:
+               encoding_run: test.EncodingRun) -> None:
 
         if not self.encode_start(encoding_run):
             return

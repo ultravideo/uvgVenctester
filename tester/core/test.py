@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Iterable
 
+import tester.encoders.hm as hm
+import tester.encoders.kvazaar as kvazaar
+import tester.encoders.vtm as vtm
 from tester.core import metrics
+from tester.core.cfg import Cfg
 from tester.core.video import RawVideoSequence, EncodedVideoFile
+from tester.encoders import EncoderBase, ParamSetBase, Encoder
 from tester.encoders.base import QualityParam
-from tester.encoders.hm import *
-from tester.encoders.kvazaar import *
-from tester.encoders.vtm import *
 
 
 class EncodingRun:
@@ -154,9 +157,9 @@ class Test:
         # (in the config file).
         step = None
         if encoder_id == Encoder.HM:
-            step = hm_get_temporal_subsample_ratio()
+            step = hm.hm_get_temporal_subsample_ratio()
         elif encoder_id == Encoder.VTM:
-            step = vtm_get_temporal_subsample_ratio()
+            step = vtm.vtm_get_temporal_subsample_ratio()
 
         for glob in input_sequences:
             for filepath in Cfg().tester_sequences_dir_path.glob(glob):
@@ -178,9 +181,9 @@ class Test:
 
         param_sets = []
         if encoder_id == Encoder.KVAZAAR:
-            self.encoder = Kvazaar(encoder_revision, encoder_defines)
+            self.encoder = kvazaar.Kvazaar(encoder_revision, encoder_defines)
             param_sets = [
-                KvazaarParamSet(
+                kvazaar.KvazaarParamSet(
                     quality_param_type,
                     quality_param_value,
                     seek,
@@ -189,9 +192,9 @@ class Test:
                 ) for quality_param_value in quality_param_list
             ]
         elif encoder_id == Encoder.HM:
-            self.encoder = Hm(encoder_revision, encoder_defines)
+            self.encoder = hm.Hm(encoder_revision, encoder_defines)
             param_sets = [
-                HmParamSet(
+                hm.HmParamSet(
                     quality_param_type,
                     quality_param_value,
                     seek,
@@ -200,9 +203,9 @@ class Test:
                 ) for quality_param_value in quality_param_list
             ]
         elif encoder_id == Encoder.VTM:
-            self.encoder = Vtm(encoder_revision, encoder_defines)
+            self.encoder = vtm.Vtm(encoder_revision, encoder_defines)
             param_sets = [
-                VtmParamSet(
+                vtm.VtmParamSet(
                     quality_param_type,
                     quality_param_value,
                     seek,
