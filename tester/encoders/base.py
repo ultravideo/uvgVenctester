@@ -372,6 +372,7 @@ class EncoderBase:
 
         self._build_log = setup_build_log(self._build_log_path)
 
+        self._git_repo.fetch_all()
         # Checkout to the desired version.
         cmd_str, output, exception = self._git_repo.checkout(self._commit_hash)
         if not exception:
@@ -400,6 +401,7 @@ class EncoderBase:
                 shell=True,
                 stderr=subprocess.STDOUT
             )
+            from tester.core.cfg import Cfg
             if Cfg().system_os_name == "Windows":
                 # "cp1252" is the encoding the Windows shell uses.
                 self._build_log.info(output.decode(encoding="cp1252"))
