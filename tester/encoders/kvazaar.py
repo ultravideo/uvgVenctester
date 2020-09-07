@@ -42,7 +42,7 @@ class KvazaarParamSet(ParamSetBase):
         )
 
         # This checks the integrity of the parameters.
-        self.to_cmdline_tuple()
+        self.to_cmdline_tuple(include_quality_param=False)
 
     def _to_unordered_args_list(self,
                                 include_quality_param: bool = True,
@@ -55,6 +55,10 @@ class KvazaarParamSet(ParamSetBase):
             if self._quality_param_type == tester.QualityParam.QP:
                 args += f" --qp {self._quality_param_value}"
             elif self._quality_param_type == tester.QualityParam.BITRATE:
+                args += f" --bitrate {self._quality_param_value}"
+            elif self.get_quality_param_type() == tester.QualityParam.BPP:
+                args += f" --bitrate {self._quality_param_value}"
+            elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
                 args += f" --bitrate {self._quality_param_value}"
         if include_seek and self._seek:
             args += f" --seek {self._seek}"
@@ -176,12 +180,21 @@ class Kvazaar(EncoderBase):
         if not self.encode_start(encoding_run):
             return
 
+        if encoding_run.qp_name == tester.QualityParam.QP:
+            quality = ("--qp", str(encoding_run.qp_value))
+        elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
+                                      tester.QualityParam.RES_SCALED_BITRATE,
+                                      tester.QualityParam.BPP):
+            quality = ("--bitrate", str(encoding_run.qp_value))
+        else:
+            assert 0, "Invalid quality parameter"
+
         encode_cmd = (
             str(self._exe_path),
             "-i", str(encoding_run.input_sequence.get_filepath()),
             "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
             "-o", str(encoding_run.output_file.get_filepath()),
-            "-f", str(encoding_run.frames),
-        ) + encoding_run.param_set.to_cmdline_tuple()
+            "--frames", str(encoding_run.frames),
+        ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False, include_frames=False) + quality
 
         self.encode_finish(encode_cmd, encoding_run)

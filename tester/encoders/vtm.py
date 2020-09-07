@@ -80,6 +80,10 @@ class VtmParamSet(ParamSetBase):
                 args += f" --QP={self._quality_param_value}"
             elif self._quality_param_type == tester.QualityParam.BITRATE:
                 args += f" --TargetBitrate={self._quality_param_value}"
+            elif self.get_quality_param_type() == tester.QualityParam.BPP:
+                args += f" --TargetBitrate={self._quality_param_value}"
+            elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
+                args += f" --TargetBitrate={self._quality_param_value}"
         if include_seek and self._seek:
             args += f" -fs {self._seek}"
         if include_frames and self._frames:
@@ -303,8 +307,15 @@ class Vtm(EncoderBase):
         if not self.encode_start(encoding_run):
             return
 
-        # VTM is stupid.
-        framecount = encoding_run.param_set.get_frames()
+        if encoding_run.qp_name == tester.QualityParam.QP:
+            quality = (f"--QP={encoding_run.qp_value}", )
+        elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
+                                      tester.QualityParam.RES_SCALED_BITRATE,
+                                      tester.QualityParam.BPP):
+            quality = (f"--TargetBitrate={encoding_run.qp_value}", )
+        else:
+            assert 0, "Invalid quality parameter"
+
 
         encode_cmd = (
             str(self._exe_path),
@@ -316,10 +327,7 @@ class Vtm(EncoderBase):
             "-b", str(encoding_run.output_file.get_filepath()),
             "-f", str(encoding_run.frames),
             "-o", os.devnull,
-        ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=bool(framecount))
-
-        if not framecount:
-            encode_cmd += ("-f", str(encoding_run.input_sequence.get_framecount()))
+        ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False, include_frames=False) + quality
 
         self.encode_finish(encode_cmd, encoding_run)
 

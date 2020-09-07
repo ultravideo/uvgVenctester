@@ -33,10 +33,17 @@ class EncodingRun:
         self.input_sequence: RawVideoSequence = input_sequence
         self.frames = param_set.get_frames() or input_sequence.get_framecount()
 
-        qp_name = param_set.get_quality_param_type().short_name
-        qp_value = param_set.get_quality_param_value()
+        self.qp_name = param_set.get_quality_param_type()
+        self.qp_value = param_set.get_quality_param_value()
+        if self.qp_name == QualityParam.BPP:
+            self.qp_value = self.qp_value * self.input_sequence._pixels_per_frame / self.input_sequence.get_framerate()
+        elif self.qp_name == QualityParam.RES_SCALED_BITRATE:
+            self.qp_value *= self.input_sequence.get_height() * self.input_sequence.get_width() / (1920 * 1080)
+
+        qp_name = self.qp_name.short_name
+
         base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
-                        f"{qp_name}{qp_value}_{round_number}"
+                        f"{qp_name}{self.qp_value}_{round_number}"
         output_dir_path = Cfg().tester_output_dir_path \
                           / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
                             f"{encoder.get_short_define_hash()}" \

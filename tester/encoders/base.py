@@ -39,24 +39,28 @@ class QualityParam(Enum):
 
     QP: int = 1
     BITRATE: int = 2
+    BPP: int = 3
+    RES_SCALED_BITRATE: int = 4
 
     @property
     def pretty_name(self):
-        if self == QualityParam.QP:
-            return "QP"
-        elif self == QualityParam.BITRATE:
-            return "bitrate"
-        else:
-            raise RuntimeError
+        names = {
+            QualityParam.QP: "QP",
+            QualityParam.BITRATE: "bitrate",
+            QualityParam.BPP: "bpp",
+            QualityParam.RES_SCALED_BITRATE: "resolution_scaled_bitrate"
+        }
+        return names[self]
 
     @property
     def short_name(self):
-        if self == QualityParam.QP:
-            return "qp"
-        elif self == QualityParam.BITRATE:
-            return "br"
-        else:
-            raise RuntimeError
+        names = {
+            QualityParam.QP: "qp",
+            QualityParam.BITRATE: "br",
+            QualityParam.BPP: "bpp",
+            QualityParam.RES_SCALED_BITRATE: "res_br"
+        }
+        return names[self]
 
 
 class ParamSetBase():
@@ -80,7 +84,7 @@ class ParamSetBase():
 
     def __eq__(self,
                other: ParamSetBase):
-        return self.to_cmdline_str() == other.to_cmdline_str()
+        return self.to_cmdline_str(include_quality_param=False) == other.to_cmdline_str(include_quality_param=False)
 
     def __hash__(self):
         return hash(self.to_cmdline_str())
