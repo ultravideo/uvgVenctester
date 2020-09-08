@@ -49,7 +49,7 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
 console_log = logging.getLogger("console")
 console_log.addHandler(handler)
-console_log.setLevel(logging.DEBUG)
+
 
 
 def log_exception(exception: Exception) -> None:

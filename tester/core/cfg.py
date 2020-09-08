@@ -1,10 +1,11 @@
 """This module defines functionality to enable customization of the tester functionality."""
-
+import logging
 import platform
 from pathlib import Path
 from typing import Union
 
 import tester.core.csv as csv
+from .log import console_log
 from .singleton import Singleton
 
 
@@ -30,6 +31,9 @@ class Cfg(metaclass=Singleton):
     # System
     ##########################################################################
 
+    def __init__(self):
+        self.logging_level = self._logging_level
+
     @property
     def system_os_name(self) -> str:
         """The return value of platform.system()."""
@@ -48,6 +52,16 @@ class Cfg(metaclass=Singleton):
     # CONFIGURATION VARIABLES
     # May be overridden by the user.
     ##########################################################################
+
+    _logging_level = logging.INFO
+    @property
+    def logging_level(self) -> int:
+        return self._logging_level
+    @logging_level.setter
+    def logging_level(self, value: int):
+        assert value in logging._levelToName
+        console_log.setLevel(value)
+
 
     ##########################################################################
     # Tester

@@ -49,12 +49,13 @@ def compute_metrics(encoding_run: test.EncodingRun,
     vmaf_log_name = encoding_run.vmaf_log_path.name
 
     # Copy the VMAF model into the working directory to enable using a relative path.
-    vmaf_model_src_path1 = Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
-    vmaf_model_src_path2 = Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
-    vmaf_model_dest_path1 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl"
-    vmaf_model_dest_path2 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl.model"
-    shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
-    shutil.copy(str(vmaf_model_src_path2), str(vmaf_model_dest_path2))
+    if vmaf:
+        vmaf_model_src_path1 = Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
+        vmaf_model_src_path2 = Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
+        vmaf_model_dest_path1 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl"
+        vmaf_model_dest_path2 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl.model"
+        shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
+        shutil.copy(str(vmaf_model_src_path2), str(vmaf_model_dest_path2))
 
     # Build the filter based on which metrics are to be computed:
 
@@ -159,9 +160,10 @@ def compute_metrics(encoding_run: test.EncodingRun,
             shell=True
         )
 
-        # Remove the temporary VMAF model file.
-        os.remove(vmaf_model_dest_path1)
-        os.remove(vmaf_model_dest_path2)
+        if vmaf:
+            # Remove the temporary VMAF model file.
+            os.remove(vmaf_model_dest_path1)
+            os.remove(vmaf_model_dest_path2)
 
         # Ugly but simple:
 
