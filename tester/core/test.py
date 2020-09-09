@@ -36,7 +36,7 @@ class EncodingRun:
         self.qp_name = param_set.get_quality_param_type()
         self.qp_value = param_set.get_quality_param_value()
         if self.qp_name == QualityParam.BPP:
-            self.qp_value = self.qp_value * self.input_sequence._pixels_per_frame / self.input_sequence.get_framerate()
+            self.qp_value = self.qp_value * self.input_sequence._pixels_per_frame * self.input_sequence.get_framerate()
         elif self.qp_name == QualityParam.RES_SCALED_BITRATE:
             self.qp_value *= self.input_sequence.get_height() * self.input_sequence.get_width() / (1920 * 1080)
 
