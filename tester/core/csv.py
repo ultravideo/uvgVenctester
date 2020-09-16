@@ -71,7 +71,7 @@ class CsvFile():
 
         new_row = ""
         for field_id in cfg.Cfg().csv_enabled_fields:
-            value = values_by_field[field_id]
+            value = values_by_field[field_id]()
 
             if isinstance(value, float):
                 if math.isnan(value):
