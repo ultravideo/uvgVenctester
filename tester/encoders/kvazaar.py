@@ -193,6 +193,7 @@ class Kvazaar(EncoderBase):
             str(self._exe_path),
             "-i", str(encoding_run.input_sequence.get_filepath()),
             "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+            "--input-fps", str(encoding_run.input_sequence.get_framerate()),
             "-o", str(encoding_run.output_file.get_filepath()),
             "--frames", str(encoding_run.frames),
         ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False, include_frames=False) + quality
