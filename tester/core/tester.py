@@ -3,6 +3,7 @@ import subprocess
 import time
 from pathlib import Path
 from typing import Iterable
+from multiprocessing import Pool
 
 import tester.core.cmake as cmake
 import tester.encoders.hm as hm
@@ -170,52 +171,69 @@ class Tester:
             exit(1)
 
     def compute_metrics(self,
-                        context: TesterContext) -> None:
+                        context: TesterContext, parallel_calculations: int = 1) -> None:
 
+        values = []
+        parallel_calculations = max(parallel_calculations, 1)
         for sequence in context.get_input_sequences():
             for test in context.get_tests():
                 for subtest in test.subtests:
                     for encoding_run in subtest.encoding_runs[sequence]:
 
-                        try:
-                            console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
+                        metrics = test.metrics[sequence][encoding_run.param_set.get_quality_param_value()][
+                            encoding_run.round_number]
+                        psnr_needed = "psnr" not in metrics \
+                                      and (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
+                                           or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields
+                                           or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields)
+                        ssim_needed = "ssim" not in metrics \
+                                      and (csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields
+                                           or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields
+                                           or csv.CsvField.BDBR_SSIM in Cfg().csv_enabled_fields)
+                        vmaf_needed = "vmaf" not in metrics \
+                                      and (csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields
+                                           or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields
+                                           or csv.CsvField.BDBR_VMAF in Cfg().csv_enabled_fields)
+                        arguments = (encoding_run, metrics, psnr_needed, ssim_needed, vmaf_needed)
+                        if parallel_calculations > 1:
+                            values.append(arguments)
+                        else:
+                            self._calculate_metrics_for_one_run(arguments)
 
-                            metrics = test.metrics[sequence][encoding_run.param_set.get_quality_param_value()][
-                                encoding_run.round_number]
-                            metrics["bitrate"] = encoding_run.output_file.get_bitrate()
+        if parallel_calculations > 1:
+            with Pool(parallel_calculations) as p:
+                p.map(Tester._calculate_metrics_for_one_run, values)
 
-                            psnr_needed = "psnr" not in metrics \
-                                          and (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
-                                               or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields)
-                            ssim_needed = "ssim" not in metrics \
-                                          and (csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields
-                                               or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields)
-                            vmaf_needed = "vmaf" not in metrics \
-                                          and (csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields
-                                               or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields)
+    @staticmethod
+    def _calculate_metrics_for_one_run(in_args):
+        encoding_run, metrics, psnr_needed, ssim_needed, vmaf_needed = in_args
+        try:
+            console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
 
-                            if psnr_needed or ssim_needed or vmaf_needed:
-                                psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
-                                    encoding_run,
-                                    psnr=psnr_needed,
-                                    ssim=ssim_needed,
-                                    vmaf=vmaf_needed
-                                )
-                                if psnr_needed:
-                                    metrics["psnr"] = psnr_avg
-                                if ssim_needed:
-                                    metrics["ssim"] = ssim_avg
-                                if vmaf_needed:
-                                    metrics["vmaf"] = vmaf_avg
-                            else:
-                                console_log.info(f"Tester: Metrics for '{encoding_run.name}' already exist")
+            metrics["bitrate"] = encoding_run.output_file.get_bitrate()
 
-                        except Exception as exception:
-                            console_log.error(f"Tester: Failed to compute metrics for '{encoding_run.name}'")
-                            if isinstance(exception, subprocess.CalledProcessError):
-                                console_log.error(exception.output.decode())
-                            log_exception(exception)
-                            console_log.info(f"Tester: Ignoring error")
+            if psnr_needed or ssim_needed or vmaf_needed:
+                psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
+                    encoding_run,
+                    psnr=psnr_needed,
+                    ssim=ssim_needed,
+                    vmaf=vmaf_needed
+                )
+                if psnr_needed:
+                    metrics["psnr"] = psnr_avg
+                if ssim_needed:
+                    metrics["ssim"] = ssim_avg
+                if vmaf_needed:
+                    metrics["vmaf"] = vmaf_avg
+            else:
+                console_log.info(f"Tester: Metrics for '{encoding_run.name}' already exist")
+
+        except Exception as exception:
+            console_log.error(f"Tester: Failed to compute metrics for '{encoding_run.name}'")
+            if isinstance(exception, subprocess.CalledProcessError):
+                console_log.error(exception.output.decode())
+            log_exception(exception)
+            console_log.info(f"Tester: Ignoring error")
 
     def generate_csv(self,
                      context: TesterContext,

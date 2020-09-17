@@ -110,6 +110,7 @@ class Cfg(metaclass=Singleton):
     """How many characters of the define hash are included in file names."""
     tester_define_hash_len: int = 6
 
+
     ##########################################################################
     # CSV
     ##########################################################################
@@ -174,6 +175,7 @@ class Cfg(metaclass=Singleton):
         csv.CsvField.VMAF_STDEV: "VMAF (stdev)",
         csv.CsvField.BDBR_PSNR: "BD-BR (PSNR)",
         csv.CsvField.BDBR_SSIM: "BD-BR (SSIM)",
+        csv.CsvField.BDBR_VMAF: "BD-BR (VMAF)",
     }
 
     """The accuracy with which floats are rounded when generating the output CSV."""

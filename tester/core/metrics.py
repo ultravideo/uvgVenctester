@@ -25,6 +25,7 @@ class EncodingRunMetrics:
             self._read_in()
 
     def __getitem__(self, item):
+        self._read_in()
         return self._data[item]
 
     def __setitem__(self, key, value):
