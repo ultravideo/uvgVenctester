@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import sqrt
 from pathlib import Path
 from typing import Iterable
 
@@ -39,6 +40,8 @@ class EncodingRun:
             self.qp_value = self.qp_value * self.input_sequence._pixels_per_frame * self.input_sequence.get_framerate()
         elif self.qp_name == QualityParam.RES_SCALED_BITRATE:
             self.qp_value *= self.input_sequence.get_height() * self.input_sequence.get_width() / (1920 * 1080)
+        elif self.qp_name == QualityParam.RES_ROOT_SCALED_BITRATE:
+            self.qp_value *= sqrt(self.input_sequence.get_height() * self.input_sequence.get_width() / (1920 * 1080))
 
         qp_name = self.qp_name.short_name
 

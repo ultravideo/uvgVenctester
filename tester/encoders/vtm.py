@@ -84,6 +84,10 @@ class VtmParamSet(ParamSetBase):
                 args += f" --TargetBitrate={self._quality_param_value}"
             elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
                 args += f" --TargetBitrate={self._quality_param_value}"
+            elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
+                args += f" --TargetBitrate={self._quality_param_value}"
+            else:
+                raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
         if include_seek and self._seek:
             args += f" -fs {self._seek}"
         if include_frames and self._frames:
@@ -311,7 +315,8 @@ class Vtm(EncoderBase):
             quality = (f"--QP={encoding_run.qp_value}", )
         elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
                                       tester.QualityParam.RES_SCALED_BITRATE,
-                                      tester.QualityParam.BPP):
+                                      tester.QualityParam.BPP,
+                                      tester.QualityParam.RES_ROOT_SCALED_BITRATE):
             quality = (f"--TargetBitrate={encoding_run.qp_value}", )
         else:
             assert 0, "Invalid quality parameter"
