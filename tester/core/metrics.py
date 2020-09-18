@@ -69,6 +69,11 @@ class EncodingQualityRunMetrics:
         elif isinstance(item, int):
             return self._rounds[item - 1]
 
+    def __contains__(self, item):
+        if isinstance(item, str):
+            value, _ = self.__split_suffix(item, ["_avg", "_stdev"])
+            return all(value in x for x in self._rounds)
+
     @staticmethod
     def __split_suffix(item: str, suffixes):
         for suffix in suffixes:

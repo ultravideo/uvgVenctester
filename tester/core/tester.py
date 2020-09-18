@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable
 from multiprocessing import Pool
 
+import tester
 import tester.core.cmake as cmake
 import tester.encoders.hm as hm
 import tester.encoders.kvazaar as kvazaar
@@ -211,6 +212,8 @@ class Tester:
             console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
 
             metrics["bitrate"] = encoding_run.output_file.get_bitrate()
+            if encoding_run.qp_name != tester.QualityParam.QP:
+                metrics["target_bitrate"] = encoding_run.qp_value
 
             if psnr_needed or ssim_needed or vmaf_needed:
                 psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
@@ -250,45 +253,7 @@ class Tester:
                         for i, subtest in enumerate(test.subtests):
 
                             try:
-                                sub_anchor = anchor.subtests[i]
-
-                                console_log.info(f"Tester: Adding CSV entry for "
-                                                 f"'{subtest.name}/{sequence.get_filepath().name}'")
-
-                                metric = test.metrics[sequence][subtest.param_set.get_quality_param_value()]
-                                anchor_metric = anchor.metrics[sequence][subtest.param_set.get_quality_param_value()]
-                                csvfile.add_entry(
-                                    {
-                                        csv.CsvField.SEQUENCE_NAME: lambda: sequence.get_filepath().name,
-                                        csv.CsvField.SEQUENCE_CLASS: lambda: sequence.get_sequence_class(),
-                                        csv.CsvField.SEQUENCE_FRAMECOUNT: lambda: sequence.get_framecount(),
-                                        csv.CsvField.ENCODER_NAME: lambda: test.encoder.get_pretty_name(),
-                                        csv.CsvField.ENCODER_REVISION: lambda: test.encoder.get_short_revision(),
-                                        csv.CsvField.ENCODER_DEFINES: lambda: test.encoder.get_defines(),
-                                        csv.CsvField.ENCODER_CMDLINE: lambda: subtest.param_set.to_cmdline_str(),
-                                        csv.CsvField.QUALITY_PARAM_NAME: lambda: subtest.param_set.get_quality_param_type().pretty_name,
-                                        csv.CsvField.QUALITY_PARAM_VALUE: lambda: subtest.param_set.get_quality_param_value(),
-                                        csv.CsvField.CONFIG_NAME: lambda: test.name,
-                                        csv.CsvField.ANCHOR_NAME: lambda: anchor.name,
-                                        csv.CsvField.TIME_SECONDS: lambda: metric["encoding_time_avg"],
-                                        csv.CsvField.TIME_STDEV: lambda: metric["encoding_time_stdev"],
-                                        csv.CsvField.BITRATE: lambda: metric["bitrate_avg"],
-                                        csv.CsvField.BITRATE_STDEV: lambda: metric["bitrate_stdev"],
-                                        csv.CsvField.SPEEDUP: lambda: metric.speedup(anchor_metric),
-                                        csv.CsvField.PSNR_AVG: lambda: metric["psnr_avg"],
-                                        csv.CsvField.PSNR_STDEV: lambda: metric["psnr_stdev"],
-                                        csv.CsvField.SSIM_AVG: lambda: metric["ssim_avg"],
-                                        csv.CsvField.SSIM_STDEV: lambda: metric["ssim_stdev"],
-                                        csv.CsvField.VMAF_AVG: lambda: metric["vmaf_avg"],
-                                        csv.CsvField.VMAF_STDEV: lambda: metric["vmaf_stdev"],
-                                        csv.CsvField.BDBR_PSNR: lambda: test.metrics[sequence].compute_bdbr_to_anchor(
-                                            anchor.metrics[sequence], "psnr"),
-                                        csv.CsvField.BDBR_SSIM: lambda: test.metrics[sequence].compute_bdbr_to_anchor(
-                                            anchor.metrics[sequence], "ssim"),
-                                        csv.CsvField.BDBR_VMAF: lambda: test.metrics[sequence].compute_bdbr_to_anchor(
-                                            anchor.metrics[sequence], "vmaf"),
-                                    }
-                                )
+                                Tester.__add_csv_line(anchor, csvfile, sequence, subtest, test)
 
                             except Exception as exception:
                                 console_log.error(f"Tester: Failed to add CSV entry for "
@@ -300,6 +265,47 @@ class Tester:
             console_log.error(f"Tester: Failed to generate CSV file '{csv_filepath}'")
             log_exception(exception)
             exit(1)
+
+    @staticmethod
+    def __add_csv_line(anchor, csvfile, sequence, subtest, test):
+        console_log.info(f"Tester: Adding CSV entry for "
+                         f"'{subtest.name}/{sequence.get_filepath().name}'")
+        metric = test.metrics[sequence][subtest.param_set.get_quality_param_value()]
+        anchor_metric = anchor.metrics[sequence][subtest.param_set.get_quality_param_value()]
+        csvfile.add_entry(
+            {
+                csv.CsvField.SEQUENCE_NAME: lambda: sequence.get_filepath().name,
+                csv.CsvField.SEQUENCE_CLASS: lambda: sequence.get_sequence_class(),
+                csv.CsvField.SEQUENCE_FRAMECOUNT: lambda: sequence.get_framecount(),
+                csv.CsvField.ENCODER_NAME: lambda: test.encoder.get_pretty_name(),
+                csv.CsvField.ENCODER_REVISION: lambda: test.encoder.get_short_revision(),
+                csv.CsvField.ENCODER_DEFINES: lambda: test.encoder.get_defines(),
+                csv.CsvField.ENCODER_CMDLINE: lambda: subtest.param_set.to_cmdline_str(),
+                csv.CsvField.QUALITY_PARAM_NAME: lambda: subtest.param_set.get_quality_param_type().pretty_name,
+                csv.CsvField.QUALITY_PARAM_VALUE: lambda: metric["target_bitrate_avg"],
+                csv.CsvField.CONFIG_NAME: lambda: test.name,
+                csv.CsvField.ANCHOR_NAME: lambda: anchor.name,
+                csv.CsvField.TIME_SECONDS: lambda: metric["encoding_time_avg"],
+                csv.CsvField.TIME_STDEV: lambda: metric["encoding_time_stdev"],
+                csv.CsvField.BITRATE: lambda: metric["bitrate_avg"],
+                csv.CsvField.BITRATE_STDEV: lambda: metric["bitrate_stdev"],
+                csv.CsvField.SPEEDUP: lambda: metric.speedup(anchor_metric),
+                csv.CsvField.PSNR_AVG: lambda: metric["psnr_avg"],
+                csv.CsvField.PSNR_STDEV: lambda: metric["psnr_stdev"],
+                csv.CsvField.SSIM_AVG: lambda: metric["ssim_avg"],
+                csv.CsvField.SSIM_STDEV: lambda: metric["ssim_stdev"],
+                csv.CsvField.VMAF_AVG: lambda: metric["vmaf_avg"],
+                csv.CsvField.VMAF_STDEV: lambda: metric["vmaf_stdev"],
+                csv.CsvField.BDBR_PSNR: lambda: test.metrics[sequence].compute_bdbr_to_anchor(
+                    anchor.metrics[sequence], "psnr"),
+                csv.CsvField.BDBR_SSIM: lambda: test.metrics[sequence].compute_bdbr_to_anchor(
+                    anchor.metrics[sequence], "ssim"),
+                csv.CsvField.BDBR_VMAF: lambda: test.metrics[sequence].compute_bdbr_to_anchor(
+                    anchor.metrics[sequence], "vmaf"),
+                csv.CsvField.BITRATE_ERROR: lambda: -1 + metric["bitrate_avg"] / metric[
+                    "target_bitrate_avg"] if "target_bitrate_avg" in metric else "-"
+            }
+        )
 
     def _do_encoding_run(self,
                          encoding_run) -> None:

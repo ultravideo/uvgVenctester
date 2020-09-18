@@ -176,6 +176,7 @@ class Cfg(metaclass=Singleton):
         csv.CsvField.BDBR_PSNR: "BD-BR (PSNR)",
         csv.CsvField.BDBR_SSIM: "BD-BR (SSIM)",
         csv.CsvField.BDBR_VMAF: "BD-BR (VMAF)",
+        csv.CsvField.BITRATE_ERROR: "Bitrate error"
     }
 
     """The accuracy with which floats are rounded when generating the output CSV."""
