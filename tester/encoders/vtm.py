@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+from typing import Iterable
 from pathlib import Path
 
 import tester
@@ -107,14 +108,16 @@ class Vtm(EncoderBase):
 
     def __init__(self,
                  user_given_revision: str,
-                 defines: list):
+                 defines: Iterable,
+                 use_prebuilt: bool):
 
         super().__init__(
             id=tester.Encoder.VTM,
             user_given_revision=user_given_revision,
             defines = defines,
             git_local_path=Cfg().tester_sources_dir_path / "vtm",
-            git_remote_url=Cfg().vtm_remote_url
+            git_remote_url=Cfg().vtm_remote_url,
+            use_prebuilt=use_prebuilt
         )
 
         self._exe_src_path: Path = None

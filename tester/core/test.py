@@ -139,6 +139,7 @@ class Test:
                  seek: int = None,
                  frames: int = None,
                  rounds: int = 1,
+                 use_prebuilt=False,
                  **kwargs):
         # Kwargs are ignored, they are here just to enable easy cloning.
 
@@ -186,12 +187,13 @@ class Test:
         # since that is the order in which the results have to be when BD-BR is computed.
         if quality_param_type == QualityParam.QP:
             quality_param_list = sorted(quality_param_list, reverse=True)
-        elif quality_param_type == QualityParam.BITRATE:
+        elif quality_param_type in [QualityParam.RES_ROOT_SCALED_BITRATE, QualityParam.RES_SCALED_BITRATE,
+                                    QualityParam.BPP, QualityParam.BITRATE]:
             quality_param_list = sorted(quality_param_list)
 
         param_sets = []
         if encoder_id == Encoder.KVAZAAR:
-            self.encoder = kvazaar.Kvazaar(encoder_revision, encoder_defines)
+            self.encoder = kvazaar.Kvazaar(encoder_revision, encoder_defines, use_prebuilt)
             param_sets = [
                 kvazaar.KvazaarParamSet(
                     quality_param_type,
@@ -202,7 +204,7 @@ class Test:
                 ) for quality_param_value in quality_param_list
             ]
         elif encoder_id == Encoder.HM:
-            self.encoder = hm.Hm(encoder_revision, encoder_defines)
+            self.encoder = hm.Hm(encoder_revision, encoder_defines, use_prebuilt)
             param_sets = [
                 hm.HmParamSet(
                     quality_param_type,
@@ -213,7 +215,7 @@ class Test:
                 ) for quality_param_value in quality_param_list
             ]
         elif encoder_id == Encoder.VTM:
-            self.encoder = vtm.Vtm(encoder_revision, encoder_defines)
+            self.encoder = vtm.Vtm(encoder_revision, encoder_defines, use_prebuilt)
             param_sets = [
                 vtm.VtmParamSet(
                     quality_param_type,

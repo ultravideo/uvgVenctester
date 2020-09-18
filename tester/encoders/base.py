@@ -246,7 +246,8 @@ class EncoderBase:
                  user_given_revision: str,
                  defines: Iterable,
                  git_local_path: Path,
-                 git_remote_url: str):
+                 git_remote_url: str,
+                 use_prebuilt: bool):
 
         self._id: Encoder = id
         self._name: str = id.pretty_name
@@ -259,6 +260,8 @@ class EncoderBase:
 
         self._git_repo: git.GitRepository = git.GitRepository(git_local_path)
 
+        self._use_prebuilt = use_prebuilt
+
         self._exe_name: str = None
         self._exe_path: Path = None
         self._commit_hash: str = None
@@ -266,7 +269,12 @@ class EncoderBase:
         self._build_log_name: str = None
         self._build_log_path: Path = None
         # Initializes the above.
-        self.prepare_sources()
+        if not self._use_prebuilt:
+            self.prepare_sources()
+        else:
+            self._exe_name = f"{self._name}_{self._user_given_revision}" + \
+                             f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}"
+            self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_name
 
         # This must be set in the constructor of derived classes.
         self._exe_src_path: Path = None
@@ -364,11 +372,16 @@ class EncoderBase:
     def build_start(self) -> bool:
         """Meant to be called as the first thing from the build() method of derived classes."""
         assert tester.Cfg().tester_binaries_dir_path.exists()
+        if self._use_prebuilt:
+            console_log.info(f"{self._name}: Using prebuilt encoder '{self._exe_name}'")
+            if not self._exe_path.exists():
+                raise FileNotFoundError(f"Missing prebuilt encoder '{self._exe_name}'")
+            return True
 
         console_log.info(f"{self._name}: Building executable '{self._exe_name}'")
         console_log.info(f"{self._name}: Log: '{self._build_log_name}'")
 
-        if (self._exe_path.exists()):
+        if self._exe_path.exists():
             console_log.info(f"{self._name}: Executable '{self._exe_name}' already exists")
             # Don't build unnecessarily.
             return False
@@ -393,6 +406,8 @@ class EncoderBase:
     def build_finish(self,
                      build_cmd: tuple) -> None:
         """Meant to be called as the last thing from the build() method of derived classes."""
+        if self._use_prebuilt:
+            return
 
         assert self._exe_src_path
 

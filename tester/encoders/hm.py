@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+from typing import Iterable
 
 import tester
 import tester.core.git as git
@@ -103,14 +104,16 @@ class Hm(EncoderBase):
 
     def __init__(self,
                  user_given_revision: str,
-                 defines: list):
+                 defines: Iterable,
+                 use_prebuilt: bool):
 
         super().__init__(
             id=tester.Encoder.HM,
             user_given_revision=user_given_revision,
             defines=defines,
             git_local_path=tester.Cfg().tester_sources_dir_path / "hm",
-            git_remote_url=tester.Cfg().hm_remote_url
+            git_remote_url=tester.Cfg().hm_remote_url,
+            use_prebuilt=use_prebuilt,
         )
 
         self._exe_src_path: Path = None

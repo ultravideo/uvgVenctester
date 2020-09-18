@@ -26,7 +26,7 @@ class TesterContext:
                  tests: Iterable,
                  input_sequence_globs: list):
 
-        self._tests: Iterable = tests
+        self._tests: list = list(tests)
 
         self._tests_by_name: dict = {}
         for test in tests:
