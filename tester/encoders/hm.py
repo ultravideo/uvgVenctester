@@ -34,7 +34,7 @@ def hm_get_temporal_subsample_ratio() -> int:
     hm_validate_config()
 
     pattern = re.compile(r"TemporalSubsampleRatio.*: ([0-9]+)", re.DOTALL)
-    lines = Cfg().hm_cfg_file_path.open("r").readlines()
+    lines = tester.Cfg().hm_cfg_file_path.open("r").readlines()
     for line in lines:
         match = pattern.match(line)
         if match:
@@ -217,7 +217,7 @@ class Hm(EncoderBase):
         return self.dummy_run_finish(dummy_cmd, param_set)
 
     def encode(self,
-               encoding_run: EncodingRun) -> None:
+               encoding_run: tester.EncodingRun) -> None:
 
         if not self.encode_start(encoding_run):
             return
@@ -228,7 +228,7 @@ class Hm(EncoderBase):
                                       tester.QualityParam.RES_SCALED_BITRATE,
                                       tester.QualityParam.BPP,
                                       tester.QualityParam.RES_ROOT_SCALED_BITRATE):
-            quality = (f"--TargetBitrate={encoding_run.qp_value}", )
+            quality = (f"--TargetBitrate={encoding_run.qp_value}", "--RateControl=1")
         else:
             assert 0, "Invalid quality parameter"
 

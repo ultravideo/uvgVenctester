@@ -236,10 +236,13 @@ class ParamSetBase():
     def get_cl_args(self) -> str:
         return self._cl_args
 
+
 class EncoderBase:
     """An interface representing an encoder. Each encoder module must implement a class that
     inherits this class. The purpose of the class is to provide an interface through
     which the tester can interact with each encoder in a generic manner."""
+
+    file_suffix = "hevc"
 
     def __init__(self,
                  id: Encoder,
@@ -275,6 +278,7 @@ class EncoderBase:
             self._exe_name = f"{self._name}_{self._user_given_revision}" + \
                              f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}"
             self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_name
+            self._commit_hash = self._user_given_revision
 
         # This must be set in the constructor of derived classes.
         self._exe_src_path: Path = None
@@ -356,7 +360,7 @@ class EncoderBase:
 
         # These can now be evaluated because the repo exists for certain.
         self._commit_hash_short = self._commit_hash[:tester.Cfg().tester_commit_hash_len]
-        self._exe_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}"\
+        self._exe_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}" \
                          f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}"
         self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_name
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
@@ -415,7 +419,7 @@ class EncoderBase:
         self._build_log.info(subprocess.list2cmdline(build_cmd))
         try:
             output = subprocess.check_output(
-               subprocess.list2cmdline(build_cmd),
+                subprocess.list2cmdline(build_cmd),
                 shell=True,
                 stderr=subprocess.STDOUT
             )

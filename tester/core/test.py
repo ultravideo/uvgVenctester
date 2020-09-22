@@ -47,10 +47,15 @@ class EncodingRun:
 
         base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
                         f"{qp_name}{self.qp_value}_{round_number}"
-        output_dir_path = Cfg().tester_output_dir_path \
-                          / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
-                            f"{encoder.get_short_define_hash()}" \
-                          / param_set.to_cmdline_str(include_quality_param=False)
+        if not encoder._use_prebuilt:
+            output_dir_path = Cfg().tester_output_dir_path \
+                              / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
+                                f"{encoder.get_short_define_hash()}" \
+                              / param_set.to_cmdline_str(include_quality_param=False)
+        else:
+            output_dir_path = Cfg().tester_output_dir_path \
+                              / f"{encoder.get_name().lower()}_{encoder.get_revision()}" \
+                              / param_set.to_cmdline_str(include_quality_param=False)
 
         self.encoding_log_path: Path = output_dir_path / f"{base_filename}_encoding_log.txt"
         self.metrics_path: Path = output_dir_path / f"{base_filename}_metrics.json"
@@ -58,7 +63,7 @@ class EncodingRun:
         self.ssim_log_path: Path = output_dir_path / f"{base_filename}_ssim_log.txt"
         self.vmaf_log_path: Path = output_dir_path / f"{base_filename}_vmaf_log.txt"
 
-        output_file_path: Path = output_dir_path / f"{base_filename}{'.hevc' if encoder.get_id() != Encoder.VTM else '.vvc'}"
+        output_file_path: Path = output_dir_path / f"{base_filename}.{encoder.file_suffix}"
         self.output_file = EncodedVideoFile(
             filepath=output_file_path,
             width=input_sequence.get_width(),

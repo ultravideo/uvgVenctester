@@ -157,7 +157,8 @@ class Tester:
                 console_log.info(f"Tester: Building encoder for test '{test.name}'")
                 test.encoder.build()
                 # TODO: Don't clean if the encoder wasn't built. This is slow for HM, at least.
-                test.encoder.clean()
+                if not test.encoder._use_prebuilt:
+                    test.encoder.clean()
             context.validate_final()
 
             for sequence in context.get_input_sequences():

@@ -106,6 +106,8 @@ class VtmParamSet(ParamSetBase):
 class Vtm(EncoderBase):
     """Represents a VTM executable."""
 
+    file_suffix = "vvc"
+
     def __init__(self,
                  user_given_revision: str,
                  defines: Iterable,
@@ -320,7 +322,7 @@ class Vtm(EncoderBase):
                                       tester.QualityParam.RES_SCALED_BITRATE,
                                       tester.QualityParam.BPP,
                                       tester.QualityParam.RES_ROOT_SCALED_BITRATE):
-            quality = (f"--TargetBitrate={encoding_run.qp_value}", )
+            quality = (f"--TargetBitrate={encoding_run.qp_value}", "--RateControl=1")
         else:
             assert 0, "Invalid quality parameter"
 

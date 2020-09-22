@@ -122,11 +122,17 @@ class SequenceMetrics:
 
 class TestMetrics:
     def __init__(self, test: "Test"):
-        base_path = Cfg().tester_output_dir_path /\
-                    f"{test.encoder.get_name()}" \
-                    f"_{test.encoder.get_short_revision()}" \
-                    f"_{test.encoder.get_short_define_hash()}" / \
-                    test.subtests[0].param_set.to_cmdline_str(False)
+        encoder = test.encoder
+        if not encoder._use_prebuilt:
+            base_path = Cfg().tester_output_dir_path \
+                              / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
+                                f"{encoder.get_short_define_hash()}" \
+                              / test.subtests[0].param_set.to_cmdline_str(False)
+        else:
+            base_path = Cfg().tester_output_dir_path \
+                              / f"{encoder.get_name().lower()}_{encoder.get_revision()}" \
+                              / test.subtests[0].param_set.to_cmdline_str(False)
+
         self.seq_data = {
             seq: SequenceMetrics(base_path, seq, test.quality_param_type, test.quality_param_list, test.rounds)
             for seq
