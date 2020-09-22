@@ -16,15 +16,7 @@ from . import EncoderBase, ParamSetBase
 
 def hm_validate_config():
     # Using the public property raises an exception, so access the private attribute instead.
-    if tester.Cfg()._hm_cfg_file_path is None:
-        console_log.error(f"HM: Configuration file path has not been set")
-        raise RuntimeError
-
-    elif not tester.Cfg().hm_cfg_file_path.exists():
-        console_log.error(f"HM: Configuration file '{tester.Cfg().hm_cfg_file_path}' does not exist")
-        raise RuntimeError
-
-    elif not git.git_remote_exists(tester.Cfg().hm_remote_url):
+    if not git.git_remote_exists(tester.Cfg().hm_remote_url):
         console_log.error(f"HM: Remote '{tester.Cfg().hm_remote_url}' is not available")
         raise RuntimeError
 
@@ -32,7 +24,7 @@ def hm_validate_config():
 def hm_get_temporal_subsample_ratio() -> int:
 
     hm_validate_config()
-
+    return 1
     pattern = re.compile(r"TemporalSubsampleRatio.*: ([0-9]+)", re.DOTALL)
     lines = tester.Cfg().hm_cfg_file_path.open("r").readlines()
     for line in lines:
@@ -68,7 +60,8 @@ class HmParamSet(ParamSetBase):
     def _to_unordered_args_list(self,
                                 include_quality_param: bool = True,
                                 include_seek: bool = True,
-                                include_frames: bool = True) -> list:
+                                include_frames: bool = True,
+                                inode_safe=False) -> list:
 
         args = self._cl_args
 
@@ -95,6 +88,9 @@ class HmParamSet(ParamSetBase):
             args += " --SEIDecodedPictureHash=3"
         if not "--ConformanceWindowMode" in args:
             args += " --ConformanceWindowMode=1"
+
+        if inode_safe:
+            args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
 
         return args.split()
 
@@ -234,7 +230,6 @@ class Hm(EncoderBase):
 
         encode_cmd = (
             str(self._exe_path),
-            "-c", str(tester.Cfg().hm_cfg_file_path),
             "-i", str(encoding_run.input_sequence.get_filepath()),
             "-fr", str(encoding_run.input_sequence.get_framerate()),
             "-wdt", str(encoding_run.input_sequence.get_width()),

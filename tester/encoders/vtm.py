@@ -18,24 +18,13 @@ from . import EncoderBase, ParamSetBase
 
 
 def vtm_validate_config():
-
-    # Using the public property raises an exception, so access the private attribute instead.
-    if Cfg()._vtm_cfg_file_path is None:
-        console_log.error(f"VTM: Configuration file path has not been set")
-        raise RuntimeError
-
-    elif not Cfg().vtm_cfg_file_path.exists():
-        console_log.error(f"VTM: Configuration file '{Cfg().vtm_cfg_file_path}' does not exist")
-        raise RuntimeError
-
-    elif not git.git_remote_exists(Cfg().vtm_remote_url):
+    if not git.git_remote_exists(Cfg().vtm_remote_url):
         console_log.error(f"VTM: Remote '{Cfg().vtm_remote_url}' is not available")
         raise RuntimeError
 
 
 def vtm_get_temporal_subsample_ratio() -> int:
-
-    vtm_validate_config()
+    return 1
 
     pattern = re.compile(r"TemporalSubsampleRatio.*: ([0-9]+)", re.DOTALL)
     lines = Cfg().vtm_cfg_file_path.open("r").readlines()
@@ -72,7 +61,8 @@ class VtmParamSet(ParamSetBase):
     def _to_unordered_args_list(self,
                                 include_quality_param: bool = True,
                                 include_seek: bool = True,
-                                include_frames: bool = True) -> list:
+                                include_frames: bool = True,
+                                inode_safe: bool = False) -> list:
 
         args = self._cl_args
 
@@ -99,6 +89,9 @@ class VtmParamSet(ParamSetBase):
             args += " --SEIDecodedPictureHash=3"
         if not "--ConformanceWindowMode" in args:
             args += " --ConformanceWindowMode=1"
+
+        if inode_safe:
+            args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
 
         return args.split()
 
@@ -293,7 +286,6 @@ class Vtm(EncoderBase):
 
         dummy_cmd = (
             str(self._exe_path),
-            "-c", str(Cfg().vtm_cfg_file_path),
             "-i", str(dummy_sequence_path),
             "-fr", FRAMERATE_PLACEHOLDER,
             "-wdt", WIDTH_PLACEHOLDER,
@@ -329,7 +321,6 @@ class Vtm(EncoderBase):
 
         encode_cmd = (
             str(self._exe_path),
-            "-c", str(Cfg().vtm_cfg_file_path),
             "-i", str(encoding_run.input_sequence.get_filepath()),
             "-fr", str(encoding_run.input_sequence.get_framerate()),
             "-wdt", str(encoding_run.input_sequence.get_width()),

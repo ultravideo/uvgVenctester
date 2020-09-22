@@ -146,7 +146,8 @@ class Tester:
         return context
 
     def run_tests(self,
-                  context: TesterContext) -> None:
+                  context: TesterContext,
+                  parallel_runs: int = 1) -> None:
 
         try:
             self._create_base_directories_if_not_exist()
@@ -161,11 +162,20 @@ class Tester:
                     test.encoder.clean()
             context.validate_final()
 
+            encoding_runs = []
+
             for sequence in context.get_input_sequences():
                 for test in context.get_tests():
                     for subtest in test.subtests:
                         for encoding_run in subtest.encoding_runs[sequence]:
-                            self._do_encoding_run(encoding_run)
+                            encoding_runs.append(encoding_run)
+
+            if parallel_runs > 1:
+                with Pool(parallel_runs) as p:
+                    p.map(Tester._do_encoding_run, encoding_runs)
+            else:
+                for encoding_run in encoding_runs:
+                    self._do_encoding_run(encoding_run)
 
         except Exception as exception:
             console_log.error(f"Tester: Failed to run tests")
@@ -173,7 +183,8 @@ class Tester:
             exit(1)
 
     def compute_metrics(self,
-                        context: TesterContext, parallel_calculations: int = 1) -> None:
+                        context: TesterContext,
+                        parallel_calculations: int = 1) -> None:
 
         values = []
         parallel_calculations = max(parallel_calculations, 1)
@@ -310,8 +321,8 @@ class Tester:
             }
         )
 
-    def _do_encoding_run(self,
-                         encoding_run) -> None:
+    @staticmethod
+    def _do_encoding_run(encoding_run) -> None:
 
         console_log.info(f"Tester: Running '{encoding_run.name}'")
 
