@@ -90,6 +90,7 @@ Cfg().vs_msbuild_platformtoolset = "v142"
 ```python
 import userconfig
 from tester.core.tester import *
+from tester.encoders.base import QualityParam
 ```
 
 ### 3. Specify the video sequences you want to have encoded.
@@ -187,7 +188,7 @@ Optional parameters for `Test()`:
 `main.py`:
 ```python
 tester = Tester()
-context = tester.create_context(tests, input_sequence_globs)
+context = tester.create_context(configs, input_sequence_globs)
 ```
 
 ### 6. Run the tests.
@@ -238,6 +239,9 @@ Cfg().vs_msbuild_platformtoolset = "v142"
 from tester.core.cfg import *
 from tester.core.csv import *
 
+# You might want to set path for your test sequences.
+Cfg().tester_sequences_dir_path = r"C:\User\test_sequences"
+
 # You might have to set these depending on your system language settings.
 Cfg().csv_decimal_point = ","
 Cfg().csv_field_delimiter = ";"
@@ -245,18 +249,18 @@ Cfg().csv_field_delimiter = ";"
 # Enabled fields from left to right. Any field not included in this list will be omitted from the CSV.
 # The list of all possible values can be found in tester.core.csv.
 Cfg().csv_enabled_fields = [
-    CsvFieldId.SEQUENCE_NAME,
-    CsvFieldId.CONFIG_NAME,
-    CsvFieldId.ENCODER_CMDLINE,
-    CsvFieldId.TIME_SECONDS,
+    CsvField.SEQUENCE_NAME,
+    CsvField.CONFIG_NAME,
+    CsvField.ENCODER_CMDLINE,
+    CsvField.TIME_SECONDS,
 ]
 
 # Must include all the fields listed in CSV_ENABLED_FIELDS.
 Cfg().csv_field_names = {
-    CsvFieldId.SEQUENCE_NAME = "Input sequence",
-    CsvFieldId.CONFIG_NAME = "Config",
-    CsvFieldId.ENCODER_CMDLINE = "Command line arguments",
-    CsvFieldId.TIME_SECONDS = "Encoding time (seconds)",
+    CsvField.SEQUENCE_NAME: "Input sequence",
+    CsvField.CONFIG_NAME: "Config",
+    CsvField.ENCODER_CMDLINE: "Command line arguments",
+    CsvField.TIME_SECONDS: "Encoding time (seconds)",
 }
 ```
 
