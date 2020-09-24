@@ -283,7 +283,9 @@ class Tester:
                 csv.CsvField.ENCODER_DEFINES: lambda: test.encoder.get_defines(),
                 csv.CsvField.ENCODER_CMDLINE: lambda: subtest.param_set.to_cmdline_str(),
                 csv.CsvField.QUALITY_PARAM_NAME: lambda: subtest.param_set.get_quality_param_type().pretty_name,
-                csv.CsvField.QUALITY_PARAM_VALUE: lambda: metric["target_bitrate_avg"],
+                csv.CsvField.QUALITY_PARAM_VALUE: lambda: subtest.param_set.get_quality_param_value()
+                                                          if "target_bitrate_avg" not in metric
+                                                          else metric["target_bitrate_avg"],
                 csv.CsvField.CONFIG_NAME: lambda: test.name,
                 csv.CsvField.ANCHOR_NAME: lambda: anchor.name,
                 csv.CsvField.TIME_SECONDS: lambda: metric["encoding_time_avg"],
