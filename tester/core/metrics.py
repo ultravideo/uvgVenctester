@@ -4,11 +4,11 @@ import json
 import statistics
 from pathlib import Path
 from typing import Iterable, Union
+
 from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
-from tester.core.cfg import Cfg
 import tester.core.test as test
-
+from tester.core.cfg import Cfg
 from tester.core.video import VideoFileBase, RawVideoSequence
 from tester.encoders.base import QualityParam
 
@@ -25,6 +25,7 @@ class EncodingRunMetrics:
             self._read_in()
 
     def __getitem__(self, item):
+        self._read_in()
         return self._data[item]
 
     def __setitem__(self, key, value):
@@ -67,6 +68,11 @@ class EncodingQualityRunMetrics:
 
         elif isinstance(item, int):
             return self._rounds[item - 1]
+
+    def __contains__(self, item):
+        if isinstance(item, str):
+            value, _ = self.__split_suffix(item, ["_avg", "_stdev"])
+            return all(value in x for x in self._rounds)
 
     @staticmethod
     def __split_suffix(item: str, suffixes):
@@ -116,11 +122,17 @@ class SequenceMetrics:
 
 class TestMetrics:
     def __init__(self, test: "Test"):
-        base_path = Cfg().tester_output_dir_path /\
-                    f"{test.encoder.get_name()}" \
-                    f"_{test.encoder.get_short_revision()}" \
-                    f"_{test.encoder.get_short_define_hash()}" / \
-                    test.subtests[0].param_set.to_cmdline_str(False)
+        encoder = test.encoder
+        if not encoder._use_prebuilt:
+            base_path = Cfg().tester_output_dir_path \
+                              / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
+                                f"{encoder.get_short_define_hash()}" \
+                              / test.subtests[0].param_set.to_cmdline_str(False)
+        else:
+            base_path = Cfg().tester_output_dir_path \
+                              / f"{encoder.get_name().lower()}_{encoder.get_revision()}" \
+                              / test.subtests[0].param_set.to_cmdline_str(False)
+
         self.seq_data = {
             seq: SequenceMetrics(base_path, seq, test.quality_param_type, test.quality_param_list, test.rounds)
             for seq

@@ -1,9 +1,9 @@
 """This module defines functionality related to GCC (and closely related tools)."""
 
-from tester.core.cfg import *
-from tester.core.log import *
-
 import subprocess
+
+from tester.core.cfg import Cfg
+from tester.core.log import console_log
 
 
 def gcc_validate_config():

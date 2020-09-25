@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from .base import *
-from tester.core.cfg import *
-from tester.core.test import *
-from tester.core import ffmpeg
-from tester.core import cmake
-
-from pathlib import Path
 import os
+import re
+import shutil
+import subprocess
+from typing import Iterable
+from pathlib import Path
+
+import tester
+import tester.core.test as test
+from tester.core import ffmpeg, cmake, git, vs
+from tester.core.cfg import Cfg
+from tester.core.log import console_log
+from . import EncoderBase, ParamSetBase
 
 
 def vtm_validate_config():
@@ -23,7 +28,7 @@ def vtm_validate_config():
         console_log.error(f"VTM: Configuration file '{Cfg().vtm_cfg_file_path}' does not exist")
         raise RuntimeError
 
-    elif not git_remote_exists(Cfg().vtm_remote_url):
+    elif not git.git_remote_exists(Cfg().vtm_remote_url):
         console_log.error(f"VTM: Remote '{Cfg().vtm_remote_url}' is not available")
         raise RuntimeError
 
@@ -46,7 +51,7 @@ class VtmParamSet(ParamSetBase):
     """Represents the command line parameters passed to VTM when encoding."""
 
     def __init__(self,
-                 quality_param_type: QualityParam,
+                 quality_param_type: tester.QualityParam,
                  quality_param_value: int,
                  seek: int,
                  frames: int,
@@ -72,10 +77,18 @@ class VtmParamSet(ParamSetBase):
         args = self._cl_args
 
         if include_quality_param:
-            if self._quality_param_type == QualityParam.QP:
+            if self._quality_param_type == tester.QualityParam.QP:
                 args += f" --QP={self._quality_param_value}"
-            elif self._quality_param_type == QualityParam.BITRATE:
+            elif self._quality_param_type == tester.QualityParam.BITRATE:
                 args += f" --TargetBitrate={self._quality_param_value}"
+            elif self.get_quality_param_type() == tester.QualityParam.BPP:
+                args += f" --TargetBitrate={self._quality_param_value}"
+            elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
+                args += f" --TargetBitrate={self._quality_param_value}"
+            elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
+                args += f" --TargetBitrate={self._quality_param_value}"
+            else:
+                raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
         if include_seek and self._seek:
             args += f" -fs {self._seek}"
         if include_frames and self._frames:
@@ -93,16 +106,20 @@ class VtmParamSet(ParamSetBase):
 class Vtm(EncoderBase):
     """Represents a VTM executable."""
 
+    file_suffix = "vvc"
+
     def __init__(self,
                  user_given_revision: str,
-                 defines: list):
+                 defines: Iterable,
+                 use_prebuilt: bool):
 
         super().__init__(
-            id=Encoder.VTM,
+            id=tester.Encoder.VTM,
             user_given_revision=user_given_revision,
             defines = defines,
             git_local_path=Cfg().tester_sources_dir_path / "vtm",
-            git_remote_url=Cfg().vtm_remote_url
+            git_remote_url=Cfg().vtm_remote_url,
+            use_prebuilt=use_prebuilt
         )
 
         self._exe_src_path: Path = None
@@ -151,7 +168,7 @@ class Vtm(EncoderBase):
             ) + tuple(msbuild_args)
 
         elif Cfg().system_os_name == "Linux":
-            
+
             # Add defines to make arguments.
             cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self._defines])}".strip()
 
@@ -222,7 +239,7 @@ class Vtm(EncoderBase):
             )
 
         elif Cfg().system_os_name == "Linux":
-            
+
             clean_cmd = (
                 "cd", str(self._git_local_path),
                 "&&", "make", "clean", "EncoderApp-r"
@@ -294,13 +311,21 @@ class Vtm(EncoderBase):
         return return_value
 
     def encode(self,
-               encoding_run: EncodingRun) -> None:
+               encoding_run: test.EncodingRun) -> None:
 
         if not self.encode_start(encoding_run):
             return
 
-        # VTM is stupid.
-        framecount = encoding_run.param_set.get_frames()
+        if encoding_run.qp_name == tester.QualityParam.QP:
+            quality = (f"--QP={encoding_run.qp_value}", )
+        elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
+                                      tester.QualityParam.RES_SCALED_BITRATE,
+                                      tester.QualityParam.BPP,
+                                      tester.QualityParam.RES_ROOT_SCALED_BITRATE):
+            quality = (f"--TargetBitrate={encoding_run.qp_value}", "--RateControl=1")
+        else:
+            assert 0, "Invalid quality parameter"
+
 
         encode_cmd = (
             str(self._exe_path),
@@ -312,10 +337,7 @@ class Vtm(EncoderBase):
             "-b", str(encoding_run.output_file.get_filepath()),
             "-f", str(encoding_run.frames),
             "-o", os.devnull,
-        ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=bool(framecount))
-
-        if not framecount:
-            encode_cmd += ("-f", str(encoding_run.input_sequence.get_framecount()))
+        ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False, include_frames=False) + quality
 
         self.encode_finish(encode_cmd, encoding_run)
 
@@ -323,7 +345,7 @@ class Vtm(EncoderBase):
         self._decode(encoding_run)
 
     def _decode(self,
-                encoding_run: EncodingRun):
+                encoding_run: test.EncodingRun):
 
         decode_cmd = (
             str(self._decoder_exe_path),

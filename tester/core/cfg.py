@@ -1,14 +1,12 @@
 """This module defines functionality to enable customization of the tester functionality."""
-import subprocess
-
-from .log import *
-from .singleton import *
-from . import csv # To avoid circular import
-
+import logging
 import platform
-import re
 from pathlib import Path
 from typing import Union
+
+import tester.core.csv as csv
+from .log import console_log
+from .singleton import Singleton
 
 
 class Cfg(metaclass=Singleton):
@@ -33,6 +31,9 @@ class Cfg(metaclass=Singleton):
     # System
     ##########################################################################
 
+    def __init__(self):
+        self.logging_level = self._logging_level
+
     @property
     def system_os_name(self) -> str:
         """The return value of platform.system()."""
@@ -51,6 +52,16 @@ class Cfg(metaclass=Singleton):
     # CONFIGURATION VARIABLES
     # May be overridden by the user.
     ##########################################################################
+
+    _logging_level = logging.INFO
+    @property
+    def logging_level(self) -> int:
+        return self._logging_level
+    @logging_level.setter
+    def logging_level(self, value: int):
+        assert value in logging._levelToName
+        console_log.setLevel(value)
+
 
     ##########################################################################
     # Tester
@@ -98,6 +109,7 @@ class Cfg(metaclass=Singleton):
 
     """How many characters of the define hash are included in file names."""
     tester_define_hash_len: int = 6
+
 
     ##########################################################################
     # CSV
@@ -163,6 +175,8 @@ class Cfg(metaclass=Singleton):
         csv.CsvField.VMAF_STDEV: "VMAF (stdev)",
         csv.CsvField.BDBR_PSNR: "BD-BR (PSNR)",
         csv.CsvField.BDBR_SSIM: "BD-BR (SSIM)",
+        csv.CsvField.BDBR_VMAF: "BD-BR (VMAF)",
+        csv.CsvField.BITRATE_ERROR: "Bitrate error"
     }
 
     """The accuracy with which floats are rounded when generating the output CSV."""

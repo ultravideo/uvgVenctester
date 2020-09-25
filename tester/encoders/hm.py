@@ -2,28 +2,30 @@
 
 from __future__ import annotations
 
-from .base import *
-from tester.core.cfg import *
-from tester.core.test import *
-from tester.core import cmake
-from tester.core import vs
-
-from pathlib import Path
 import os
+import re
+from pathlib import Path
+from typing import Iterable
+
+import tester
+import tester.core.git as git
+from tester.core import cmake, vs
+from tester.core.log import console_log
+from . import EncoderBase, ParamSetBase
 
 
 def hm_validate_config():
     # Using the public property raises an exception, so access the private attribute instead.
-    if Cfg()._hm_cfg_file_path is None:
+    if tester.Cfg()._hm_cfg_file_path is None:
         console_log.error(f"HM: Configuration file path has not been set")
         raise RuntimeError
 
-    elif not Cfg().hm_cfg_file_path.exists():
-        console_log.error(f"HM: Configuration file '{Cfg().hm_cfg_file_path}' does not exist")
+    elif not tester.Cfg().hm_cfg_file_path.exists():
+        console_log.error(f"HM: Configuration file '{tester.Cfg().hm_cfg_file_path}' does not exist")
         raise RuntimeError
 
-    elif not git_remote_exists(Cfg().hm_remote_url):
-        console_log.error(f"HM: Remote '{Cfg().hm_remote_url}' is not available")
+    elif not git.git_remote_exists(tester.Cfg().hm_remote_url):
+        console_log.error(f"HM: Remote '{tester.Cfg().hm_remote_url}' is not available")
         raise RuntimeError
 
 
@@ -32,7 +34,7 @@ def hm_get_temporal_subsample_ratio() -> int:
     hm_validate_config()
 
     pattern = re.compile(r"TemporalSubsampleRatio.*: ([0-9]+)", re.DOTALL)
-    lines = Cfg().hm_cfg_file_path.open("r").readlines()
+    lines = tester.Cfg().hm_cfg_file_path.open("r").readlines()
     for line in lines:
         match = pattern.match(line)
         if match:
@@ -45,7 +47,7 @@ class HmParamSet(ParamSetBase):
     """Represents the command line parameters passed to HM when encoding."""
 
     def __init__(self,
-                 quality_param_type: QualityParam,
+                 quality_param_type: tester.QualityParam,
                  quality_param_value: int,
                  seek: int,
                  frames: int,
@@ -71,10 +73,19 @@ class HmParamSet(ParamSetBase):
         args = self._cl_args
 
         if include_quality_param:
-            if self._quality_param_type == QualityParam.QP:
+            if self._quality_param_type == tester.QualityParam.QP:
                 args += f" --QP={self._quality_param_value}"
-            elif self._quality_param_type == QualityParam.BITRATE:
+            elif self._quality_param_type == tester.QualityParam.BITRATE:
                 args += f" --TargetBitrate={self._quality_param_value}"
+            elif self.get_quality_param_type() == tester.QualityParam.BPP:
+                args += f" --TargetBitrate={self._quality_param_value}"
+            elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
+                args += f" --TargetBitrate={self._quality_param_value}"
+            elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
+                args += f" --TargetBitrate={self._quality_param_value}"
+            else:
+                raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+
         if include_seek and self._seek:
             args += f" -fs {self._seek}"
         if include_frames and self._frames:
@@ -93,27 +104,29 @@ class Hm(EncoderBase):
 
     def __init__(self,
                  user_given_revision: str,
-                 defines: list):
+                 defines: Iterable,
+                 use_prebuilt: bool):
 
         super().__init__(
-            id=Encoder.HM,
+            id=tester.Encoder.HM,
             user_given_revision=user_given_revision,
-            defines = defines,
-            git_local_path=Cfg().tester_sources_dir_path / "hm",
-            git_remote_url=Cfg().hm_remote_url
+            defines=defines,
+            git_local_path=tester.Cfg().tester_sources_dir_path / "hm",
+            git_remote_url=tester.Cfg().hm_remote_url,
+            use_prebuilt=use_prebuilt,
         )
 
         self._exe_src_path: Path = None
-        if Cfg().system_os_name == "Windows":
+        if tester.Cfg().system_os_name == "Windows":
             self._exe_src_path =\
                 self._git_local_path \
                 / "bin" \
-                / f"vs{Cfg().vs_major_version}" \
-                / f"msvc-{Cfg().vs_msvc_version}" \
+                / f"vs{tester.Cfg().vs_major_version}" \
+                / f"msvc-{tester.Cfg().vs_msvc_version}" \
                 / "x86_64" \
                 / "release" \
                 / "TAppEncoder.exe"
-        elif Cfg().system_os_name == "Linux":
+        elif tester.Cfg().system_os_name == "Linux":
             self._exe_src_path = self._git_local_path / "bin" / "TAppEncoderStatic"
 
     def build(self) -> None:
@@ -123,7 +136,7 @@ class Hm(EncoderBase):
 
         build_cmd = ()
 
-        if Cfg().system_os_name == "Windows":
+        if tester.Cfg().system_os_name == "Windows":
 
             # Add defines to msbuild arguments.
             msbuild_args = vs.get_msbuild_args(add_defines=self._defines)
@@ -140,7 +153,7 @@ class Hm(EncoderBase):
                 "&&", "msbuild", "HM.sln", f"/t:App\\TAppEncoder",
             ) + tuple(msbuild_args)
 
-        elif Cfg().system_os_name == "Linux":
+        elif tester.Cfg().system_os_name == "Linux":
 
             # Add defines to make arguments.
             cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self._defines])}".strip()
@@ -158,7 +171,7 @@ class Hm(EncoderBase):
 
         clean_cmd = ()
 
-        if Cfg().system_os_name == "Windows":
+        if tester.Cfg().system_os_name == "Windows":
 
             clean_cmd = (
                 "call", str(vs.get_vsdevcmd_bat_path()),
@@ -167,7 +180,7 @@ class Hm(EncoderBase):
                 "&&", "msbuild", "HM.sln", f"/t:App\\TAppEncoder:clean"
             )
 
-        elif Cfg().system_os_name == "Linux":
+        elif tester.Cfg().system_os_name == "Linux":
 
             # TODO: This is SUPER slow (the binary seems to be recompiled for whatever reason).
             # TODO: Eliminate?
@@ -190,7 +203,7 @@ class Hm(EncoderBase):
 
         dummy_cmd = (
             str(self._exe_path),
-            "-c", str(Cfg().hm_cfg_file_path),
+            "-c", str(tester.Cfg().hm_cfg_file_path),
             "-i", os.devnull,
             "-fr", FRAMERATE_PLACEHOLDER,
             "-wdt", WIDTH_PLACEHOLDER,
@@ -204,17 +217,24 @@ class Hm(EncoderBase):
         return self.dummy_run_finish(dummy_cmd, param_set)
 
     def encode(self,
-               encoding_run: EncodingRun) -> None:
+               encoding_run: tester.EncodingRun) -> None:
 
         if not self.encode_start(encoding_run):
             return
 
-        # HM is stupid.
-        framecount = encoding_run.param_set.get_frames()
+        if encoding_run.qp_name == tester.QualityParam.QP:
+            quality = (f"--QP={encoding_run.qp_value}", )
+        elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
+                                      tester.QualityParam.RES_SCALED_BITRATE,
+                                      tester.QualityParam.BPP,
+                                      tester.QualityParam.RES_ROOT_SCALED_BITRATE):
+            quality = (f"--TargetBitrate={encoding_run.qp_value}", "--RateControl=1")
+        else:
+            assert 0, "Invalid quality parameter"
 
         encode_cmd = (
             str(self._exe_path),
-            "-c", str(Cfg().hm_cfg_file_path),
+            "-c", str(tester.Cfg().hm_cfg_file_path),
             "-i", str(encoding_run.input_sequence.get_filepath()),
             "-fr", str(encoding_run.input_sequence.get_framerate()),
             "-wdt", str(encoding_run.input_sequence.get_width()),
@@ -222,9 +242,7 @@ class Hm(EncoderBase):
             "-b", str(encoding_run.output_file.get_filepath()),
             "-f", str(encoding_run.frames),
             "-o", os.devnull,
-        ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=bool(framecount))
+        ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False, include_frames=False) + quality
 
-        if not framecount:
-            encode_cmd += ("-f", str(encoding_run.input_sequence.get_framecount()))
 
         self.encode_finish(encode_cmd, encoding_run)

@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+from math import sqrt
+from pathlib import Path
+from typing import Iterable
+
+import tester.encoders.hm as hm
+import tester.encoders.kvazaar as kvazaar
+import tester.encoders.vtm as vtm
 from tester.core import metrics
+from tester.core.cfg import Cfg
 from tester.core.video import RawVideoSequence, EncodedVideoFile
+from tester.encoders import EncoderBase, ParamSetBase, Encoder
 from tester.encoders.base import QualityParam
-from tester.encoders.hm import *
-from tester.encoders.kvazaar import *
-from tester.encoders.vtm import *
 
 
 class EncodingRun:
@@ -28,14 +34,28 @@ class EncodingRun:
         self.input_sequence: RawVideoSequence = input_sequence
         self.frames = param_set.get_frames() or input_sequence.get_framecount()
 
-        qp_name = param_set.get_quality_param_type().short_name
-        qp_value = param_set.get_quality_param_value()
+        self.qp_name = param_set.get_quality_param_type()
+        self.qp_value = param_set.get_quality_param_value()
+        if self.qp_name == QualityParam.BPP:
+            self.qp_value = self.qp_value * self.input_sequence._pixels_per_frame * self.input_sequence.get_framerate()
+        elif self.qp_name == QualityParam.RES_SCALED_BITRATE:
+            self.qp_value *= self.input_sequence.get_height() * self.input_sequence.get_width() / (1920 * 1080)
+        elif self.qp_name == QualityParam.RES_ROOT_SCALED_BITRATE:
+            self.qp_value *= sqrt(self.input_sequence.get_height() * self.input_sequence.get_width() / (1920 * 1080))
+
+        qp_name = self.qp_name.short_name
+
         base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
-                        f"{qp_name}{qp_value}_{round_number}"
-        output_dir_path = Cfg().tester_output_dir_path \
-                          / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
-                            f"{encoder.get_short_define_hash()}" \
-                          / param_set.to_cmdline_str(include_quality_param=False)
+                        f"{qp_name}{self.qp_value}_{round_number}"
+        if not encoder._use_prebuilt:
+            output_dir_path = Cfg().tester_output_dir_path \
+                              / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
+                                f"{encoder.get_short_define_hash()}" \
+                              / param_set.to_cmdline_str(include_quality_param=False)
+        else:
+            output_dir_path = Cfg().tester_output_dir_path \
+                              / f"{encoder.get_name().lower()}_{encoder.get_revision()}" \
+                              / param_set.to_cmdline_str(include_quality_param=False)
 
         self.encoding_log_path: Path = output_dir_path / f"{base_filename}_encoding_log.txt"
         self.metrics_path: Path = output_dir_path / f"{base_filename}_metrics.json"
@@ -43,7 +63,7 @@ class EncodingRun:
         self.ssim_log_path: Path = output_dir_path / f"{base_filename}_ssim_log.txt"
         self.vmaf_log_path: Path = output_dir_path / f"{base_filename}_vmaf_log.txt"
 
-        output_file_path: Path = output_dir_path / f"{base_filename}{'.hevc' if encoder.get_id() != Encoder.VTM else '.vvc'}"
+        output_file_path: Path = output_dir_path / f"{base_filename}.{encoder.file_suffix}"
         self.output_file = EncodedVideoFile(
             filepath=output_file_path,
             width=input_sequence.get_width(),
@@ -115,15 +135,16 @@ class Test:
                  name: str,
                  encoder_id: Encoder,
                  encoder_revision: str,
-                 encoder_defines: list,
-                 anchor_names: list,
-                 quality_param_type: QualityParam,
-                 quality_param_list: list,
+                 anchor_names: Iterable,
                  cl_args: str,
-                 input_sequences: list,
+                 input_sequences: Iterable,
+                 encoder_defines: Iterable = (),
+                 quality_param_type: QualityParam = QualityParam.QP,
+                 quality_param_list: Iterable = (22, 27, 32, 37),
                  seek: int = None,
                  frames: int = None,
                  rounds: int = 1,
+                 use_prebuilt=False,
                  **kwargs):
         # Kwargs are ignored, they are here just to enable easy cloning.
 
@@ -131,12 +152,12 @@ class Test:
         self.name: str = name
         self.encoder_id: Encoder = encoder_id
         self.encoder_revision: str = encoder_revision
-        self.encoder_defines: list = encoder_defines
-        self.anchor_names: list = anchor_names
+        self.encoder_defines: Iterable = encoder_defines
+        self.anchor_names: Iterable = anchor_names
         self.quality_param_type: QualityParam = quality_param_type
-        self.quality_param_list: list = quality_param_list
+        self.quality_param_list: Iterable = quality_param_list
         self.cl_args: str = cl_args
-        self.input_sequences: list = input_sequences
+        self.input_sequences: Iterable = input_sequences
         self.seek: int = seek
         self.frames: int = frames
         self.rounds: int = rounds
@@ -152,9 +173,9 @@ class Test:
         # (in the config file).
         step = None
         if encoder_id == Encoder.HM:
-            step = hm_get_temporal_subsample_ratio()
+            step = hm.hm_get_temporal_subsample_ratio()
         elif encoder_id == Encoder.VTM:
-            step = vtm_get_temporal_subsample_ratio()
+            step = vtm.vtm_get_temporal_subsample_ratio()
 
         for glob in input_sequences:
             for filepath in Cfg().tester_sequences_dir_path.glob(glob):
@@ -171,14 +192,15 @@ class Test:
         # since that is the order in which the results have to be when BD-BR is computed.
         if quality_param_type == QualityParam.QP:
             quality_param_list = sorted(quality_param_list, reverse=True)
-        elif quality_param_type == QualityParam.BITRATE:
+        elif quality_param_type in [QualityParam.RES_ROOT_SCALED_BITRATE, QualityParam.RES_SCALED_BITRATE,
+                                    QualityParam.BPP, QualityParam.BITRATE]:
             quality_param_list = sorted(quality_param_list)
 
         param_sets = []
         if encoder_id == Encoder.KVAZAAR:
-            self.encoder = Kvazaar(encoder_revision, encoder_defines)
+            self.encoder = kvazaar.Kvazaar(encoder_revision, encoder_defines, use_prebuilt)
             param_sets = [
-                KvazaarParamSet(
+                kvazaar.KvazaarParamSet(
                     quality_param_type,
                     quality_param_value,
                     seek,
@@ -187,9 +209,9 @@ class Test:
                 ) for quality_param_value in quality_param_list
             ]
         elif encoder_id == Encoder.HM:
-            self.encoder = Hm(encoder_revision, encoder_defines)
+            self.encoder = hm.Hm(encoder_revision, encoder_defines, use_prebuilt)
             param_sets = [
-                HmParamSet(
+                hm.HmParamSet(
                     quality_param_type,
                     quality_param_value,
                     seek,
@@ -198,9 +220,9 @@ class Test:
                 ) for quality_param_value in quality_param_list
             ]
         elif encoder_id == Encoder.VTM:
-            self.encoder = Vtm(encoder_revision, encoder_defines)
+            self.encoder = vtm.Vtm(encoder_revision, encoder_defines, use_prebuilt)
             param_sets = [
-                VtmParamSet(
+                vtm.VtmParamSet(
                     quality_param_type,
                     quality_param_value,
                     seek,

@@ -1,26 +1,21 @@
 """This module defines functionality related to testing."""
-
-from tester.core.cfg import *
-from tester.core.csv import *
-from tester.core.log import *
-from tester.core.test import *
-from tester.core.video import *
-from tester.encoders.base import *
-from tester.core import cmake
-from tester.core import csv
-from tester.core import ffmpeg
-from tester.core import gcc
-from tester.core import git
-from tester.core import system
-from tester.core import vmaf
-from tester.core import vs
-from tester.encoders import hm
-from tester.encoders import kvazaar
-from tester.encoders import vtm
-
 import subprocess
 import time
 from pathlib import Path
+from typing import Iterable
+from multiprocessing import Pool
+
+import tester
+import tester.core.cmake as cmake
+import tester.encoders.hm as hm
+import tester.encoders.kvazaar as kvazaar
+import tester.encoders.vtm as vtm
+from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs
+from tester.core.cfg import Cfg
+from tester.core.log import console_log, log_exception
+from tester.core.test import Test
+from tester.core.video import RawVideoSequence
+from tester.encoders.base import Encoder
 
 
 class TesterContext:
@@ -28,10 +23,10 @@ class TesterContext:
     stateless for flexibility."""
 
     def __init__(self,
-                 tests: list,
+                 tests: Iterable,
                  input_sequence_globs: list):
 
-        self._tests: list = tests
+        self._tests: list = list(tests)
 
         self._tests_by_name: dict = {}
         for test in tests:
@@ -49,7 +44,7 @@ class TesterContext:
                     )
                 )
 
-    def get_tests(self) -> list:
+    def get_tests(self) -> Iterable:
         return self._tests
 
     def get_test(self,
@@ -101,7 +96,7 @@ class Tester:
     """Represents the tester. The end user primarily interacts with this class."""
 
     def create_context(self,
-                       tests: list,
+                       tests: Iterable,
                        input_sequence_globs: list) -> TesterContext:
 
         console_log.info("Tester: Creating context")
@@ -122,7 +117,7 @@ class Tester:
             git.git_validate_config()
             cmake.cmake_validate_config()
             gcc.gcc_validate_config()
-            #ffmpeg.ffmpeg_validate_config()
+            # ffmpeg.ffmpeg_validate_config()
             vmaf.vmaf_validate_config()
             vs.vs_validate_config()
 
@@ -138,7 +133,7 @@ class Tester:
                 vtm.vtm_validate_config()
 
             if Encoder.HM in used_encoder_ids and Encoder.VTM in used_encoder_ids:
-                if not hm_get_temporal_subsample_ratio() == vtm_get_temporal_subsample_ratio():
+                if not hm.hm_get_temporal_subsample_ratio() == vtm.vtm_get_temporal_subsample_ratio():
                     console_log.error("Tester: Values of TemporalSubsampleRatio don't match "
                                       "in the configuration files of HM and VTM")
                     raise RuntimeError
@@ -151,7 +146,7 @@ class Tester:
         return context
 
     def run_tests(self,
-                  context:TesterContext) -> None:
+                  context: TesterContext) -> None:
 
         try:
             self._create_base_directories_if_not_exist()
@@ -162,7 +157,8 @@ class Tester:
                 console_log.info(f"Tester: Building encoder for test '{test.name}'")
                 test.encoder.build()
                 # TODO: Don't clean if the encoder wasn't built. This is slow for HM, at least.
-                test.encoder.clean()
+                if not test.encoder._use_prebuilt:
+                    test.encoder.clean()
             context.validate_final()
 
             for sequence in context.get_input_sequences():
@@ -177,51 +173,71 @@ class Tester:
             exit(1)
 
     def compute_metrics(self,
-                        context: TesterContext) -> None:
+                        context: TesterContext, parallel_calculations: int = 1) -> None:
 
+        values = []
+        parallel_calculations = max(parallel_calculations, 1)
         for sequence in context.get_input_sequences():
             for test in context.get_tests():
                 for subtest in test.subtests:
                     for encoding_run in subtest.encoding_runs[sequence]:
 
-                        try:
-                            console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
+                        metrics = test.metrics[sequence][encoding_run.param_set.get_quality_param_value()][
+                            encoding_run.round_number]
+                        psnr_needed = "psnr" not in metrics \
+                                      and (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
+                                           or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields
+                                           or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields)
+                        ssim_needed = "ssim" not in metrics \
+                                      and (csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields
+                                           or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields
+                                           or csv.CsvField.BDBR_SSIM in Cfg().csv_enabled_fields)
+                        vmaf_needed = "vmaf" not in metrics \
+                                      and (csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields
+                                           or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields
+                                           or csv.CsvField.BDBR_VMAF in Cfg().csv_enabled_fields)
+                        arguments = (encoding_run, metrics, psnr_needed, ssim_needed, vmaf_needed)
+                        if parallel_calculations > 1:
+                            values.append(arguments)
+                        else:
+                            self._calculate_metrics_for_one_run(arguments)
 
-                            metrics = test.metrics[sequence][encoding_run.param_set.get_quality_param_value()][encoding_run.round_number]
-                            metrics["bitrate"] = encoding_run.output_file.get_bitrate()
+        if parallel_calculations > 1:
+            with Pool(parallel_calculations) as p:
+                p.map(Tester._calculate_metrics_for_one_run, values)
 
-                            psnr_needed = "psnr" not in metrics \
-                                          and (CsvField.PSNR_AVG in Cfg().csv_enabled_fields
-                                               or CsvField.PSNR_STDEV in Cfg().csv_enabled_fields)
-                            ssim_needed = "ssim" not in metrics \
-                                          and (CsvField.SSIM_AVG in Cfg().csv_enabled_fields
-                                               or CsvField.SSIM_STDEV in Cfg().csv_enabled_fields)
-                            vmaf_needed = "vmaf" not in metrics \
-                                          and (CsvField.VMAF_AVG in Cfg().csv_enabled_fields
-                                               or CsvField.VMAF_STDEV in Cfg().csv_enabled_fields)
+    @staticmethod
+    def _calculate_metrics_for_one_run(in_args):
+        encoding_run, metrics, psnr_needed, ssim_needed, vmaf_needed = in_args
+        try:
+            console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
 
-                            if psnr_needed or ssim_needed or vmaf_needed:
-                                psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
-                                    encoding_run,
-                                    psnr=psnr_needed,
-                                    ssim=ssim_needed,
-                                    vmaf=vmaf_needed
-                                )
-                                if psnr_needed:
-                                    metrics["psnr"] = psnr_avg
-                                if ssim_needed:
-                                    metrics["ssim"] = ssim_avg
-                                if vmaf_needed:
-                                    metrics["vmaf"] = vmaf_avg
-                            else:
-                                console_log.info(f"Tester: Metrics for '{encoding_run.name}' already exist")
+            metrics["bitrate"] = encoding_run.output_file.get_bitrate()
+            if encoding_run.qp_name != tester.QualityParam.QP:
+                metrics["target_bitrate"] = encoding_run.qp_value
 
-                        except Exception as exception:
-                            console_log.error(f"Tester: Failed to compute metrics for '{encoding_run.name}'")
-                            if isinstance(exception, subprocess.CalledProcessError):
-                                console_log.error(exception.output.decode())
-                            log_exception(exception)
-                            console_log.info(f"Tester: Ignoring error")
+            if psnr_needed or ssim_needed or vmaf_needed:
+                psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
+                    encoding_run,
+                    psnr=psnr_needed,
+                    ssim=ssim_needed,
+                    vmaf=vmaf_needed
+                )
+                if psnr_needed:
+                    metrics["psnr"] = psnr_avg
+                if ssim_needed:
+                    metrics["ssim"] = ssim_avg
+                if vmaf_needed:
+                    metrics["vmaf"] = vmaf_avg
+            else:
+                console_log.info(f"Tester: Metrics for '{encoding_run.name}' already exist")
+
+        except Exception as exception:
+            console_log.error(f"Tester: Failed to compute metrics for '{encoding_run.name}'")
+            if isinstance(exception, subprocess.CalledProcessError):
+                console_log.error(exception.output.decode())
+            log_exception(exception)
+            console_log.info(f"Tester: Ignoring error")
 
     def generate_csv(self,
                      context: TesterContext,
@@ -230,7 +246,7 @@ class Tester:
         console_log.info(f"Tester: Generating CSV file '{csv_filepath}'")
 
         try:
-            csvfile = CsvFile(filepath=Path(csv_filepath))
+            csvfile = csv.CsvFile(filepath=Path(csv_filepath))
 
             for sequence in context.get_input_sequences():
                 for test in context.get_tests():
@@ -238,42 +254,7 @@ class Tester:
                         for i, subtest in enumerate(test.subtests):
 
                             try:
-                                sub_anchor = anchor.subtests[i]
-
-                                console_log.info(f"Tester: Adding CSV entry for "
-                                                 f"'{subtest.name}/{sequence.get_filepath().name}'")
-
-                                metric = test.metrics[sequence][subtest.param_set.get_quality_param_value()]
-                                anchor_metric = anchor.metrics[sequence][subtest.param_set.get_quality_param_value()]
-                                csvfile.add_entry(
-                                    {
-                                        CsvField.SEQUENCE_NAME: sequence.get_filepath().name,
-                                        CsvField.SEQUENCE_CLASS: sequence.get_sequence_class(),
-                                        CsvField.SEQUENCE_FRAMECOUNT: sequence.get_framecount(),
-                                        CsvField.ENCODER_NAME: test.encoder.get_pretty_name(),
-                                        CsvField.ENCODER_REVISION: test.encoder.get_short_revision(),
-                                        CsvField.ENCODER_DEFINES: test.encoder.get_defines(),
-                                        CsvField.ENCODER_CMDLINE: subtest.param_set.to_cmdline_str(),
-                                        CsvField.QUALITY_PARAM_NAME: subtest.param_set.get_quality_param_type().pretty_name,
-                                        CsvField.QUALITY_PARAM_VALUE: subtest.param_set.get_quality_param_value(),
-                                        CsvField.CONFIG_NAME: test.name,
-                                        CsvField.ANCHOR_NAME: anchor.name,
-                                        CsvField.TIME_SECONDS: metric["encoding_time_avg"],
-                                        CsvField.TIME_STDEV: metric["encoding_time_stdev"],
-                                        CsvField.BITRATE: metric["bitrate_avg"],
-                                        CsvField.BITRATE_STDEV: metric["bitrate_stdev"],
-                                        CsvField.SPEEDUP: metric.speedup(anchor_metric),
-                                        CsvField.PSNR_AVG: metric["psnr_avg"],
-                                        CsvField.PSNR_STDEV: metric["psnr_stdev"],
-                                        CsvField.SSIM_AVG: metric["ssim_avg"],
-                                        CsvField.SSIM_STDEV: metric["ssim_stdev"],
-                                        CsvField.VMAF_AVG: metric["vmaf_avg"],
-                                        CsvField.VMAF_STDEV: metric["vmaf_stdev"],
-                                        CsvField.BDBR_PSNR: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "psnr"),
-                                        CsvField.BDBR_SSIM: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "ssim"),
-                                        CsvField.BDBR_VMAF: test.metrics[sequence].compute_bdbr_to_anchor(anchor.metrics[sequence], "vmaf"),
-                                    }
-                                )
+                                Tester.__add_csv_line(anchor, csvfile, sequence, subtest, test)
 
                             except Exception as exception:
                                 console_log.error(f"Tester: Failed to add CSV entry for "
@@ -285,6 +266,49 @@ class Tester:
             console_log.error(f"Tester: Failed to generate CSV file '{csv_filepath}'")
             log_exception(exception)
             exit(1)
+
+    @staticmethod
+    def __add_csv_line(anchor, csvfile, sequence, subtest, test):
+        console_log.info(f"Tester: Adding CSV entry for "
+                         f"'{subtest.name}/{sequence.get_filepath().name}'")
+        metric = test.metrics[sequence][subtest.param_set.get_quality_param_value()]
+        anchor_metric = anchor.metrics[sequence][subtest.param_set.get_quality_param_value()]
+        csvfile.add_entry(
+            {
+                csv.CsvField.SEQUENCE_NAME: lambda: sequence.get_filepath().name,
+                csv.CsvField.SEQUENCE_CLASS: lambda: sequence.get_sequence_class(),
+                csv.CsvField.SEQUENCE_FRAMECOUNT: lambda: sequence.get_framecount(),
+                csv.CsvField.ENCODER_NAME: lambda: test.encoder.get_pretty_name(),
+                csv.CsvField.ENCODER_REVISION: lambda: test.encoder.get_short_revision(),
+                csv.CsvField.ENCODER_DEFINES: lambda: test.encoder.get_defines(),
+                csv.CsvField.ENCODER_CMDLINE: lambda: subtest.param_set.to_cmdline_str(),
+                csv.CsvField.QUALITY_PARAM_NAME: lambda: subtest.param_set.get_quality_param_type().pretty_name,
+                csv.CsvField.QUALITY_PARAM_VALUE: lambda: subtest.param_set.get_quality_param_value()
+                                                          if "target_bitrate_avg" not in metric
+                                                          else metric["target_bitrate_avg"],
+                csv.CsvField.CONFIG_NAME: lambda: test.name,
+                csv.CsvField.ANCHOR_NAME: lambda: anchor.name,
+                csv.CsvField.TIME_SECONDS: lambda: metric["encoding_time_avg"],
+                csv.CsvField.TIME_STDEV: lambda: metric["encoding_time_stdev"],
+                csv.CsvField.BITRATE: lambda: metric["bitrate_avg"],
+                csv.CsvField.BITRATE_STDEV: lambda: metric["bitrate_stdev"],
+                csv.CsvField.SPEEDUP: lambda: metric.speedup(anchor_metric),
+                csv.CsvField.PSNR_AVG: lambda: metric["psnr_avg"],
+                csv.CsvField.PSNR_STDEV: lambda: metric["psnr_stdev"],
+                csv.CsvField.SSIM_AVG: lambda: metric["ssim_avg"],
+                csv.CsvField.SSIM_STDEV: lambda: metric["ssim_stdev"],
+                csv.CsvField.VMAF_AVG: lambda: metric["vmaf_avg"],
+                csv.CsvField.VMAF_STDEV: lambda: metric["vmaf_stdev"],
+                csv.CsvField.BDBR_PSNR: lambda: test.metrics[sequence].compute_bdbr_to_anchor(
+                    anchor.metrics[sequence], "psnr"),
+                csv.CsvField.BDBR_SSIM: lambda: test.metrics[sequence].compute_bdbr_to_anchor(
+                    anchor.metrics[sequence], "ssim"),
+                csv.CsvField.BDBR_VMAF: lambda: test.metrics[sequence].compute_bdbr_to_anchor(
+                    anchor.metrics[sequence], "vmaf"),
+                csv.CsvField.BITRATE_ERROR: lambda: -1 + metric["bitrate_avg"] / metric[
+                    "target_bitrate_avg"] if "target_bitrate_avg" in metric else "-"
+            }
+        )
 
     def _do_encoding_run(self,
                          encoding_run) -> None:

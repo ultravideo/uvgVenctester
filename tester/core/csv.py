@@ -1,11 +1,11 @@
 """This module defines functionality related to generating the CSV output file."""
 
-from tester.core.log import *
-from tester.core import cfg
-
 import math
+from enum import Enum
 from pathlib import Path
-from enum import *
+
+from tester.core import cfg
+from tester.core.log import console_log
 
 
 def csv_validate_config():
@@ -43,6 +43,7 @@ class CsvField(Enum):
     BDBR_PSNR: int = 23
     BDBR_SSIM: int = 24
     BDBR_VMAF: int = 25
+    BITRATE_ERROR: int = 26
 
 
 class CsvFile():
@@ -71,7 +72,7 @@ class CsvFile():
 
         new_row = ""
         for field_id in cfg.Cfg().csv_enabled_fields:
-            value = values_by_field[field_id]
+            value = values_by_field[field_id]()
 
             if isinstance(value, float):
                 if math.isnan(value):

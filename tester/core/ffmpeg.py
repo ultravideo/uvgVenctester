@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from tester.core.log import *
-from tester.core.video import *
-from tester.core.test import *
-
 import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
+
+import tester.core.csv as csv
+import tester.core.test as test
+from tester.core.cfg import Cfg
+from tester.core.log import console_log
 
 # Compile Regex patterns only once for better performance.
 _PSNR_PATTERN: re.Pattern = re.compile(r".*psnr_avg:([0-9]+.[0-9]+).*", re.DOTALL)
@@ -34,7 +35,7 @@ def ffmpeg_validate_config():
         raise RuntimeError
 
 
-def compute_metrics(encoding_run: EncodingRun,
+def compute_metrics(encoding_run: test.EncodingRun,
                     psnr: bool,
                     ssim: bool,
                     vmaf: bool) -> (float, float, float):
@@ -48,12 +49,13 @@ def compute_metrics(encoding_run: EncodingRun,
     vmaf_log_name = encoding_run.vmaf_log_path.name
 
     # Copy the VMAF model into the working directory to enable using a relative path.
-    vmaf_model_src_path1 = Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
-    vmaf_model_src_path2 = Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
-    vmaf_model_dest_path1 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl"
-    vmaf_model_dest_path2 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl.model"
-    shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
-    shutil.copy(str(vmaf_model_src_path2), str(vmaf_model_dest_path2))
+    if vmaf:
+        vmaf_model_src_path1 = Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
+        vmaf_model_src_path2 = Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
+        vmaf_model_dest_path1 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl"
+        vmaf_model_dest_path2 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl.model"
+        shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
+        shutil.copy(str(vmaf_model_src_path2), str(vmaf_model_dest_path2))
 
     # Build the filter based on which metrics are to be computed:
 
@@ -158,9 +160,10 @@ def compute_metrics(encoding_run: EncodingRun,
             shell=True
         )
 
-        # Remove the temporary VMAF model file.
-        os.remove(vmaf_model_dest_path1)
-        os.remove(vmaf_model_dest_path2)
+        if vmaf:
+            # Remove the temporary VMAF model file.
+            os.remove(vmaf_model_dest_path1)
+            os.remove(vmaf_model_dest_path2)
 
         # Ugly but simple:
 

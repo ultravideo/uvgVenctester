@@ -1,6 +1,7 @@
 """This module defines functionality related to the VMAF library."""
 
-from tester.core.cfg import *
+from tester.core.cfg import Cfg
+from tester.core.log import console_log
 
 
 def vmaf_validate_config():

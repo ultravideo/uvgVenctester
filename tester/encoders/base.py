@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from tester.core.cfg import *
-from tester.core.git import *
-from tester.core.log import *
-from tester.core.test import *
-
 import hashlib
+import logging
 import shutil
+import subprocess
 from enum import Enum
 from pathlib import Path
+from typing import Iterable
+
+import tester
+import tester.core.git as git
+from tester.core.log import console_log, setup_build_log
 
 
 class Encoder(Enum):
@@ -37,24 +39,31 @@ class QualityParam(Enum):
 
     QP: int = 1
     BITRATE: int = 2
+    BPP: int = 3
+    RES_SCALED_BITRATE: int = 4
+    RES_ROOT_SCALED_BITRATE: int = 5
 
     @property
     def pretty_name(self):
-        if self == QualityParam.QP:
-            return "QP"
-        elif self == QualityParam.BITRATE:
-            return "bitrate"
-        else:
-            raise RuntimeError
+        names = {
+            QualityParam.QP: "QP",
+            QualityParam.BITRATE: "bitrate",
+            QualityParam.BPP: "bpp",
+            QualityParam.RES_SCALED_BITRATE: "resolution_scaled_bitrate",
+            QualityParam.RES_ROOT_SCALED_BITRATE: "root_of_resolution_scaled_bitrate",
+        }
+        return names[self]
 
     @property
     def short_name(self):
-        if self == QualityParam.QP:
-            return "qp"
-        elif self == QualityParam.BITRATE:
-            return "br"
-        else:
-            raise RuntimeError
+        names = {
+            QualityParam.QP: "qp",
+            QualityParam.BITRATE: "br",
+            QualityParam.BPP: "bpp",
+            QualityParam.RES_SCALED_BITRATE: "res_br",
+            QualityParam.RES_ROOT_SCALED_BITRATE: "root_br",
+        }
+        return names[self]
 
 
 class ParamSetBase():
@@ -78,7 +87,7 @@ class ParamSetBase():
 
     def __eq__(self,
                other: ParamSetBase):
-        return self.to_cmdline_str() == other.to_cmdline_str()
+        return self.to_cmdline_str(include_quality_param=False) == other.to_cmdline_str(include_quality_param=False)
 
     def __hash__(self):
         return hash(self.to_cmdline_str())
@@ -227,28 +236,34 @@ class ParamSetBase():
     def get_cl_args(self) -> str:
         return self._cl_args
 
+
 class EncoderBase:
     """An interface representing an encoder. Each encoder module must implement a class that
     inherits this class. The purpose of the class is to provide an interface through
     which the tester can interact with each encoder in a generic manner."""
 
+    file_suffix = "hevc"
+
     def __init__(self,
                  id: Encoder,
                  user_given_revision: str,
-                 defines: list,
+                 defines: Iterable,
                  git_local_path: Path,
-                 git_remote_url: str):
+                 git_remote_url: str,
+                 use_prebuilt: bool):
 
         self._id: Encoder = id
         self._name: str = id.pretty_name
         self._user_given_revision: str = user_given_revision
-        self._defines: list = defines
+        self._defines: Iterable = defines
         self._define_hash: str = hashlib.md5(str(defines).encode()).hexdigest()
-        self._define_hash_short: str = self._define_hash[:Cfg().tester_define_hash_len]
+        self._define_hash_short: str = self._define_hash[:tester.Cfg().tester_define_hash_len]
         self._git_local_path: Path = git_local_path
         self._git_remote_url: str = git_remote_url
 
-        self._git_repo: GitRepository = GitRepository(git_local_path)
+        self._git_repo: git.GitRepository = git.GitRepository(git_local_path)
+
+        self._use_prebuilt = use_prebuilt
 
         self._exe_name: str = None
         self._exe_path: Path = None
@@ -257,7 +272,13 @@ class EncoderBase:
         self._build_log_name: str = None
         self._build_log_path: Path = None
         # Initializes the above.
-        self.prepare_sources()
+        if not self._use_prebuilt:
+            self.prepare_sources()
+        else:
+            self._exe_name = f"{self._name}_{self._user_given_revision}" + \
+                             f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}"
+            self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_name
+            self._commit_hash = self._user_given_revision
 
         # This must be set in the constructor of derived classes.
         self._exe_src_path: Path = None
@@ -338,12 +359,12 @@ class EncoderBase:
             raise exception
 
         # These can now be evaluated because the repo exists for certain.
-        self._commit_hash_short = self._commit_hash[:Cfg().tester_commit_hash_len]
-        self._exe_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}"\
-                         f"{'.exe' if Cfg().system_os_name == 'Windows' else ''}"
-        self._exe_path = Cfg().tester_binaries_dir_path / self._exe_name
+        self._commit_hash_short = self._commit_hash[:tester.Cfg().tester_commit_hash_len]
+        self._exe_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}" \
+                         f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}"
+        self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_name
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
-        self._build_log_path = Cfg().tester_binaries_dir_path / self._build_log_name
+        self._build_log_path = tester.Cfg().tester_binaries_dir_path / self._build_log_name
 
         console_log.info(f"{self._name}: Revision '{self._user_given_revision}' "
                          f"maps to commit hash '{self._commit_hash}'")
@@ -354,18 +375,24 @@ class EncoderBase:
 
     def build_start(self) -> bool:
         """Meant to be called as the first thing from the build() method of derived classes."""
-        assert Cfg().tester_binaries_dir_path.exists()
+        assert tester.Cfg().tester_binaries_dir_path.exists()
+        if self._use_prebuilt:
+            console_log.info(f"{self._name}: Using prebuilt encoder '{self._exe_name}'")
+            if not self._exe_path.exists():
+                raise FileNotFoundError(f"Missing prebuilt encoder '{self._exe_name}'")
+            return True
 
         console_log.info(f"{self._name}: Building executable '{self._exe_name}'")
         console_log.info(f"{self._name}: Log: '{self._build_log_name}'")
 
-        if (self._exe_path.exists()):
+        if self._exe_path.exists():
             console_log.info(f"{self._name}: Executable '{self._exe_name}' already exists")
             # Don't build unnecessarily.
             return False
 
         self._build_log = setup_build_log(self._build_log_path)
 
+        self._git_repo.fetch_all()
         # Checkout to the desired version.
         cmd_str, output, exception = self._git_repo.checkout(self._commit_hash)
         if not exception:
@@ -383,6 +410,8 @@ class EncoderBase:
     def build_finish(self,
                      build_cmd: tuple) -> None:
         """Meant to be called as the last thing from the build() method of derived classes."""
+        if self._use_prebuilt:
+            return
 
         assert self._exe_src_path
 
@@ -390,10 +419,11 @@ class EncoderBase:
         self._build_log.info(subprocess.list2cmdline(build_cmd))
         try:
             output = subprocess.check_output(
-               subprocess.list2cmdline(build_cmd),
+                subprocess.list2cmdline(build_cmd),
                 shell=True,
                 stderr=subprocess.STDOUT
             )
+            from tester.core.cfg import Cfg
             if Cfg().system_os_name == "Windows":
                 # "cp1252" is the encoding the Windows shell uses.
                 self._build_log.info(output.decode(encoding="cp1252"))
