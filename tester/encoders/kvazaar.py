@@ -142,8 +142,8 @@ class Kvazaar(EncoderBase):
             # Run autogen.sh, then configure, then make.
             build_cmd = (
                 "cd", str(self._git_local_path),
-                "&&", "autogen.sh",
-                "&&", "configure",) + tuple(kvz_configure_args) + (
+                "&&", "./autogen.sh",
+                "&&", "./configure",) + tuple(kvz_configure_args) + (
                 "&&", "make",
             )
 
