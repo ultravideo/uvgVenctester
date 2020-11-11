@@ -13,7 +13,7 @@ import tester.encoders.vtm as vtm
 from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs
 from tester.core.cfg import Cfg
 from tester.core.log import console_log, log_exception
-from tester.core.test import Test
+from tester.core.test import Test, EncodingRun
 from tester.core.video import RawVideoSequence
 from tester.encoders.base import Encoder
 
@@ -322,12 +322,13 @@ class Tester:
         )
 
     @staticmethod
-    def _do_encoding_run(encoding_run) -> None:
+    def _do_encoding_run(encoding_run: EncodingRun) -> None:
 
         console_log.info(f"Tester: Running '{encoding_run.name}'")
 
         try:
-            if not encoding_run.output_file.get_filepath().exists():
+            if not encoding_run.output_file.get_filepath().exists() or \
+                    "encoding_time" not in encoding_run.parent.parent.metrics[encoding_run]:
 
                 start_time: float = time.perf_counter()
                 encoding_run.encoder.encode(encoding_run)
@@ -337,6 +338,7 @@ class Tester:
                 test = subtest.parent
 
                 metrics = test.metrics[encoding_run]
+                metrics.clear()
                 metrics["encoding_time"] = encoding_time_seconds
             else:
                 console_log.info(f"Tester: Encoding output for '{encoding_run.name}' already exists")

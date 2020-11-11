@@ -161,6 +161,7 @@ class Test:
         self.seek: int = seek
         self.frames: int = frames
         self.rounds: int = rounds
+        self.use_prebuilt = use_prebuilt
 
         self.sequences: list = None
         self.encoder: EncoderBase = None

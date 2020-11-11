@@ -29,6 +29,7 @@ class EncodingRunMetrics:
         return self._data[item]
 
     def __setitem__(self, key, value):
+        self._read_in()
         self._data[key] = value
         self._write_out()
 
@@ -46,6 +47,9 @@ class EncodingRunMetrics:
     def __contains__(self, item):
         return item in self._data
 
+    def clear(self):
+        self._data = {}
+        self._write_out()
 
 class EncodingQualityRunMetrics:
 

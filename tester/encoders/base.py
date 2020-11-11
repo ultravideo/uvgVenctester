@@ -487,7 +487,6 @@ class EncoderBase:
                          dummy_cmd: tuple,
                          param_set: ParamSetBase) -> bool:
         """Meant to be called as the last thing from the dummy_run() method of derived classes."""
-
         try:
             subprocess.check_output(
                 subprocess.list2cmdline(dummy_cmd),
@@ -515,7 +514,8 @@ class EncoderBase:
         console_log.debug(f"{self._name}: Arguments: '{encoding_run.param_set.to_cmdline_str()}'")
         console_log.debug(f"{self._name}: Log: '{encoding_run.encoding_log_path.name}'")
 
-        if encoding_run.output_file.get_filepath().exists():
+        if encoding_run.output_file.get_filepath().exists() \
+                and "encoding_time" in encoding_run.parent.parent.metrics[encoding_run]:
             console_log.info(f"{self._name}: File '{encoding_run.output_file.get_filepath().name}' already exists")
             # Don't encode unnecessarily.
             return False

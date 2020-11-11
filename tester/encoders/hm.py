@@ -68,13 +68,13 @@ class HmParamSet(ParamSetBase):
             if self._quality_param_type == tester.QualityParam.QP:
                 args += f" --QP={self._quality_param_value}"
             elif self._quality_param_type == tester.QualityParam.BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
+                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
             elif self.get_quality_param_type() == tester.QualityParam.BPP:
-                args += f" --TargetBitrate={self._quality_param_value}"
+                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
             elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
+                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
             elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
+                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
             else:
                 raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
 
@@ -85,8 +85,6 @@ class HmParamSet(ParamSetBase):
         # TODO: Figure out why this is needed or if it's needed.
         if not "--SEIDecodedPictureHash" in args:
             args += " --SEIDecodedPictureHash=3"
-        if not "--ConformanceWindowMode" in args:
-            args += " --ConformanceWindowMode=1"
 
         if inode_safe:
             args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
@@ -241,5 +239,4 @@ class Hm(EncoderBase):
                 "-f", str(encoding_run.frames),
                 "-o", os.devnull,
             ) + quality
-
         self.encode_finish(encode_cmd, encoding_run)
