@@ -13,7 +13,7 @@ import tester.encoders.vtm as vtm
 from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs
 from tester.core.cfg import Cfg
 from tester.core.log import console_log, log_exception
-from tester.core.test import Test
+from tester.core.test import Test, EncodingRun
 from tester.core.video import RawVideoSequence
 from tester.encoders.base import Encoder
 
@@ -146,7 +146,8 @@ class Tester:
         return context
 
     def run_tests(self,
-                  context: TesterContext) -> None:
+                  context: TesterContext,
+                  parallel_runs: int = 1) -> None:
 
         try:
             self._create_base_directories_if_not_exist()
@@ -161,11 +162,20 @@ class Tester:
                     test.encoder.clean()
             context.validate_final()
 
+            encoding_runs = []
+
             for sequence in context.get_input_sequences():
                 for test in context.get_tests():
                     for subtest in test.subtests:
                         for encoding_run in subtest.encoding_runs[sequence]:
-                            self._do_encoding_run(encoding_run)
+                            encoding_runs.append(encoding_run)
+
+            if parallel_runs > 1:
+                with Pool(parallel_runs) as p:
+                    p.map(Tester._do_encoding_run, encoding_runs)
+            else:
+                for encoding_run in encoding_runs:
+                    self._do_encoding_run(encoding_run)
 
         except Exception as exception:
             console_log.error(f"Tester: Failed to run tests")
@@ -173,7 +183,8 @@ class Tester:
             exit(1)
 
     def compute_metrics(self,
-                        context: TesterContext, parallel_calculations: int = 1) -> None:
+                        context: TesterContext,
+                        parallel_calculations: int = 1) -> None:
 
         values = []
         parallel_calculations = max(parallel_calculations, 1)
@@ -310,13 +321,14 @@ class Tester:
             }
         )
 
-    def _do_encoding_run(self,
-                         encoding_run) -> None:
+    @staticmethod
+    def _do_encoding_run(encoding_run: EncodingRun) -> None:
 
         console_log.info(f"Tester: Running '{encoding_run.name}'")
 
         try:
-            if not encoding_run.output_file.get_filepath().exists():
+            if not encoding_run.output_file.get_filepath().exists() or \
+                    "encoding_time" not in encoding_run.parent.parent.metrics[encoding_run]:
 
                 start_time: float = time.perf_counter()
                 encoding_run.encoder.encode(encoding_run)
@@ -326,6 +338,7 @@ class Tester:
                 test = subtest.parent
 
                 metrics = test.metrics[encoding_run]
+                metrics.clear()
                 metrics["encoding_time"] = encoding_time_seconds
             else:
                 console_log.info(f"Tester: Encoding output for '{encoding_run.name}' already exists")

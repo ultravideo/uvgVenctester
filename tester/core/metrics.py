@@ -29,6 +29,7 @@ class EncodingRunMetrics:
         return self._data[item]
 
     def __setitem__(self, key, value):
+        self._read_in()
         self._data[key] = value
         self._write_out()
 
@@ -46,6 +47,9 @@ class EncodingRunMetrics:
     def __contains__(self, item):
         return item in self._data
 
+    def clear(self):
+        self._data = {}
+        self._write_out()
 
 class EncodingQualityRunMetrics:
 
@@ -127,11 +131,11 @@ class TestMetrics:
             base_path = Cfg().tester_output_dir_path \
                               / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
                                 f"{encoder.get_short_define_hash()}" \
-                              / test.subtests[0].param_set.to_cmdline_str(False)
+                              / test.subtests[0].param_set.to_cmdline_str(False, inode_safe=True)
         else:
             base_path = Cfg().tester_output_dir_path \
                               / f"{encoder.get_name().lower()}_{encoder.get_revision()}" \
-                              / test.subtests[0].param_set.to_cmdline_str(False)
+                              / test.subtests[0].param_set.to_cmdline_str(False, inode_safe=True)
 
         self.seq_data = {
             seq: SequenceMetrics(base_path, seq, test.quality_param_type, test.quality_param_list, test.rounds)

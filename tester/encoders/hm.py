@@ -16,23 +16,14 @@ from . import EncoderBase, ParamSetBase
 
 def hm_validate_config():
     # Using the public property raises an exception, so access the private attribute instead.
-    if tester.Cfg()._hm_cfg_file_path is None:
-        console_log.error(f"HM: Configuration file path has not been set")
-        raise RuntimeError
-
-    elif not tester.Cfg().hm_cfg_file_path.exists():
-        console_log.error(f"HM: Configuration file '{tester.Cfg().hm_cfg_file_path}' does not exist")
-        raise RuntimeError
-
-    elif not git.git_remote_exists(tester.Cfg().hm_remote_url):
+    if not git.git_remote_exists(tester.Cfg().hm_remote_url):
         console_log.error(f"HM: Remote '{tester.Cfg().hm_remote_url}' is not available")
         raise RuntimeError
 
 
 def hm_get_temporal_subsample_ratio() -> int:
-
     hm_validate_config()
-
+    return 1
     pattern = re.compile(r"TemporalSubsampleRatio.*: ([0-9]+)", re.DOTALL)
     lines = tester.Cfg().hm_cfg_file_path.open("r").readlines()
     for line in lines:
@@ -68,7 +59,8 @@ class HmParamSet(ParamSetBase):
     def _to_unordered_args_list(self,
                                 include_quality_param: bool = True,
                                 include_seek: bool = True,
-                                include_frames: bool = True) -> list:
+                                include_frames: bool = True,
+                                inode_safe=False) -> list:
 
         args = self._cl_args
 
@@ -76,13 +68,13 @@ class HmParamSet(ParamSetBase):
             if self._quality_param_type == tester.QualityParam.QP:
                 args += f" --QP={self._quality_param_value}"
             elif self._quality_param_type == tester.QualityParam.BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
+                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
             elif self.get_quality_param_type() == tester.QualityParam.BPP:
-                args += f" --TargetBitrate={self._quality_param_value}"
+                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
             elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
+                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
             elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
+                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
             else:
                 raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
 
@@ -93,8 +85,9 @@ class HmParamSet(ParamSetBase):
         # TODO: Figure out why this is needed or if it's needed.
         if not "--SEIDecodedPictureHash" in args:
             args += " --SEIDecodedPictureHash=3"
-        if not "--ConformanceWindowMode" in args:
-            args += " --ConformanceWindowMode=1"
+
+        if inode_safe:
+            args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
 
         return args.split()
 
@@ -118,7 +111,7 @@ class Hm(EncoderBase):
 
         self._exe_src_path: Path = None
         if tester.Cfg().system_os_name == "Windows":
-            self._exe_src_path =\
+            self._exe_src_path = \
                 self._git_local_path \
                 / "bin" \
                 / f"vs{tester.Cfg().vs_major_version}" \
@@ -143,15 +136,15 @@ class Hm(EncoderBase):
 
             # Configure CMake, run VsDevCmd.bat, then MSBuild.
             build_cmd = (
-                "cd", str(self._git_local_path),
-                "&&", "mkdir", "build",
-                "&&", "cd", "build",
-                "&&", "cmake", "..",
-                      "-G", cmake.get_cmake_build_system_generator(),
-                      "-A", cmake.get_cmake_architecture(),
-                "&&", "call", vs.get_vsdevcmd_bat_path(),
-                "&&", "msbuild", "HM.sln", f"/t:App\\TAppEncoder",
-            ) + tuple(msbuild_args)
+                            "cd", str(self._git_local_path),
+                            "&&", "mkdir", "build",
+                            "&&", "cd", "build",
+                            "&&", "cmake", "..",
+                            "-G", cmake.get_cmake_build_system_generator(),
+                            "-A", cmake.get_cmake_architecture(),
+                            "&&", "call", vs.get_vsdevcmd_bat_path(),
+                            "&&", "msbuild", "HM.sln", f"/t:App\\TAppEncoder",
+                        ) + tuple(msbuild_args)
 
         elif tester.Cfg().system_os_name == "Linux":
 
@@ -201,18 +194,19 @@ class Hm(EncoderBase):
         HEIGHT_PLACEHOLDER = "16"
         FRAMECOUNT_PLACEHOLDER = "1"
 
-        dummy_cmd = (
-            str(self._exe_path),
-            "-c", str(tester.Cfg().hm_cfg_file_path),
-            "-i", os.devnull,
-            "-fr", FRAMERATE_PLACEHOLDER,
-            "-wdt", WIDTH_PLACEHOLDER,
-            "-hgt", HEIGHT_PLACEHOLDER,
-            # Just in case the parameter set doesn't contain the number of frames parameter.
-            "-f", FRAMECOUNT_PLACEHOLDER,
-            "-b", os.devnull,
-            "-o", os.devnull,
-        ) + param_set.to_cmdline_tuple(include_frames=False)
+        dummy_cmd = \
+            (
+                str(self._exe_path),
+                "-i", os.devnull,
+                "-fr", FRAMERATE_PLACEHOLDER,
+                "-wdt", WIDTH_PLACEHOLDER,
+                "-hgt", HEIGHT_PLACEHOLDER,
+                # Just in case the parameter set doesn't contain the number of frames parameter.
+                "-f", FRAMECOUNT_PLACEHOLDER,
+            ) + param_set.to_cmdline_tuple(include_frames=False) + (
+                "-b", os.devnull,
+                "-o", os.devnull,
+            )
 
         return self.dummy_run_finish(dummy_cmd, param_set)
 
@@ -223,7 +217,7 @@ class Hm(EncoderBase):
             return
 
         if encoding_run.qp_name == tester.QualityParam.QP:
-            quality = (f"--QP={encoding_run.qp_value}", )
+            quality = (f"--QP={encoding_run.qp_value}",)
         elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
                                       tester.QualityParam.RES_SCALED_BITRATE,
                                       tester.QualityParam.BPP,
@@ -232,17 +226,17 @@ class Hm(EncoderBase):
         else:
             assert 0, "Invalid quality parameter"
 
-        encode_cmd = (
-            str(self._exe_path),
-            "-c", str(tester.Cfg().hm_cfg_file_path),
-            "-i", str(encoding_run.input_sequence.get_filepath()),
-            "-fr", str(encoding_run.input_sequence.get_framerate()),
-            "-wdt", str(encoding_run.input_sequence.get_width()),
-            "-hgt", str(encoding_run.input_sequence.get_height()),
-            "-b", str(encoding_run.output_file.get_filepath()),
-            "-f", str(encoding_run.frames),
-            "-o", os.devnull,
-        ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False, include_frames=False) + quality
-
-
+        encode_cmd = \
+            (
+                str(self._exe_path),
+            ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
+                                                        include_frames=False) + (
+                "-i", str(encoding_run.input_sequence.get_filepath()),
+                "-fr", str(encoding_run.input_sequence.get_framerate()),
+                "-wdt", str(encoding_run.input_sequence.get_width()),
+                "-hgt", str(encoding_run.input_sequence.get_height()),
+                "-b", str(encoding_run.output_file.get_filepath()),
+                "-f", str(encoding_run.frames),
+                "-o", os.devnull,
+            ) + quality
         self.encode_finish(encode_cmd, encoding_run)

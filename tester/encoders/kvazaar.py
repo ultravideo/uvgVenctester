@@ -47,7 +47,8 @@ class KvazaarParamSet(ParamSetBase):
     def _to_unordered_args_list(self,
                                 include_quality_param: bool = True,
                                 include_seek: bool = True,
-                                include_frames: bool = True) -> list:
+                                include_frames: bool = True,
+                                inode_safe=False) -> list:
 
         args = self._cl_args
 
@@ -68,6 +69,9 @@ class KvazaarParamSet(ParamSetBase):
             args += f" --seek {self._seek}"
         if include_frames and self._frames:
             args += f" --frames {self._frames}"
+
+        if inode_safe:
+            args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
 
         split_args: list = []
 

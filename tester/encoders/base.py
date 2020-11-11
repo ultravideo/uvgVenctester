@@ -118,7 +118,8 @@ class ParamSetBase():
     def _to_unordered_args_list(self,
                                 include_quality_param: bool = True,
                                 include_seek: bool = True,
-                                include_frames: bool = True) -> list:
+                                include_frames: bool = True,
+                                inode_safe: bool = False) -> list:
         """Returns a list where the option names and values have been split.
         Must be implemented in subclasses (the encoders parse arguments differently)."""
         raise NotImplementedError
@@ -126,13 +127,15 @@ class ParamSetBase():
     def _to_args_dict(self,
                       include_quality_param: bool = True,
                       include_seek: bool = True,
-                      include_frames: bool = True) -> dict:
+                      include_frames: bool = True,
+                      inode_safe=False) -> dict:
         """Returns a dict where key = option name, value = option value."""
 
         args_list = self._to_unordered_args_list(
             include_quality_param,
             include_seek,
-            include_frames
+            include_frames,
+            inode_safe
         )
 
         # Put the options and their values into this dict. Value None indicates that the option
@@ -171,7 +174,8 @@ class ParamSetBase():
     def to_cmdline_tuple(self,
                          include_quality_param: bool = True,
                          include_seek: bool = True,
-                         include_frames: bool = True) -> tuple:
+                         include_frames: bool = True,
+                         inode_safe=False) -> tuple:
         """Returns the command line arguments in a tuple that has been ordered."""
 
         reordered_args_list: list = []
@@ -179,7 +183,8 @@ class ParamSetBase():
         args_dict = self._to_args_dict(
             include_quality_param,
             include_seek,
-            include_frames
+            include_frames,
+            inode_safe
         )
 
         # Handle arguments that should come before others, if any.
@@ -217,9 +222,10 @@ class ParamSetBase():
     def to_cmdline_str(self,
                        include_quality_param: bool = True,
                        include_seek: bool = True,
-                       include_frames: bool = True) -> str:
+                       include_frames: bool = True,
+                       inode_safe=False) -> str:
         """Returns the command line arguments in a string that has been ordered."""
-        return " ".join(self.to_cmdline_tuple(include_quality_param, include_seek, include_frames))
+        return " ".join(self.to_cmdline_tuple(include_quality_param, include_seek, include_frames, inode_safe))
 
     def get_quality_param_type(self) -> QualityParam:
         return self._quality_param_type
@@ -481,7 +487,6 @@ class EncoderBase:
                          dummy_cmd: tuple,
                          param_set: ParamSetBase) -> bool:
         """Meant to be called as the last thing from the dummy_run() method of derived classes."""
-
         try:
             subprocess.check_output(
                 subprocess.list2cmdline(dummy_cmd),
@@ -509,7 +514,8 @@ class EncoderBase:
         console_log.debug(f"{self._name}: Arguments: '{encoding_run.param_set.to_cmdline_str()}'")
         console_log.debug(f"{self._name}: Log: '{encoding_run.encoding_log_path.name}'")
 
-        if encoding_run.output_file.get_filepath().exists():
+        if encoding_run.output_file.get_filepath().exists() \
+                and "encoding_time" in encoding_run.parent.parent.metrics[encoding_run]:
             console_log.info(f"{self._name}: File '{encoding_run.output_file.get_filepath().name}' already exists")
             # Don't encode unnecessarily.
             return False
