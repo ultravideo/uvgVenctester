@@ -96,8 +96,8 @@ class Kvazaar(EncoderBase):
                  user_given_revision: str,
                  defines: Iterable,
                  use_prebuilt: bool):
-        self._name = "Kvazaar"
         super().__init__(
+            name="Kvazaar",
             user_given_revision=user_given_revision,
             defines=defines,
             git_local_path=tester.Cfg().tester_sources_dir_path / "kvazaar",
@@ -161,7 +161,7 @@ class Kvazaar(EncoderBase):
         self.clean_finish(clean_cmd)
 
     def dummy_run(self,
-                  param_set: KvazaarParamSet) -> bool:
+                  param_set: EncoderBase.ParamSet) -> bool:
 
         self.dummy_run_start(param_set)
 

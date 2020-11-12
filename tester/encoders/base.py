@@ -58,12 +58,14 @@ class EncoderBase:
     file_suffix = "hevc"
 
     def __init__(self,
+                 name: str,
                  user_given_revision: str,
                  defines: Iterable,
                  git_local_path: Path,
                  git_remote_url: str,
                  use_prebuilt: bool):
 
+        self._name = name
         self._user_given_revision: str = user_given_revision
         self._defines: Iterable = defines
         self._define_hash: str = hashlib.md5(str(defines).encode()).hexdigest()
@@ -274,19 +276,19 @@ class EncoderBase:
             raise
 
     def dummy_run(self,
-                  param_set: ParamSetBase) -> bool:
+                  param_set: EncoderBase.ParamSet) -> bool:
         """Performs a dummy run to validate the set of parameters before any actual encoding runs."""
         raise NotImplementedError
 
     def dummy_run_start(self,
-                        param_set: ParamSetBase) -> bool:
+                        param_set: EncoderBase.ParamSet) -> bool:
         """Meant to be called as the first thing from the dummy_run() method of derived classes."""
         console_log.debug(f"{self._name}: Validating arguments: '{param_set.to_cmdline_str()}'")
         return True
 
     def dummy_run_finish(self,
                          dummy_cmd: tuple,
-                         param_set: ParamSetBase) -> bool:
+                         param_set: EncoderBase.ParamSet) -> bool:
         """Meant to be called as the last thing from the dummy_run() method of derived classes."""
         try:
             subprocess.check_output(
@@ -316,7 +318,7 @@ class EncoderBase:
         console_log.debug(f"{self._name}: Log: '{encoding_run.encoding_log_path.name}'")
 
         if encoding_run.output_file.get_filepath().exists() \
-                and "encoding_time" in encoding_run.parent.parent.metrics[encoding_run]:
+                and "encoding_time" in encoding_run.metrics[encoding_run]:
             console_log.info(f"{self._name}: File '{encoding_run.output_file.get_filepath().name}' already exists")
             # Don't encode unnecessarily.
             return False

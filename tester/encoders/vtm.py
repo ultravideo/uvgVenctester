@@ -25,9 +25,8 @@ class Vtm(EncoderBase):
                  user_given_revision: str,
                  defines: Iterable,
                  use_prebuilt: bool):
-        self._name = "VTM"
-
         super().__init__(
+            name="VTM",
             user_given_revision=user_given_revision,
             defines=defines,
             git_local_path=Cfg().tester_sources_dir_path / "vtm",
@@ -193,7 +192,7 @@ class Vtm(EncoderBase):
             raise
 
     def dummy_run(self,
-                  param_set: ParamSetBase) -> bool:
+                  param_set: EncoderBase.ParamSet) -> bool:
 
         self.dummy_run_start(param_set)
 

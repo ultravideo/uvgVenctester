@@ -45,14 +45,15 @@ class EncodingRunMetrics:
             pass
 
     def __contains__(self, item):
+        self._read_in()
         return item in self._data
 
     def clear(self):
         self._data = {}
         self._write_out()
 
-class EncodingQualityRunMetrics:
 
+class EncodingQualityRunMetrics:
     def __init__(self, rounds: int, base_path: Path):
         self._rounds = [EncodingRunMetrics(Path(str(base_path).format(x + 1))) for x in range(rounds)]
 
@@ -125,7 +126,7 @@ class SequenceMetrics:
 
 
 class TestMetrics:
-    def __init__(self, test: "Test"):
+    def __init__(self, test: "Test", sequences):
         encoder = test.encoder
         if not encoder._use_prebuilt:
             base_path = Cfg().tester_output_dir_path \
@@ -140,7 +141,7 @@ class TestMetrics:
         self.seq_data = {
             seq: SequenceMetrics(base_path, seq, test.quality_param_type, test.quality_param_list, test.rounds)
             for seq
-            in test.sequences
+            in sequences
         }
 
     def __getitem__(self, item):

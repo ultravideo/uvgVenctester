@@ -20,8 +20,8 @@ class Hm(EncoderBase):
                  user_given_revision: str,
                  defines: Iterable,
                  use_prebuilt: bool):
-        self._name = "HM"
         super().__init__(
+            name="HM",
             user_given_revision=user_given_revision,
             defines=defines,
             git_local_path=tester.Cfg().tester_sources_dir_path / "hm",

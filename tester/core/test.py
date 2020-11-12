@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Iterable
 
 import tester.encoders as encoders
-from tester.core import metrics
 from tester.core.cfg import Cfg
+from tester.core.metrics import EncodingRunMetrics
 from tester.core.video import RawVideoSequence, EncodedVideoFile
 from tester.encoders.base import QualityParam
 
@@ -70,6 +70,8 @@ class EncodingRun:
             duration_seconds=input_sequence.get_duration_seconds()
         )
 
+        self.metrics = EncodingRunMetrics(self.metrics_path)
+
         self.decoded_output_file_path: Path = None
         if type(encoder) == encoders.Vtm:
             self.decoded_output_file_path: Path = output_dir_path / f"{base_filename}_decoded.yuv"
@@ -92,31 +94,12 @@ class SubTest:
                  parent: Test,
                  name: str,
                  encoder: encoders.EncoderBase,
-                 param_set: encoders.EncoderBase.ParamSet,
-                 input_sequences: list,
-                 rounds: int):
+                 param_set: encoders.EncoderBase.ParamSet):
 
         self.parent: Test = parent
         self.name: str = name
         self.encoder: encoders.EncoderBase = encoder
         self.param_set: encoders.EncoderBase.ParamSet = param_set
-        self.sequences: list = input_sequences
-        # Key: RawVideoSequence, value: EncodingRun
-        self.encoding_runs: dict = {}
-
-        for sequence in input_sequences:
-            for round_number in range(1, rounds + 1):
-                run = EncodingRun(
-                    self,
-                    f"{name}/{sequence.get_filepath().name} ({round_number}/{rounds})",
-                    round_number,
-                    encoder,
-                    param_set,
-                    sequence
-                )
-                if not sequence in self.encoding_runs.keys():
-                    self.encoding_runs[sequence] = []
-                self.encoding_runs[sequence].append(run)
 
     def __eq__(self,
                other: SubTest):
@@ -134,7 +117,6 @@ class Test:
                  encoder_revision: str,
                  anchor_names: Iterable,
                  cl_args: str,
-                 input_sequences: Iterable,
                  encoder_defines: Iterable = (),
                  quality_param_type: QualityParam = QualityParam.QP,
                  quality_param_list: Iterable = (22, 27, 32, 37),
@@ -154,32 +136,17 @@ class Test:
         self.quality_param_type: QualityParam = quality_param_type
         self.quality_param_list: Iterable = quality_param_list
         self.cl_args: str = cl_args
-        self.input_sequences: Iterable = input_sequences
         self.seek: int = seek
         self.frames: int = frames
         self.rounds: int = rounds
         self.use_prebuilt = use_prebuilt
 
-        self.sequences: list = None
         self.subtests: list = None
-
-        # Expand sequence globs.
-        self.sequences = []
 
         # HM and VTM only encode every nth frame if --TemporalSubsampleRatio is specified
         # (in the config file).
         step = self.encoder.get_temporal_subsample()
 
-        for glob in input_sequences:
-            for filepath in Cfg().tester_sequences_dir_path.glob(glob):
-                self.sequences.append(
-                    RawVideoSequence(
-                        filepath,
-                        seek=seek,
-                        frames=frames,
-                        step=step or 1
-                    )
-                )
 
         # Order quality parameters in ascending order by resulting bitrate,
         # since that is the order in which the results have to be when BD-BR is computed.
@@ -198,20 +165,15 @@ class Test:
             for quality_param_value in quality_param_list
         ]
 
-
         self.subtests = []
         for param_set in param_sets:
             subtest = SubTest(
                 self,
                 f"{name}/{quality_param_type.short_name}{param_set.get_quality_param_value()}",
                 self.encoder,
-                param_set,
-                self.sequences,
-                rounds
+                param_set
             )
             self.subtests.append(subtest)
-
-        self.metrics: metrics.TestMetrics = metrics.TestMetrics(self)
 
     def clone(self,
               **kwargs) -> Test:
