@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import re
 import shutil
 import subprocess
 from typing import Iterable
@@ -14,86 +13,7 @@ import tester.core.test as test
 from tester.core import ffmpeg, cmake, git, vs
 from tester.core.cfg import Cfg
 from tester.core.log import console_log
-from . import EncoderBase, ParamSetBase
-
-
-def vtm_validate_config():
-    if not git.git_remote_exists(Cfg().vtm_remote_url):
-        console_log.error(f"VTM: Remote '{Cfg().vtm_remote_url}' is not available")
-        raise RuntimeError
-
-
-def vtm_get_temporal_subsample_ratio() -> int:
-    return 1
-
-    pattern = re.compile(r"TemporalSubsampleRatio.*: ([0-9]+)", re.DOTALL)
-    lines = Cfg().vtm_cfg_file_path.open("r").readlines()
-    for line in lines:
-        match = pattern.match(line)
-        if match:
-            return int(match[1])
-
-    return None
-
-
-class VtmParamSet(ParamSetBase):
-    """Represents the command line parameters passed to VTM when encoding."""
-
-    def __init__(self,
-                 quality_param_type: tester.QualityParam,
-                 quality_param_value: int,
-                 seek: int,
-                 frames: int,
-                 cl_args: str):
-
-        super().__init__(
-            quality_param_type,
-            quality_param_value,
-            seek,
-            frames,
-            cl_args
-        )
-
-    @staticmethod
-    def _get_arg_order() -> list:
-        return []
-
-    def _to_unordered_args_list(self,
-                                include_quality_param: bool = True,
-                                include_seek: bool = True,
-                                include_frames: bool = True,
-                                inode_safe: bool = False) -> list:
-
-        args = self._cl_args
-
-        if include_quality_param:
-            if self._quality_param_type == tester.QualityParam.QP:
-                args += f" --QP={self._quality_param_value}"
-            elif self._quality_param_type == tester.QualityParam.BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
-            elif self.get_quality_param_type() == tester.QualityParam.BPP:
-                args += f" --TargetBitrate={self._quality_param_value}"
-            elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
-            elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
-            else:
-                raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
-        if include_seek and self._seek:
-            args += f" -fs {self._seek}"
-        if include_frames and self._frames:
-            args += f" -f {self._frames}"
-
-        # TODO: Figure out why this is needed or if it's needed.
-        if not "--SEIDecodedPictureHash" in args:
-            args += " --SEIDecodedPictureHash=3"
-        if not "--ConformanceWindowMode" in args:
-            args += " --ConformanceWindowMode=1"
-
-        if inode_safe:
-            args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
-
-        return args.split()
+from . import EncoderBase
 
 
 class Vtm(EncoderBase):
@@ -105,9 +25,9 @@ class Vtm(EncoderBase):
                  user_given_revision: str,
                  defines: Iterable,
                  use_prebuilt: bool):
+        self._name = "VTM"
 
         super().__init__(
-            id=tester.Encoder.VTM,
             user_given_revision=user_given_revision,
             defines=defines,
             git_local_path=Cfg().tester_sources_dir_path / "vtm",
@@ -359,3 +279,68 @@ class Vtm(EncoderBase):
             console_log.error(f"{type(self.__name__)}: Failed to decode file "
                               f"'{encoding_run.output_file.get_filepath()}'")
             raise
+
+    @staticmethod
+    def validate_config():
+        if not git.git_remote_exists(Cfg().vtm_remote_url):
+            console_log.error(f"VTM: Remote '{Cfg().vtm_remote_url}' is not available")
+            raise RuntimeError
+
+    class ParamSet(EncoderBase.ParamSet):
+        """Represents the command line parameters passed to VTM when encoding."""
+
+        def __init__(self,
+                     quality_param_type: tester.QualityParam,
+                     quality_param_value: int,
+                     seek: int,
+                     frames: int,
+                     cl_args: str):
+
+            super().__init__(
+                quality_param_type,
+                quality_param_value,
+                seek,
+                frames,
+                cl_args
+            )
+
+        @staticmethod
+        def _get_arg_order() -> list:
+            return []
+
+        def _to_unordered_args_list(self,
+                                    include_quality_param: bool = True,
+                                    include_seek: bool = True,
+                                    include_frames: bool = True,
+                                    inode_safe: bool = False) -> list:
+
+            args = self._cl_args
+
+            if include_quality_param:
+                if self._quality_param_type == tester.QualityParam.QP:
+                    args += f" --QP={self._quality_param_value}"
+                elif self._quality_param_type == tester.QualityParam.BITRATE:
+                    args += f" --TargetBitrate={self._quality_param_value}"
+                elif self.get_quality_param_type() == tester.QualityParam.BPP:
+                    args += f" --TargetBitrate={self._quality_param_value}"
+                elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
+                    args += f" --TargetBitrate={self._quality_param_value}"
+                elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
+                    args += f" --TargetBitrate={self._quality_param_value}"
+                else:
+                    raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+            if include_seek and self._seek:
+                args += f" -fs {self._seek}"
+            if include_frames and self._frames:
+                args += f" -f {self._frames}"
+
+            # TODO: Figure out why this is needed or if it's needed.
+            if not "--SEIDecodedPictureHash" in args:
+                args += " --SEIDecodedPictureHash=3"
+            if not "--ConformanceWindowMode" in args:
+                args += " --ConformanceWindowMode=1"
+
+            if inode_safe:
+                args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
+
+            return args.split()

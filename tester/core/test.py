@@ -6,13 +6,10 @@ from math import sqrt
 from pathlib import Path
 from typing import Iterable
 
-import tester.encoders.hm as hm
-import tester.encoders.kvazaar as kvazaar
-import tester.encoders.vtm as vtm
+import tester.encoders as encoders
 from tester.core import metrics
 from tester.core.cfg import Cfg
 from tester.core.video import RawVideoSequence, EncodedVideoFile
-from tester.encoders import EncoderBase, ParamSetBase, Encoder
 from tester.encoders.base import QualityParam
 
 
@@ -22,15 +19,15 @@ class EncodingRun:
                  parent: SubTest = None,
                  name: str = None,
                  round_number: int = None,
-                 encoder: EncoderBase = None,
-                 param_set: ParamSetBase = None,
+                 encoder: encoders.EncoderBase = None,
+                 param_set: encoders.EncoderBase.ParamSet = None,
                  input_sequence: RawVideoSequence = None):
 
         self.parent: SubTest = parent
         self.name: str = name
         self.round_number: int = round_number
-        self.encoder: EncoderBase = encoder
-        self.param_set: ParamSetBase = param_set
+        self.encoder: encoders.EncoderBase = encoder
+        self.param_set: encoders.EncoderBase.ParamSet = param_set
         self.input_sequence: RawVideoSequence = input_sequence
         self.frames = param_set.get_frames() or input_sequence.get_framecount()
 
@@ -74,7 +71,7 @@ class EncodingRun:
         )
 
         self.decoded_output_file_path: Path = None
-        if encoder.get_id() == Encoder.VTM:
+        if type(encoder) == encoders.Vtm:
             self.decoded_output_file_path: Path = output_dir_path / f"{base_filename}_decoded.yuv"
 
     def __eq__(self,
@@ -94,15 +91,15 @@ class SubTest:
     def __init__(self,
                  parent: Test,
                  name: str,
-                 encoder: EncoderBase,
-                 param_set: ParamSetBase,
+                 encoder: encoders.EncoderBase,
+                 param_set: encoders.EncoderBase.ParamSet,
                  input_sequences: list,
                  rounds: int):
 
         self.parent: Test = parent
         self.name: str = name
-        self.encoder: EncoderBase = encoder
-        self.param_set: ParamSetBase = param_set
+        self.encoder: encoders.EncoderBase = encoder
+        self.param_set: encoders.EncoderBase.ParamSet = param_set
         self.sequences: list = input_sequences
         # Key: RawVideoSequence, value: EncodingRun
         self.encoding_runs: dict = {}
@@ -133,7 +130,7 @@ class Test:
 
     def __init__(self,
                  name: str,
-                 encoder_id: Encoder,
+                 encoder,
                  encoder_revision: str,
                  anchor_names: Iterable,
                  cl_args: str,
@@ -150,7 +147,7 @@ class Test:
 
         # Copy every parameter to make cloning easier.
         self.name: str = name
-        self.encoder_id: Encoder = encoder_id
+        self.encoder: encoders.EncoderBase = encoder(encoder_revision, encoder_defines, use_prebuilt)
         self.encoder_revision: str = encoder_revision
         self.encoder_defines: Iterable = encoder_defines
         self.anchor_names: Iterable = anchor_names
@@ -164,7 +161,6 @@ class Test:
         self.use_prebuilt = use_prebuilt
 
         self.sequences: list = None
-        self.encoder: EncoderBase = None
         self.subtests: list = None
 
         # Expand sequence globs.
@@ -172,11 +168,7 @@ class Test:
 
         # HM and VTM only encode every nth frame if --TemporalSubsampleRatio is specified
         # (in the config file).
-        step = None
-        if encoder_id == Encoder.HM:
-            step = hm.hm_get_temporal_subsample_ratio()
-        elif encoder_id == Encoder.VTM:
-            step = vtm.vtm_get_temporal_subsample_ratio()
+        step = self.encoder.get_temporal_subsample()
 
         for glob in input_sequences:
             for filepath in Cfg().tester_sequences_dir_path.glob(glob):
@@ -197,42 +189,15 @@ class Test:
                                     QualityParam.BPP, QualityParam.BITRATE]:
             quality_param_list = sorted(quality_param_list)
 
-        param_sets = []
-        if encoder_id == Encoder.KVAZAAR:
-            self.encoder = kvazaar.Kvazaar(encoder_revision, encoder_defines, use_prebuilt)
-            param_sets = [
-                kvazaar.KvazaarParamSet(
-                    quality_param_type,
-                    quality_param_value,
-                    seek,
-                    frames,
-                    cl_args
-                ) for quality_param_value in quality_param_list
-            ]
-        elif encoder_id == Encoder.HM:
-            self.encoder = hm.Hm(encoder_revision, encoder_defines, use_prebuilt)
-            param_sets = [
-                hm.HmParamSet(
-                    quality_param_type,
-                    quality_param_value,
-                    seek,
-                    frames,
-                    cl_args
-                ) for quality_param_value in quality_param_list
-            ]
-        elif encoder_id == Encoder.VTM:
-            self.encoder = vtm.Vtm(encoder_revision, encoder_defines, use_prebuilt)
-            param_sets = [
-                vtm.VtmParamSet(
-                    quality_param_type,
-                    quality_param_value,
-                    seek,
-                    frames,
-                    cl_args
-                ) for quality_param_value in quality_param_list
-            ]
-        else:
-            raise RuntimeError
+        param_sets = [
+            encoder.ParamSet(quality_param_type,
+                             quality_param_value,
+                             seek,
+                             frames,
+                             cl_args)
+            for quality_param_value in quality_param_list
+        ]
+
 
         self.subtests = []
         for param_set in param_sets:

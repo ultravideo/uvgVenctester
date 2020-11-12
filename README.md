@@ -89,8 +89,9 @@ Cfg().vs_msbuild_platformtoolset = "v142"
 `main.py`:
 ```python
 import userconfig
-from tester.core.tester import *
-from tester.encoders.base import QualityParam
+from tester import Tester, Test, QualityParam
+from tester.core import csv
+from tester.encoders import Kvazaar
 ```
 
 ### 3. Specify the video sequences you want to have encoded.
@@ -118,7 +119,7 @@ test1 = Test(
     quality_param_type=QualityParam.QP,
     quality_param_list=[22, 27, 32, 37],
     cl_args="--gop=8 --preset ultrafast --no-wpp --owf 5",
-    encoder_id=Encoder.KVAZAAR,
+    encoder=Kvazaar,
     encoder_revision="d1abf85229",
     encoder_defines=["NDEBUG"],
     anchor_names=["test1"],

@@ -15,7 +15,6 @@ from tester.core.cfg import Cfg
 from tester.core.log import console_log, log_exception
 from tester.core.test import Test, EncodingRun
 from tester.core.video import RawVideoSequence
-from tester.encoders.base import Encoder
 
 
 class TesterContext:
@@ -124,19 +123,14 @@ class Tester:
             csv.csv_validate_config()
 
             # Only validate those encoders that are being used.
-            used_encoder_ids = set([test.encoder_id for test in context.get_tests()])
-            if Encoder.HM in used_encoder_ids:
-                hm.hm_validate_config()
-            if Encoder.KVAZAAR in used_encoder_ids:
-                kvazaar.kvazaar_validate_config()
-            if Encoder.VTM in used_encoder_ids:
-                vtm.vtm_validate_config()
+            for test in context.get_tests():
+                test.encoder.validate_config()
 
-            if Encoder.HM in used_encoder_ids and Encoder.VTM in used_encoder_ids:
-                if not hm.hm_get_temporal_subsample_ratio() == vtm.vtm_get_temporal_subsample_ratio():
-                    console_log.error("Tester: Values of TemporalSubsampleRatio don't match "
-                                      "in the configuration files of HM and VTM")
-                    raise RuntimeError
+            # if Encoder.HM in used_encoder_ids and Encoder.VTM in used_encoder_ids:
+            #     if not hm.hm_get_temporal_subsample_ratio() == vtm.vtm_get_temporal_subsample_ratio():
+            #         console_log.error("Tester: Values of TemporalSubsampleRatio don't match "
+            #                           "in the configuration files of HM and VTM")
+            #         raise RuntimeError
 
         except Exception as exception:
             console_log.error("Tester: Configuration variable validation failed")

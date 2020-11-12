@@ -207,7 +207,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
 
 def generate_dummy_sequence() -> Path:
 
-    dummy_sequence_path = Cfg()._tester_input_dir_path / '_dummy.yuv'
+    dummy_sequence_path = Cfg().tester_sequences_dir_path / '_dummy.yuv'
 
     console_log.debug(f"ffmpeg: Dummy sequence '{dummy_sequence_path}' already exists")
 

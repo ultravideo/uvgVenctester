@@ -99,7 +99,7 @@ class Cfg(metaclass=Singleton):
     @property
     def tester_sequences_dir_path(self) -> Path:
         """The base directory of input sequences. Sequence paths are relative to this directory."""
-        return Path(self._tester_input_dir_path).resolve()
+        return Path(Path(self._tester_input_dir_path).resolve())
     @tester_sequences_dir_path.setter
     def tester_sequences_dir_path(self, value: Union[str, Path]):
         self._tester_input_dir_path = value

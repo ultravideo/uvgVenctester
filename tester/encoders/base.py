@@ -15,25 +15,6 @@ import tester.core.git as git
 from tester.core.log import console_log, setup_build_log
 
 
-class Encoder(Enum):
-    """An enumeration to identify the supported encoders."""
-
-    HM: int = 1
-    KVAZAAR: int = 2
-    VTM: int = 3
-
-    @property
-    def pretty_name(self):
-        if self == Encoder.KVAZAAR:
-            return "Kvazaar"
-        elif self == Encoder.HM:
-            return "HM"
-        elif self == Encoder.VTM:
-            return "VTM"
-        else:
-            raise RuntimeError
-
-
 class QualityParam(Enum):
     """An enumeration to identify the supported quality parameter types."""
 
@@ -66,181 +47,7 @@ class QualityParam(Enum):
         return names[self]
 
 
-class ParamSetBase():
-    """An interface representing a set of parameters to be passed to an encoder when encoding.
-    The purpose of the class is to provide an interface through which the parameter sets
-    of different encoders can be used in a generic manner. Each encoder must implement an
-    encoder-specific subclass."""
 
-    def __init__(self,
-                 quality_param_type: QualityParam,
-                 quality_param_value: int,
-                 seek: int,
-                 frames: int,
-                 cl_args: str):
-
-        self._quality_param_type: QualityParam = quality_param_type
-        self._quality_param_value: int = quality_param_value
-        self._seek: int = seek
-        self._frames: int = frames
-        self._cl_args: str = cl_args
-
-    def __eq__(self,
-               other: ParamSetBase):
-        return self.to_cmdline_str(include_quality_param=False) == other.to_cmdline_str(include_quality_param=False)
-
-    def __hash__(self):
-        return hash(self.to_cmdline_str())
-
-    @staticmethod
-    def _get_arg_order() -> list:
-        """If there are arguments that need to be placed before others, this function returns
-        a list of those arguments in the order that they should appear on the command line.
-        Must be implemented in subclasses."""
-        raise NotImplementedError
-
-    @staticmethod
-    def _is_long_option(candidate: str):
-        return candidate.startswith("--")
-
-    @staticmethod
-    def _is_short_option(candidate: str):
-        return not ParamSetBase._is_long_option(candidate) and candidate.startswith("-")
-
-    @staticmethod
-    def _is_option(candidate: str):
-        return ParamSetBase._is_long_option(candidate) or ParamSetBase._is_short_option(candidate)
-
-    @staticmethod
-    def _is_value(candidate: str):
-        return not ParamSetBase._is_option(candidate)
-
-    def _to_unordered_args_list(self,
-                                include_quality_param: bool = True,
-                                include_seek: bool = True,
-                                include_frames: bool = True,
-                                inode_safe: bool = False) -> list:
-        """Returns a list where the option names and values have been split.
-        Must be implemented in subclasses (the encoders parse arguments differently)."""
-        raise NotImplementedError
-
-    def _to_args_dict(self,
-                      include_quality_param: bool = True,
-                      include_seek: bool = True,
-                      include_frames: bool = True,
-                      inode_safe=False) -> dict:
-        """Returns a dict where key = option name, value = option value."""
-
-        args_list = self._to_unordered_args_list(
-            include_quality_param,
-            include_seek,
-            include_frames,
-            inode_safe
-        )
-
-        # Put the options and their values into this dict. Value None indicates that the option
-        # is a boolean with no explicit value.
-        args_dict = {}
-
-        i = 0
-        i_max = len(args_list)
-        while i < i_max:
-            option_name = args_list[i]
-            if ParamSetBase._is_option(option_name) \
-                    and i + 1 < i_max \
-                    and ParamSetBase._is_value(args_list[i + 1]):
-                # Has an explicit value.
-                option_value = args_list[i + 1]
-                i += 2
-            else:
-                # Has an implicit value (boolean).
-                option_value = None
-                i += 1
-
-            if option_name in args_dict:
-                raise RuntimeError(f"{type(self).__name__}: Duplicate option '{option_name}'")
-
-            args_dict[option_name] = option_value
-
-        # Check that no option is specified as both no-<option> and <option>.
-        for option_name in args_dict.keys():
-            option_name = option_name.strip("--")
-            if f"--no-{option_name}" in args_dict.keys():
-                raise RuntimeError(f"{type(self).__name__}: Conflicting options '--{option_name}'"
-                                   f"and '--no-{option_name}'")
-
-        return args_dict
-
-    def to_cmdline_tuple(self,
-                         include_quality_param: bool = True,
-                         include_seek: bool = True,
-                         include_frames: bool = True,
-                         inode_safe=False) -> tuple:
-        """Returns the command line arguments in a tuple that has been ordered."""
-
-        reordered_args_list: list = []
-
-        args_dict = self._to_args_dict(
-            include_quality_param,
-            include_seek,
-            include_frames,
-            inode_safe
-        )
-
-        # Handle arguments that should come before others, if any.
-        for option_name in self._get_arg_order():
-            if option_name in args_dict:
-                option_value = args_dict[option_name]
-                reordered_args_list.append(option_name)
-                if option_value:
-                    reordered_args_list.append(option_value)
-                del args_dict[option_name]
-
-        # Handle option flags with implicit boolean values (for example --no-wpp).
-        for option_name in sorted(args_dict.keys()):
-            option_value = args_dict[option_name]
-            if option_value is None:
-                reordered_args_list.append(option_name)
-                del args_dict[option_name]
-
-        # Handle long options with explicit values (for example --frames 256)
-        for option_name in sorted(args_dict.keys()):
-            option_value = args_dict[option_name]
-            if ParamSetBase._is_long_option(option_name):
-                reordered_args_list.append(option_name)
-                reordered_args_list.append(option_value)
-
-        # Handle short options with explicit values (for example -n 256).
-        for option_name in sorted(args_dict.keys()):
-            option_value = args_dict[option_name]
-            if ParamSetBase._is_short_option(option_name):
-                reordered_args_list.append(option_name)
-                reordered_args_list.append(option_value)
-
-        return tuple(reordered_args_list)
-
-    def to_cmdline_str(self,
-                       include_quality_param: bool = True,
-                       include_seek: bool = True,
-                       include_frames: bool = True,
-                       inode_safe=False) -> str:
-        """Returns the command line arguments in a string that has been ordered."""
-        return " ".join(self.to_cmdline_tuple(include_quality_param, include_seek, include_frames, inode_safe))
-
-    def get_quality_param_type(self) -> QualityParam:
-        return self._quality_param_type
-
-    def get_quality_param_value(self) -> int:
-        return self._quality_param_value
-
-    def get_seek(self) -> int:
-        return self._seek
-
-    def get_frames(self) -> int:
-        return self._frames
-
-    def get_cl_args(self) -> str:
-        return self._cl_args
 
 
 class EncoderBase:
@@ -251,15 +58,12 @@ class EncoderBase:
     file_suffix = "hevc"
 
     def __init__(self,
-                 id: Encoder,
                  user_given_revision: str,
                  defines: Iterable,
                  git_local_path: Path,
                  git_remote_url: str,
                  use_prebuilt: bool):
 
-        self._id: Encoder = id
-        self._name: str = id.pretty_name
         self._user_given_revision: str = user_given_revision
         self._defines: Iterable = defines
         self._define_hash: str = hashlib.md5(str(defines).encode()).hexdigest()
@@ -298,7 +102,7 @@ class EncoderBase:
 
     def __eq__(self,
                other: EncoderBase) -> bool:
-        return self._id == other._id \
+        return type(self) == type(other) \
                and self._commit_hash == other._commit_hash \
                and self._define_hash == other._define_hash
 
@@ -317,10 +121,7 @@ class EncoderBase:
     def get_exe_src_path(self) -> Path:
         return self._exe_src_path
 
-    def get_id(self) -> Encoder:
-        return self._id
-
-    def get_defines(self) -> list:
+    def get_defines(self) -> Iterable:
         return self._defines
 
     def get_user_given_revision(self) -> str:
@@ -546,6 +347,188 @@ class EncoderBase:
             console_log.error(exception.output.decode().strip())
             raise
 
+    def get_temporal_subsample(self):
+        return 1
+
+    @staticmethod
+    def validate_config():
+        return True
+
+    class ParamSet:
+        """An interface representing a set of parameters to be passed to an encoder when encoding.
+        The purpose of the class is to provide an interface through which the parameter sets
+        of different encoders can be used in a generic manner. Each encoder must implement an
+        encoder-specific subclass."""
+
+        def __init__(self,
+                     quality_param_type: QualityParam,
+                     quality_param_value: int,
+                     seek: int,
+                     frames: int,
+                     cl_args: str):
+
+            self._quality_param_type: QualityParam = quality_param_type
+            self._quality_param_value: int = quality_param_value
+            self._seek: int = seek
+            self._frames: int = frames
+            self._cl_args: str = cl_args
+
+        def __eq__(self,
+                   other: EncoderBase.ParamSet):
+            return self.to_cmdline_str(include_quality_param=False) == other.to_cmdline_str(include_quality_param=False)
+
+        def __hash__(self):
+            return hash(self.to_cmdline_str())
+
+        @staticmethod
+        def _get_arg_order() -> list:
+            """If there are arguments that need to be placed before others, this function returns
+            a list of those arguments in the order that they should appear on the command line.
+            Must be implemented in subclasses."""
+            raise NotImplementedError
+
+        @staticmethod
+        def _is_long_option(candidate: str):
+            return candidate.startswith("--")
+
+        @staticmethod
+        def _is_short_option(candidate: str):
+            return not EncoderBase.ParamSet._is_long_option(candidate) and candidate.startswith("-")
+
+        @staticmethod
+        def _is_option(candidate: str):
+            return EncoderBase.ParamSet._is_long_option(candidate) or EncoderBase.ParamSet._is_short_option(candidate)
+
+        @staticmethod
+        def _is_value(candidate: str):
+            return not EncoderBase.ParamSet._is_option(candidate)
+
+        def _to_unordered_args_list(self,
+                                    include_quality_param: bool = True,
+                                    include_seek: bool = True,
+                                    include_frames: bool = True,
+                                    inode_safe: bool = False) -> list:
+            """Returns a list where the option names and values have been split.
+            Must be implemented in subclasses (the encoders parse arguments differently)."""
+            raise NotImplementedError
+
+        def _to_args_dict(self,
+                          include_quality_param: bool = True,
+                          include_seek: bool = True,
+                          include_frames: bool = True,
+                          inode_safe=False) -> dict:
+            """Returns a dict where key = option name, value = option value."""
+
+            args_list = self._to_unordered_args_list(
+                include_quality_param,
+                include_seek,
+                include_frames,
+                inode_safe
+            )
+
+            # Put the options and their values into this dict. Value None indicates that the option
+            # is a boolean with no explicit value.
+            args_dict = {}
+
+            i = 0
+            i_max = len(args_list)
+            while i < i_max:
+                option_name = args_list[i]
+                if EncoderBase.ParamSet._is_option(option_name) \
+                        and i + 1 < i_max \
+                        and EncoderBase.ParamSet._is_value(args_list[i + 1]):
+                    # Has an explicit value.
+                    option_value = args_list[i + 1]
+                    i += 2
+                else:
+                    # Has an implicit value (boolean).
+                    option_value = None
+                    i += 1
+
+                if option_name in args_dict:
+                    raise RuntimeError(f"{type(self).__name__}: Duplicate option '{option_name}'")
+
+                args_dict[option_name] = option_value
+
+            # Check that no option is specified as both no-<option> and <option>.
+            for option_name in args_dict.keys():
+                option_name = option_name.strip("--")
+                if f"--no-{option_name}" in args_dict.keys():
+                    raise RuntimeError(f"{type(self).__name__}: Conflicting options '--{option_name}'"
+                                       f"and '--no-{option_name}'")
+
+            return args_dict
+
+        def to_cmdline_tuple(self,
+                             include_quality_param: bool = True,
+                             include_seek: bool = True,
+                             include_frames: bool = True,
+                             inode_safe=False) -> tuple:
+            """Returns the command line arguments in a tuple that has been ordered."""
+
+            reordered_args_list: list = []
+
+            args_dict = self._to_args_dict(
+                include_quality_param,
+                include_seek,
+                include_frames,
+                inode_safe
+            )
+
+            # Handle arguments that should come before others, if any.
+            for option_name in self._get_arg_order():
+                if option_name in args_dict:
+                    option_value = args_dict[option_name]
+                    reordered_args_list.append(option_name)
+                    if option_value:
+                        reordered_args_list.append(option_value)
+                    del args_dict[option_name]
+
+            # Handle option flags with implicit boolean values (for example --no-wpp).
+            for option_name in sorted(args_dict.keys()):
+                option_value = args_dict[option_name]
+                if option_value is None:
+                    reordered_args_list.append(option_name)
+                    del args_dict[option_name]
+
+            # Handle long options with explicit values (for example --frames 256)
+            for option_name in sorted(args_dict.keys()):
+                option_value = args_dict[option_name]
+                if EncoderBase.ParamSet._is_long_option(option_name):
+                    reordered_args_list.append(option_name)
+                    reordered_args_list.append(option_value)
+
+            # Handle short options with explicit values (for example -n 256).
+            for option_name in sorted(args_dict.keys()):
+                option_value = args_dict[option_name]
+                if EncoderBase.ParamSet._is_short_option(option_name):
+                    reordered_args_list.append(option_name)
+                    reordered_args_list.append(option_value)
+
+            return tuple(reordered_args_list)
+
+        def to_cmdline_str(self,
+                           include_quality_param: bool = True,
+                           include_seek: bool = True,
+                           include_frames: bool = True,
+                           inode_safe=False) -> str:
+            """Returns the command line arguments in a string that has been ordered."""
+            return " ".join(self.to_cmdline_tuple(include_quality_param, include_seek, include_frames, inode_safe))
+
+        def get_quality_param_type(self) -> QualityParam:
+            return self._quality_param_type
+
+        def get_quality_param_value(self) -> int:
+            return self._quality_param_value
+
+        def get_seek(self) -> int:
+            return self._seek
+
+        def get_frames(self) -> int:
+            return self._frames
+
+        def get_cl_args(self) -> str:
+            return self._cl_args
 
 class DecoderBase:
     """An interface representing a decoder, in case decoding is required. At the time of writing
