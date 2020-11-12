@@ -13,6 +13,7 @@ from typing import Iterable
 import tester
 import tester.core.git as git
 from tester.core.log import console_log, setup_build_log
+import tester.core.test as test
 
 
 class QualityParam(Enum):
@@ -47,9 +48,6 @@ class QualityParam(Enum):
         return names[self]
 
 
-
-
-
 class EncoderBase:
     """An interface representing an encoder. Each encoder module must implement a class that
     inherits this class. The purpose of the class is to provide an interface through
@@ -77,12 +75,12 @@ class EncoderBase:
 
         self._use_prebuilt = use_prebuilt
 
-        self._exe_name: str = None
-        self._exe_path: Path = None
-        self._commit_hash: str = None
-        self._commit_hash_short: str = None
-        self._build_log_name: str = None
-        self._build_log_path: Path = None
+        self._exe_name: [str, None] = None
+        self._exe_path: [Path, None] = None
+        self._commit_hash: [str, None] = None
+        self._commit_hash_short: [str, None] = None
+        self._build_log_name: [str, None] = None
+        self._build_log_path: [Path, None] = None
         # Initializes the above.
         if not self._use_prebuilt:
             self.prepare_sources()
@@ -93,10 +91,10 @@ class EncoderBase:
             self._commit_hash = self._user_given_revision
 
         # This must be set in the constructor of derived classes.
-        self._exe_src_path: Path = None
+        self._exe_src_path: [Path, None] = None
 
         # This is set when build() is called.
-        self._build_log: logging.Logger = None
+        self._build_log: [logging.Logger, None] = None
 
         console_log.debug(f"{self._name}: Initialized object:")
         for attribute_name in sorted(self.__dict__):
@@ -304,12 +302,12 @@ class EncoderBase:
         return True
 
     def encode(self,
-               encoding_run: EncodingRun) -> None:
+               encoding_run: test.EncodingRun) -> None:
         """Encodes the given sequence with the given set of parameters."""
         raise NotImplementedError
 
     def encode_start(self,
-                     encoding_run: EncodingRun) -> bool:
+                     encoding_run: test.EncodingRun) -> bool:
         """Meant to be called as the first thing from the encode() method of derived classes."""
 
         console_log.debug(f"{self._name}: Encoding file '{encoding_run.input_sequence.get_filepath().name}'")
@@ -331,7 +329,7 @@ class EncoderBase:
 
     def encode_finish(self,
                       encode_cmd: tuple,
-                      encoding_run: EncodingRun) -> None:
+                      encoding_run: test.EncodingRun) -> None:
         """Meant to be called as the last thing from the encode() method of derived classes."""
 
         try:
@@ -531,6 +529,7 @@ class EncoderBase:
 
         def get_cl_args(self) -> str:
             return self._cl_args
+
 
 class DecoderBase:
     """An interface representing a decoder, in case decoding is required. At the time of writing

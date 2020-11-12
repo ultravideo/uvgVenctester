@@ -29,7 +29,7 @@ class EncodingRun:
         self.encoder: encoders.EncoderBase = encoder
         self.param_set: encoders.EncoderBase.ParamSet = param_set
         self.input_sequence: RawVideoSequence = input_sequence
-        self.frames = param_set.get_frames() or input_sequence.get_framecount()
+        self.frames = param_set.get_frames() or input_sequence.get_frames(seek=param_set.get_seek())
 
         self.qp_name = param_set.get_quality_param_type()
         self.qp_value = param_set.get_quality_param_value()
@@ -66,7 +66,7 @@ class EncodingRun:
             width=input_sequence.get_width(),
             height=input_sequence.get_height(),
             framerate=input_sequence.get_framerate(),
-            frames=input_sequence.get_framecount(),
+            frames=self.frames,
             duration_seconds=input_sequence.get_duration_seconds()
         )
 
@@ -120,7 +120,7 @@ class Test:
                  encoder_defines: Iterable = (),
                  quality_param_type: QualityParam = QualityParam.QP,
                  quality_param_list: Iterable = (22, 27, 32, 37),
-                 seek: int = None,
+                 seek: int = 0,
                  frames: int = None,
                  rounds: int = 1,
                  use_prebuilt=False,
@@ -136,7 +136,7 @@ class Test:
         self.quality_param_type: QualityParam = quality_param_type
         self.quality_param_list: Iterable = quality_param_list
         self.cl_args: str = cl_args
-        self.seek: int = seek
+        self.seek: int = seek or 0
         self.frames: int = frames
         self.rounds: int = rounds
         self.use_prebuilt = use_prebuilt

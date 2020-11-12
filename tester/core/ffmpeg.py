@@ -100,8 +100,8 @@ def compute_metrics(encoding_run: test.EncodingRun,
                   "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                   "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                   "-f", "rawvideo",
-                  "-r", f"{encoding_run.input_sequence.get_step()}", # multiply framerate by step
-                  "-ss", f"{encoding_run.input_sequence.get_seek()}",
+                  "-r", f"{encoding_run.input_sequence.get_step()}",  # multiply framerate by step
+                  "-ss", f"{encoding_run.param_set.get_seek()}",
                   "-t", f"{encoding_run.frames}",
                   "-i", f"{encoding_run.input_sequence.get_filepath()}",
 
@@ -129,7 +129,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
                   "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                   "-f", "rawvideo",
                   "-r", "1",
-                  "-ss", f"{encoding_run.input_sequence.get_seek()}",
+                  "-ss", f"{encoding_run.param_set.get_seek()}",
                   "-t", f"{encoding_run.frames}",
                   "-i", f"{encoding_run.input_sequence.get_filepath()}",
 

@@ -34,7 +34,6 @@ class TesterContext:
                     RawVideoSequence(
                         filepath=filepath.resolve(),
                         # TODO: Figure out a better way to do this.
-                        seek=self._tests[0].seek,
                         frames=self._tests[0].frames,
                     )
                 )
