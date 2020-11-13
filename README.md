@@ -123,8 +123,8 @@ test1 = Test(
     encoder_revision="d1abf85229",
     encoder_defines=["NDEBUG"],
     anchor_names=["test1"],
-    input_sequences=input_sequence_globs,
-    rounds=3
+    rounds=3,
+    use_prebuilt=False,
 )
 
 test2 = Test(
@@ -135,8 +135,8 @@ test2 = Test(
     encoder_id=Encoder.KVAZAAR,
     encoder_revision="master",
     encoder_defines=["NDEBUG"],
-    anchor_names=["test2"],
-    input_sequences=input_sequence_globs
+    anchor_names=["test1"],
+    use_prebuilt=False,
 )
 
 test3 = test2.clone(
@@ -156,21 +156,26 @@ configs = [
 Required parameters for `Test()`:
 - `name` The name of the test configuration
     - Arbitrary, but must be unique
-- `quality_param_type` The quality parameter to be used (QP or bitrate)
-    - The type of quality parameter may vary between test configurations
-- `quality_param_list` A list containing the quality parameter values with which the test will be run
-    - All configurations must have a list of equal length
 - `cl_args` Additional encoder-specific command line arguments
     - Must not contain arguments conflicting with those generated from the other parameters to this function (e.g. `quality_param_type`)
-- `encoder_id` The encoder to be used
+- `encoder` The encoder class to be used
 - `encoder_revision` The Git revision of the encoder to be used
     - Anything that can be used with `git checkout` is valid
-- `encoder_defines` A list containing the predefined preprocessor symbols to be used when compiling, if any
+    - If `use_prebuilt` is defined then this will be concatenated to the encoder name, i.e., `"kvazaar_" + encoder_revision`
 - `anchor_names` A list containing the names of the configurations the configuration is compared to, if any
-- `input_sequences` A list containing the names of the raw video sequences to be encoded
-    - All configurations must have the same `input_sequences`
 
 Optional parameters for `Test()`:
+- `quality_param_type` The quality parameter to be used (QP or bitrate)
+    - Default: QualityParam.QP
+    - The type of quality parameter may vary between test configurations
+- `quality_param_list` A list containing the quality parameter values with which the test will be run
+    - Default: [22, 27, 32, 37]
+    - All configurations must have a list of equal length
+- `encoder_defines` A list containing the predefined preprocessor symbols to be used when compiling, if any
+    - Default: []
+- `use_prebuilt` Whether a prebuilt encoder is used or build from the source
+    - Default: False
+    - The prebuilt encoder should be placed in the directory spesified by `Cfg().tester_binaries_dir_path` in format "<encoder_name>_<version>(.exe)" .exe only in Windows
 - `seek` An integer specifying how many frames at the start of each input file will be skipped
     - Default: 0
     - Applies to every sequence
