@@ -194,17 +194,17 @@ class Kvazaar(EncoderBase):
 
         encode_cmd = (
             str(self._exe_path),
-            "-i", str(encoding_run.input_sequence.get_filepath()),
+            "-i", str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
             "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
             "--input-fps", str(encoding_run.input_sequence.get_framerate()),
             "-o", str(encoding_run.output_file.get_filepath()),
             "--frames", str(encoding_run.frames),
         ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False, include_frames=False) + quality
 
-        self.encode_finish(encode_cmd, encoding_run)
+        self.encode_finish(encode_cmd, encoding_run, tester.Cfg().frame_step_size != 1)
 
     @staticmethod
-    def validate_config():
+    def validate_config(test_config: test.Test):
         if not git.git_remote_exists(tester.Cfg().kvazaar_remote_url):
             console_log.error(f"Kvazaar: Remote '{tester.Cfg().kvazaar_remote_url}' is unavailable")
             raise RuntimeError

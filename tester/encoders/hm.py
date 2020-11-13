@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import Iterable
 
 import tester
 import tester.core.git as git
+import tester.core.test as test
 from tester.core import cmake, vs
 from tester.core.log import console_log
 from . import EncoderBase
@@ -161,11 +163,26 @@ class Hm(EncoderBase):
         self.encode_finish(encode_cmd, encoding_run)
 
     @staticmethod
-    def validate_config():
+    def validate_config(test_config: test.Test):
         # Using the public property raises an exception, so access the private attribute instead.
         if not git.git_remote_exists(tester.Cfg().hm_remote_url):
             console_log.error(f"HM: Remote '{tester.Cfg().hm_remote_url}' is not available")
             raise RuntimeError
+
+        args = test_config.subtests[0].param_set._to_args_dict(False, False, False)
+        pattern = re.compile(r"TemporalSubsampleRatio.*: (\d+)", re.DOTALL)
+        # Test if
+        for key, value in args.items():
+            if key == "-c":
+                with open(value, "r") as f:
+                    for line in f:
+                        match = pattern.match(line)
+                        if match:
+                            assert int(match[1]) == tester.Cfg().frame_step_size
+                            break
+            elif key == "--TemporalSubsampleRatio":
+                assert int(value) == tester.Cfg().frame_step_size
+
 
     class ParamSet(EncoderBase.ParamSet):
         """Represents the command line parameters passed to HM when encoding."""
@@ -209,7 +226,8 @@ class Hm(EncoderBase):
                 elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
                     args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
                 else:
-                    raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+                    raise ValueError(
+                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
 
             if include_seek and self._seek:
                 args += f" -fs {self._seek}"

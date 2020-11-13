@@ -29,7 +29,7 @@ class EncodingRun:
         self.encoder: encoders.EncoderBase = encoder
         self.param_set: encoders.EncoderBase.ParamSet = param_set
         self.input_sequence: RawVideoSequence = input_sequence
-        self.frames = param_set.get_frames() or input_sequence.get_frames(seek=param_set.get_seek())
+        self.frames = param_set.get_frames() or input_sequence.get_framecount(seek=param_set.get_seek())
 
         self.qp_name = param_set.get_quality_param_type()
         self.qp_value = param_set.get_quality_param_value()
@@ -145,8 +145,6 @@ class Test:
 
         # HM and VTM only encode every nth frame if --TemporalSubsampleRatio is specified
         # (in the config file).
-        step = self.encoder.get_temporal_subsample()
-
 
         # Order quality parameters in ascending order by resulting bitrate,
         # since that is the order in which the results have to be when BD-BR is computed.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 from typing import Iterable
@@ -280,10 +281,25 @@ class Vtm(EncoderBase):
             raise
 
     @staticmethod
-    def validate_config():
+    def validate_config(test_config: test.Test):
         if not git.git_remote_exists(Cfg().vtm_remote_url):
             console_log.error(f"VTM: Remote '{Cfg().vtm_remote_url}' is not available")
             raise RuntimeError
+
+        args = test_config.subtests[0].param_set._to_args_dict(False, False, False)
+
+        pattern = re.compile(r"TemporalSubsampleRatio.*: (\d+)", re.DOTALL)
+        # Test if
+        for key, value in args.items():
+            if key == "-c":
+                with open(value, "r") as f:
+                    for line in f:
+                        match = pattern.match(line)
+                        if match:
+                            assert int(match[1]) == tester.Cfg().frame_step_size
+                            break
+            elif key == "--TemporalSubsampleRatio":
+                assert int(value) == tester.Cfg().frame_step_size
 
     class ParamSet(EncoderBase.ParamSet):
         """Represents the command line parameters passed to VTM when encoding."""
@@ -327,7 +343,8 @@ class Vtm(EncoderBase):
                 elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
                     args += f" --TargetBitrate={self._quality_param_value}"
                 else:
-                    raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+                    raise ValueError(
+                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
             if include_seek and self._seek:
                 args += f" -fs {self._seek}"
             if include_frames and self._frames:

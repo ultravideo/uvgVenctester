@@ -62,7 +62,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
     no_of_metrics = sum(int(boolean) for boolean in (psnr, ssim, vmaf))
 
     # Adjust for frame step (it could be that only every <step>th frame of the input sequence was encoded).
-    split1 = f"[0:v]select=not(mod(n\\,{encoding_run.input_sequence.get_step()}))[select1_out]; " \
+    split1 = f"[0:v]select=not(mod(n\\,{Cfg().frame_step_size}))[select1_out]; " \
              f"[select1_out]split={no_of_metrics}"
     split2 = f"[1:v]split={no_of_metrics}"
     filters = []
@@ -100,9 +100,9 @@ def compute_metrics(encoding_run: test.EncodingRun,
                   "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                   "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                   "-f", "rawvideo",
-                  "-r", f"{encoding_run.input_sequence.get_step()}",  # multiply framerate by step
+                  "-r", f"{Cfg().frame_step_size}",  # multiply framerate by step
                   "-ss", f"{encoding_run.param_set.get_seek()}",
-                  "-t", f"{encoding_run.frames}",
+                  "-t", f"{encoding_run.frames * Cfg().frame_step_size}",
                   "-i", f"{encoding_run.input_sequence.get_filepath()}",
 
                   # YUV output decoded from VVC output
@@ -128,9 +128,9 @@ def compute_metrics(encoding_run: test.EncodingRun,
                   "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                   "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                   "-f", "rawvideo",
-                  "-r", "1",
+                  "-r", f"{Cfg().frame_step_size}",
                   "-ss", f"{encoding_run.param_set.get_seek()}",
-                  "-t", f"{encoding_run.frames}",
+                  "-t", f"{encoding_run.frames * Cfg().frame_step_size}",
                   "-i", f"{encoding_run.input_sequence.get_filepath()}",
 
                   # HEVC output

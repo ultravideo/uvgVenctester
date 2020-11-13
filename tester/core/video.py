@@ -84,9 +84,7 @@ class RawVideoSequence:
                  height: int = None,
                  framerate: int = 25,
                  chroma: int = 420,
-                 bit_depth: int = 8,
-                 frames: int = None,
-                 step: int = 1):
+                 bit_depth: int = 8):
 
         self._width: [int, None] = None
         self._height: [int, None] = None
@@ -101,7 +99,6 @@ class RawVideoSequence:
             "fps": framerate,
             "chroma": chroma,
             "bit_depth": bit_depth,
-            "total_frames": frames,
         }
 
         stats.update(self.guess_values(filepath))
@@ -121,9 +118,6 @@ class RawVideoSequence:
         self._frames = self._total_frames
         assert self._total_frames
 
-        # Only ever <step>th frame is encoded.
-        framecount = math.ceil(self._frames / step)
-        assert framecount
 
         sequence_class = RawVideoSequence.guess_sequence_class(filepath)
 
@@ -131,9 +125,6 @@ class RawVideoSequence:
         # TODO: Fix this
         # This doesn't take step (only encoding every nth frame) into account:
         # This takes step into account:
-        self._framecount = framecount
-        self._duration_seconds: float = framecount / self._fps
-        self._step: int = step
         self._sequence_class: str = sequence_class
 
         # For bitrate calculation.
@@ -157,7 +148,7 @@ class RawVideoSequence:
         return self._filepath == other._filepath
 
     def get_size_bytes(self):
-        return self._framecount * self._pixels_per_frame * self._bytes_per_pixel
+        return self.get_framecount() * self._pixels_per_frame * self._bytes_per_pixel
 
     def get_size_bits(self):
         return self.get_size_bytes() * 8
@@ -181,9 +172,6 @@ class RawVideoSequence:
     def get_sequence_class(self) -> str:
         return self._sequence_class
 
-    def get_step(self) -> int:
-        return self._step
-
     def get_filepath(self) -> Path:
         return self._filepath
 
@@ -200,10 +188,10 @@ class RawVideoSequence:
         return self._frames - seek
 
     def get_framecount(self, seek=0) -> int:
-        return (self._frames - seek + self._step - 1) // self._step
+        return (self._frames - seek + Cfg().frame_step_size - 1) // Cfg().frame_step_size
 
     def get_duration_seconds(self) -> float:
-        return self._duration_seconds
+        return self.get_framecount() / self._fps
 
     def get_bitrate(self) -> float:
         return self._bitrate

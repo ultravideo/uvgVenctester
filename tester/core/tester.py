@@ -33,8 +33,6 @@ class TesterContext:
                 self._input_sequences.append(
                     RawVideoSequence(
                         filepath=filepath.resolve(),
-                        # TODO: Figure out a better way to do this.
-                        frames=self._tests[0].frames,
                     )
                 )
         self._metrics: dict = {test.name: TestMetrics(test, self._input_sequences) for test in self._tests}
@@ -123,13 +121,7 @@ class Tester:
 
             # Only validate those encoders that are being used.
             for test in context.get_tests():
-                test.encoder.validate_config()
-
-            # if Encoder.HM in used_encoder_ids and Encoder.VTM in used_encoder_ids:
-            #     if not hm.hm_get_temporal_subsample_ratio() == vtm.vtm_get_temporal_subsample_ratio():
-            #         console_log.error("Tester: Values of TemporalSubsampleRatio don't match "
-            #                           "in the configuration files of HM and VTM")
-            #         raise RuntimeError
+                test.encoder.validate_config(test)
 
         except Exception as exception:
             console_log.error("Tester: Configuration variable validation failed")
@@ -161,7 +153,7 @@ class Tester:
                 for test in context.get_tests():
                     for subtest in test.subtests:
                         for round_ in range(1, test.rounds + 1):
-                            name = f"{subtest.name}/{sequence.get_filepath().name} ({round_}/{test.rounds}"
+                            name = f"{subtest.name}/{sequence.get_filepath().name} ({round_}/{test.rounds})"
                             encoding_runs.append(
                                 EncodingRun(
                                     subtest,
@@ -195,7 +187,7 @@ class Tester:
             for test in context.get_tests():
                 for subtest in test.subtests:
                     for round_ in range(1, test.rounds + 1):
-                        name = f"{subtest.name}/{sequence.get_filepath().name} ({round_}/{test.rounds}"
+                        name = f"{subtest.name}/{sequence.get_filepath().name} ({round_}/{test.rounds})"
                         encoding_run = EncodingRun(
                             subtest,
                             name,

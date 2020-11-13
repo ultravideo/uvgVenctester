@@ -329,14 +329,35 @@ class EncoderBase:
 
     def encode_finish(self,
                       encode_cmd: tuple,
-                      encoding_run: test.EncodingRun) -> None:
+                      encoding_run: test.EncodingRun,
+                      pipe_input=False) -> None:
         """Meant to be called as the last thing from the encode() method of derived classes."""
 
         try:
+            ffmpeg_pipe = None
+            if pipe_input:
+                ffmpeg_cmd = (
+                    "ffmpeg",
+                    "-r", f"{tester.Cfg().frame_step_size}",
+                    "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+                    "-ss", f"{encoding_run.param_set.get_seek()}",
+                    "-t", f"{encoding_run.frames * tester.Cfg().frame_step_size}",
+                    "-f", "rawvideo",
+                    "-i", f"{encoding_run.input_sequence.get_filepath()}",
+                    "-filter_complex", f"[0:v]select=not(mod(n\\, {tester.Cfg().frame_step_size}))",
+                    "-t", f"{encoding_run.frames}",
+                    "-f", "rawvideo",
+                    "-r", "1",
+                    "-",
+                )
+
+                ffmpeg_pipe = subprocess.Popen(ffmpeg_cmd, stderr=subprocess.DEVNULL, stdout=subprocess.PIPE)
+
             output = subprocess.check_output(
                 subprocess.list2cmdline(encode_cmd),
                 shell=True,
-                stderr=subprocess.STDOUT
+                stderr=subprocess.STDOUT,
+                stdin=ffmpeg_pipe.stdout if ffmpeg_pipe else None
             )
             with encoding_run.encoding_log_path.open("w") as encoding_log:
                 encoding_log.write(output.decode())
@@ -347,11 +368,8 @@ class EncoderBase:
             console_log.error(exception.output.decode().strip())
             raise
 
-    def get_temporal_subsample(self):
-        return 1
-
     @staticmethod
-    def validate_config():
+    def validate_config(test_config: test.Test):
         return True
 
     class ParamSet:
