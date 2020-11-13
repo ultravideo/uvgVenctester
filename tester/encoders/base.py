@@ -388,7 +388,7 @@ class EncoderBase:
             self._quality_param_type: QualityParam = quality_param_type
             self._quality_param_value: int = quality_param_value
             self._seek: int = seek
-            self._frames: int = frames
+            self._frames: int = frames // tester.Cfg().frame_step_size
             self._cl_args: str = cl_args
 
         def __eq__(self,

@@ -183,25 +183,8 @@ class Hm(EncoderBase):
             elif key == "--TemporalSubsampleRatio":
                 assert int(value) == tester.Cfg().frame_step_size
 
-
     class ParamSet(EncoderBase.ParamSet):
         """Represents the command line parameters passed to HM when encoding."""
-
-        def __init__(self,
-                     quality_param_type: tester.QualityParam,
-                     quality_param_value: int,
-                     seek: int,
-                     frames: int,
-                     cl_args: str):
-
-            super().__init__(
-                quality_param_type,
-                quality_param_value,
-                seek,
-                frames,
-                cl_args
-            )
-
         @staticmethod
         def _get_arg_order() -> list:
             return []
