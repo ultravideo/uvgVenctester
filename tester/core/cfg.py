@@ -253,6 +253,28 @@ class Cfg(metaclass=Singleton):
         self._wkhtmltopdf_path = value
 
     ##########################################################################
+    # RD Plots
+    ##########################################################################
+
+    colors = [
+        "xkcd:black",
+        "xkcd:red",
+        "xkcd:blue",
+        "xkcd:green",
+        "xkcd:cyan",
+        "xkcd:magenta",
+        "xkcd:yellow",
+        "xkcd:pink",
+        "xkcd:brown",
+        "xkcd:bright purple",
+        "xkcd:indigo",
+        "xkcd:dark teal",
+        "xkcd:crimson",
+        "xkcd:apple green",
+        "xkcd:bluish green",
+    ]
+
+    ##########################################################################
     # General
     ##########################################################################
 

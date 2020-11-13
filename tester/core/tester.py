@@ -4,10 +4,11 @@ import subprocess
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, List
 from multiprocessing import Pool
 from PyPDF4 import PdfFileMerger
 from tempfile import mkstemp
+import matplotlib.pyplot as plt
 
 import tester
 import pdfkit
@@ -63,7 +64,7 @@ class TesterContext:
         assert test_name in self._tests_by_name.keys()
         return self._tests_by_name[test_name]
 
-    def get_input_sequences(self) -> list:
+    def get_input_sequences(self) -> List[RawVideoSequence]:
         return self._input_sequences
 
     def add_metrics_calculated_for(self, type_: ResultTypes):
@@ -448,3 +449,48 @@ class Tester:
 
         else:
             raise ValueError("Invalid table type")
+
+    @staticmethod
+    def generate_rd_graphs(context: TesterContext, basedir: Path, parallel_generations: [int, None] = None):
+        if not basedir.exists():
+            basedir.mkdir()
+        if not basedir.is_dir():
+            raise TypeError(f"{str(basedir)} exists but it is not a directory")
+
+        seqs = context.get_input_sequences()
+        metrics = context.get_metrics()
+
+        enabled_metrics = []
+        if csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields:
+            enabled_metrics.append("psnr")
+        if csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields:
+            enabled_metrics.append("ssim")
+        if csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields:
+            enabled_metrics.append("vmaf")
+
+        for index, seq in enumerate(seqs):
+            plt.figure(index, [30, 35])
+
+            video_name = seq.get_filepath().name
+
+            plt.suptitle(video_name, size=50)
+
+            # TODO: add vertical lines to show bitrate targets
+            for plot_index, metric in enumerate(enabled_metrics):
+                plt.subplot(100*len(enabled_metrics) + 10 + plot_index + 1)
+                plt.title(metric, size=26)
+                temp = []
+
+                for test, color in zip(metrics, Cfg().colors):
+                    video_data = [metrics[test][seq][subtest.param_set.get_quality_param_value()] for subtest in
+                                  context.get_test(test).subtests]
+                    a = plt.plot(
+                        [data["bitrate_avg"] for data in video_data],
+                        [data[f"{metric}_avg"] for data in video_data],
+                        marker="o",
+                        color=color
+                    )
+                    temp.append(a[0])
+                plt.legend(temp, metrics)
+            plt.savefig((basedir / video_name).with_suffix(".png"))
+
