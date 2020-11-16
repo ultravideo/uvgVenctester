@@ -66,7 +66,7 @@ class VideoFileBase:
 
     def get_bitrate(self) -> float:
         file_size_bits = self._filepath.stat().st_size * 8
-        return file_size_bits / self.get_duration_seconds()
+        return file_size_bits / self.get_duration_seconds() * Cfg().frame_step_size
 
     def get_suffixless_name(self):
         return self._filepath.parts[-1].replace(self._filepath.suffix, "")
@@ -122,9 +122,6 @@ class RawVideoSequence:
         sequence_class = RawVideoSequence.guess_sequence_class(filepath)
 
         self._filepath = filepath
-        # TODO: Fix this
-        # This doesn't take step (only encoding every nth frame) into account:
-        # This takes step into account:
         self._sequence_class: str = sequence_class
 
         # For bitrate calculation.

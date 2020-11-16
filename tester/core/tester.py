@@ -113,7 +113,7 @@ class Tester:
             git.git_validate_config()
             cmake.cmake_validate_config()
             gcc.gcc_validate_config()
-            # ffmpeg.ffmpeg_validate_config()
+            ffmpeg.ffmpeg_validate_config()
             vmaf.vmaf_validate_config()
             vs.vs_validate_config()
 
@@ -142,7 +142,7 @@ class Tester:
             for test in context.get_tests():
                 console_log.info(f"Tester: Building encoder for test '{test.name}'")
                 test.encoder.build()
-                # TODO: Don't clean if the encoder wasn't built. This is slow for HM, at least.
+                # TODO: Don't clean if the encoder wasn't built.
                 if not test.encoder._use_prebuilt:
                     test.encoder.clean()
             context.validate_final()

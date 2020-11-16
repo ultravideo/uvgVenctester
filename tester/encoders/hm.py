@@ -95,12 +95,9 @@ class Hm(EncoderBase):
             )
 
         elif tester.Cfg().system_os_name == "Linux":
-
-            # TODO: This is SUPER slow (the binary seems to be recompiled for whatever reason).
-            # TODO: Eliminate?
             clean_cmd = (
                 "cd", str(self._git_local_path),
-                "&&", "make", "clean", "TAppEncoder-r"
+                "&&", "make", "clean"
             )
 
         self.clean_finish(clean_cmd)

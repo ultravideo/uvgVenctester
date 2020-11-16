@@ -40,6 +40,9 @@ class EncodingRun:
         elif self.qp_name == QualityParam.RES_ROOT_SCALED_BITRATE:
             self.qp_value *= sqrt(self.input_sequence.get_height() * self.input_sequence.get_width() / (1920 * 1080))
 
+        if QualityParam.BITRATE.value <= self.qp_name.value <= QualityParam.RES_ROOT_SCALED_BITRATE.value:
+            self.qp_value /= Cfg().frame_step_size
+
         qp_name = self.qp_name.short_name
 
         base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
