@@ -5,7 +5,7 @@ import time
 from enum import Enum
 from pathlib import Path
 from typing import Iterable, List
-from multiprocessing import Pool
+from multiprocessing import Pool, cpu_count
 from PyPDF4 import PdfFileMerger
 from tempfile import mkstemp
 import matplotlib.pyplot as plt
@@ -460,6 +460,8 @@ class Tester:
         seqs = context.get_input_sequences()
         metrics = context.get_metrics()
 
+        assert len(Cfg().colors) >= len(metrics)
+
         enabled_metrics = []
         if csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields:
             enabled_metrics.append("psnr")
@@ -468,29 +470,50 @@ class Tester:
         if csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields:
             enabled_metrics.append("vmaf")
 
+        figures = []
         for index, seq in enumerate(seqs):
-            plt.figure(index, [30, 35])
+            figures.append((basedir, context, enabled_metrics, index, metrics, seq))
 
-            video_name = seq.get_filepath().name
+        if parallel_generations == 1:
+            for fig in figures:
+                Tester._do_one_figure(fig)
+        else:
+            if parallel_generations is None:
+                parallel_generations = cpu_count()
+            with Pool(parallel_generations) as p:
+                p.map(Tester._do_one_figure, figures)
 
-            plt.suptitle(video_name, size=50)
+    @staticmethod
+    def _do_one_figure(args):
+        basedir, context, enabled_metrics, index, metrics, seq = args
+        console_log.info(f"Generating RD-graph for {seq.get_suffixless_name()}")
+        plt.figure(index, [30, 35])
+        video_name = seq.get_filepath().name
+        plt.suptitle(video_name, size=50)
+        for plot_index, metric in enumerate(enabled_metrics):
+            plt.subplot(100 * len(enabled_metrics) + 10 + plot_index + 1)
+            plt.title(metric.upper(), size=26)
+            temp = []
 
-            # TODO: add vertical lines to show bitrate targets
-            for plot_index, metric in enumerate(enabled_metrics):
-                plt.subplot(100*len(enabled_metrics) + 10 + plot_index + 1)
-                plt.title(metric, size=26)
-                temp = []
+            for test, color in zip(metrics, Cfg().colors):
+                video_data = [metrics[test][seq][subtest.param_set.get_quality_param_value()] for subtest in
+                              context.get_test(test).subtests]
+                rates = [data["bitrate_avg"] / 1000 for data in video_data]
+                a = plt.plot(
+                    rates,
+                    [data[f"{metric}_avg"] for data in video_data],
+                    marker="o",
+                    color=color
+                )
+                temp.append(a[0])
+                if "target_bitrate_avg" in video_data[0] and Cfg().include_bitrate_targets:
+                    for target in video_data:
+                        plt.axvline(x=target["target_bitrate_avg"] / 1000)
 
-                for test, color in zip(metrics, Cfg().colors):
-                    video_data = [metrics[test][seq][subtest.param_set.get_quality_param_value()] for subtest in
-                                  context.get_test(test).subtests]
-                    a = plt.plot(
-                        [data["bitrate_avg"] for data in video_data],
-                        [data[f"{metric}_avg"] for data in video_data],
-                        marker="o",
-                        color=color
-                    )
-                    temp.append(a[0])
-                plt.legend(temp, metrics)
-            plt.savefig((basedir / video_name).with_suffix(".png"))
-
+            plt.legend(temp, metrics, fontsize=18)
+            te = plt.gca()
+            te.xaxis.set_tick_params(labelsize=16)
+            te.yaxis.set_tick_params(labelsize=16)
+            plt.xlim(left=0)
+        plt.savefig((basedir / video_name).with_suffix(".png"))
+        plt.close()

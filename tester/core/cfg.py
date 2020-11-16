@@ -256,6 +256,8 @@ class Cfg(metaclass=Singleton):
     # RD Plots
     ##########################################################################
 
+    """List of colors used for the curves in the RD plots.
+     Order is same as for the order where Tests are passed to create context"""
     colors = [
         "xkcd:black",
         "xkcd:red",
@@ -273,6 +275,9 @@ class Cfg(metaclass=Singleton):
         "xkcd:apple green",
         "xkcd:bluish green",
     ]
+
+    """When bitrate or derivative is used as quality_param whether they are depicted in the figures"""
+    include_bitrate_targets = True
 
     ##########################################################################
     # General
