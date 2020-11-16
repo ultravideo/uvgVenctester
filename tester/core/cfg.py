@@ -257,6 +257,14 @@ class Cfg(metaclass=Singleton):
     kvazaar_remote_url: str = "git@gitlab.tut.fi:TIE/ultravideo/kvazaar.git"
 
     ##########################################################################
+    # x265
+    ##########################################################################
+
+    """The remote from which x265 will be cloned."""
+    x265_remote_url: str = "git@bitbucket.org:multicoreware/x265_git.git"
+    x265_build_folder: str = "vc15-x86_64"
+
+    ##########################################################################
     # Visual Studio
     ##########################################################################
 
