@@ -141,7 +141,7 @@ class Test:
 
         # Order quality parameters in ascending order by resulting bitrate,
         # since that is the order in which the results have to be when BD-BR is computed.
-        if quality_param_type == QualityParam.QP:
+        if quality_param_type in [QualityParam.QP, QualityParam.CRF]:
             quality_param_list = sorted(quality_param_list, reverse=True)
         elif quality_param_type in [QualityParam.RES_ROOT_SCALED_BITRATE, QualityParam.RES_SCALED_BITRATE,
                                     QualityParam.BPP, QualityParam.BITRATE]:

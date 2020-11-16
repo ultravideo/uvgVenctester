@@ -26,6 +26,7 @@ class QualityParam(Enum):
     BPP: int = 3
     RES_SCALED_BITRATE: int = 4
     RES_ROOT_SCALED_BITRATE: int = 5
+    CRF: int = 6
 
     @property
     def pretty_name(self):
@@ -35,6 +36,7 @@ class QualityParam(Enum):
             QualityParam.BPP: "bpp",
             QualityParam.RES_SCALED_BITRATE: "resolution_scaled_bitrate",
             QualityParam.RES_ROOT_SCALED_BITRATE: "root_of_resolution_scaled_bitrate",
+            QualityParam.CRF: "CRF",
         }
         return names[self]
 
@@ -46,6 +48,7 @@ class QualityParam(Enum):
             QualityParam.BPP: "bpp",
             QualityParam.RES_SCALED_BITRATE: "res_br",
             QualityParam.RES_ROOT_SCALED_BITRATE: "root_br",
+            QualityParam.CRF: "crf",
         }
         return names[self]
 
