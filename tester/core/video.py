@@ -66,7 +66,7 @@ class VideoFileBase:
 
     def get_bitrate(self) -> float:
         file_size_bits = self._filepath.stat().st_size * 8
-        return file_size_bits / self.get_duration_seconds() * Cfg().frame_step_size
+        return file_size_bits / self.get_duration_seconds()
 
     def get_suffixless_name(self):
         return self._filepath.parts[-1].replace(self._filepath.suffix, "")

@@ -132,11 +132,11 @@ class TestMetrics:
             base_path = Cfg().tester_output_dir_path \
                               / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
                                 f"{encoder.get_short_define_hash()}" \
-                              / test.subtests[0].param_set.to_cmdline_str(False, inode_safe=True)
+                              / test.subtests[0].param_set.to_cmdline_str(False, include_directory_data=True)
         else:
             base_path = Cfg().tester_output_dir_path \
                               / f"{encoder.get_name().lower()}_{encoder.get_revision()}" \
-                              / test.subtests[0].param_set.to_cmdline_str(False, inode_safe=True)
+                              / test.subtests[0].param_set.to_cmdline_str(False, include_directory_data=True)
 
         self.seq_data = {
             seq: SequenceMetrics(base_path, seq, test.quality_param_type, test.quality_param_list, test.rounds)

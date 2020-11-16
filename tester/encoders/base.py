@@ -427,7 +427,7 @@ class EncoderBase:
                                     include_quality_param: bool = True,
                                     include_seek: bool = True,
                                     include_frames: bool = True,
-                                    inode_safe: bool = False) -> list:
+                                    include_directory_data: bool = False) -> list:
             """Returns a list where the option names and values have been split.
             Must be implemented in subclasses (the encoders parse arguments differently)."""
             raise NotImplementedError
@@ -436,14 +436,14 @@ class EncoderBase:
                           include_quality_param: bool = True,
                           include_seek: bool = True,
                           include_frames: bool = True,
-                          inode_safe=False) -> dict:
+                          include_directory_data=False) -> dict:
             """Returns a dict where key = option name, value = option value."""
 
             args_list = self._to_unordered_args_list(
                 include_quality_param,
                 include_seek,
                 include_frames,
-                inode_safe
+                include_directory_data
             )
 
             # Put the options and their values into this dict. Value None indicates that the option
@@ -483,7 +483,7 @@ class EncoderBase:
                              include_quality_param: bool = True,
                              include_seek: bool = True,
                              include_frames: bool = True,
-                             inode_safe=False) -> tuple:
+                             include_directory_data=False) -> tuple:
             """Returns the command line arguments in a tuple that has been ordered."""
 
             reordered_args_list: list = []
@@ -492,7 +492,7 @@ class EncoderBase:
                 include_quality_param,
                 include_seek,
                 include_frames,
-                inode_safe
+                include_directory_data
             )
 
             # Handle arguments that should come before others, if any.
@@ -531,9 +531,9 @@ class EncoderBase:
                            include_quality_param: bool = True,
                            include_seek: bool = True,
                            include_frames: bool = True,
-                           inode_safe=False) -> str:
+                           include_directory_data: bool = False, ) -> str:
             """Returns the command line arguments in a string that has been ordered."""
-            return " ".join(self.to_cmdline_tuple(include_quality_param, include_seek, include_frames, inode_safe))
+            return " ".join(self.to_cmdline_tuple(include_quality_param, include_seek, include_frames, include_directory_data))
 
         def get_quality_param_type(self) -> QualityParam:
             return self._quality_param_type

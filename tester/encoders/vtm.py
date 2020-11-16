@@ -311,7 +311,7 @@ class Vtm(EncoderBase):
                                     include_quality_param: bool = True,
                                     include_seek: bool = True,
                                     include_frames: bool = True,
-                                    inode_safe: bool = False) -> list:
+                                    include_directory_data: bool = False) -> list:
 
             args = self._cl_args
 
@@ -340,7 +340,9 @@ class Vtm(EncoderBase):
             if not "--ConformanceWindowMode" in args:
                 args += " --ConformanceWindowMode=1"
 
-            if inode_safe:
+            if include_directory_data:
+                if tester.Cfg().frame_step_size != 1:
+                    args += f" --TemporalSubsampleRatio={tester.Cfg().frame_step_size}"
                 args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
 
             return args.split()

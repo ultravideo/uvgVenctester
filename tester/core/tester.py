@@ -226,10 +226,9 @@ class Tester:
         try:
             console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
 
-            metrics["bitrate"] = encoding_run.output_file.get_bitrate()
             if encoding_run.qp_name != tester.QualityParam.QP:
                 metrics["target_bitrate"] = encoding_run.qp_value
-
+            metrics["bitrate"] = encoding_run.output_file.get_bitrate()
             if psnr_needed or ssim_needed or vmaf_needed:
                 psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
                     encoding_run,
@@ -266,10 +265,10 @@ class Tester:
             for sequence in context.get_input_sequences():
                 for test in context.get_tests():
                     for anchor in [context.get_test(name) for name in test.anchor_names]:
-                        for i, subtest in enumerate(test.subtests):
+                        for subtest, anchor_subtest in zip(test.subtests, anchor.subtests):
 
                             try:
-                                Tester.__add_csv_line(anchor, csvfile, sequence, subtest, test, metrics)
+                                Tester.__add_csv_line(anchor, anchor_subtest, csvfile, sequence, subtest, test, metrics)
 
                             except Exception as exception:
                                 console_log.error(f"Tester: Failed to add CSV entry for "
@@ -283,11 +282,11 @@ class Tester:
             exit(1)
 
     @staticmethod
-    def __add_csv_line(anchor, csvfile, sequence, subtest, test, metrics):
+    def __add_csv_line(anchor, anchor_subtest, csvfile, sequence, subtest, test, metrics):
         console_log.info(f"Tester: Adding CSV entry for "
                          f"'{subtest.name}/{sequence.get_filepath().name}'")
         metric = metrics[test.name][sequence][subtest.param_set.get_quality_param_value()]
-        anchor_metric = metrics[anchor.name][sequence][subtest.param_set.get_quality_param_value()]
+        anchor_metric = metrics[anchor.name][sequence][anchor_subtest.param_set.get_quality_param_value()]
         csvfile.add_entry(
             {
                 csv.CsvField.SEQUENCE_NAME: lambda: sequence.get_filepath().name,
