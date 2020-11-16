@@ -62,6 +62,8 @@ class Vtm(EncoderBase):
             return
 
         build_cmd = ()
+        if not (self._git_local_path / "build").exists():
+            (self._git_local_path / "build").mkdir()
 
         if Cfg().system_os_name == "Windows":
 
@@ -71,7 +73,6 @@ class Vtm(EncoderBase):
             # Configure CMake, run VsDevCmd.bat, then MSBuild.
             build_cmd = (
                             "cd", str(self._git_local_path),
-                            "&&", "mkdir", "build",
                             "&&", "cd", "build",
                             "&&", "cmake", "..",
                             "-G", cmake.get_cmake_build_system_generator(),

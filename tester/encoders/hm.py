@@ -50,6 +50,8 @@ class Hm(EncoderBase):
             return
 
         build_cmd = ()
+        if not (self._git_local_path / "build").exists():
+            (self._git_local_path / "build").mkdir()
 
         if tester.Cfg().system_os_name == "Windows":
 
