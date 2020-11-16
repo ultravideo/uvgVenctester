@@ -305,7 +305,7 @@ class Vtm(EncoderBase):
         """Represents the command line parameters passed to VTM when encoding."""
         @staticmethod
         def _get_arg_order() -> list:
-            return []
+            return ["-c"]
 
         def _to_unordered_args_list(self,
                                     include_quality_param: bool = True,
