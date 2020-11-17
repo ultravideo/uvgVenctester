@@ -8,7 +8,6 @@ from typing import Iterable, Union
 from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
 import tester.core.test as test
-from tester.core.cfg import Cfg
 from tester.core.video import VideoFileBase, RawVideoSequence
 from tester.encoders.base import QualityParam, EncoderBase
 
@@ -108,6 +107,13 @@ class SequenceMetrics:
     def compute_bdbr_to_anchor(self, anchor: SequenceMetrics, quality_metric: str):
         return self._compute_bdbr(anchor.get_quality_with_bitrates(quality_metric),
                                   self.get_quality_with_bitrates(quality_metric))
+
+    def average_speedup(self, anchor: SequenceMetrics):
+        a = [first["encoding_time_avg"] / second["encoding_time_avg"]
+             for first, second
+             in zip(self._data.values(), anchor._data.values())]
+        return sum(a) / len(a)
+
 
     @staticmethod
     def _compute_bdbr(anchor_values, compared_values):

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Union
 
 import tester.core.csv as csv
+import tester.core.table as table
 from .log import console_log
 from .singleton import Singleton
 
@@ -193,6 +194,34 @@ class Cfg(metaclass=Singleton):
 
     """The accuracy with which floats are rounded when generating the output CSV."""
     csv_float_rounding_accuracy: int = 6
+
+    ##########################################################################
+    # Table
+    ##########################################################################
+
+    table_enabled_fields: list = [
+        table.TableColumns.VIDEO,
+        table.TableColumns.PSNR_BDBR,
+        table.TableColumns.SSIM_BDBR,
+        table.TableColumns.VMAF_BDBR,
+        table.TableColumns.SPEEDUP,
+    ]
+
+    table_column_headers: dict = {
+        table.TableColumns.VIDEO: "Video",
+        table.TableColumns.PSNR_BDBR: "BD-BR (PSNR)",
+        table.TableColumns.SSIM_BDBR: "BD-BR (SSIM)",
+        table.TableColumns.VMAF_BDBR: "BD-BR (VMAF)",
+        table.TableColumns.SPEEDUP: "Speedup",
+    }
+
+    table_column_formats = {
+        table.TableColumns.VIDEO: lambda x: x,
+        table.TableColumns.PSNR_BDBR: lambda x: f"{x*100:.1f}%",
+        table.TableColumns.SSIM_BDBR: lambda x: f"{x*100:.1f}%",
+        table.TableColumns.VMAF_BDBR: lambda x: f"{x*100:.1f}%",
+        table.TableColumns.SPEEDUP: lambda x: f"{x:.2f}×",
+    }
 
     ##########################################################################
     # General

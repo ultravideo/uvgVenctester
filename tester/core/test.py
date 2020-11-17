@@ -8,8 +8,7 @@ from pathlib import Path
 from typing import Iterable
 
 import tester.encoders as encoders
-from tester.core.cfg import Cfg
-from tester.core.metrics import EncodingRunMetrics
+import tester.core.metrics as met
 from tester.core.video import RawVideoSequence, EncodedVideoFile
 from tester.encoders.base import QualityParam
 
@@ -63,7 +62,7 @@ class EncodingRun:
             duration_seconds=input_sequence.get_duration_seconds()
         )
 
-        self.metrics = EncodingRunMetrics(self.metrics_path)
+        self.metrics = met.EncodingRunMetrics(self.metrics_path)
 
         self.decoded_output_file_path: Path = None
         if type(encoder) == encoders.Vtm:
