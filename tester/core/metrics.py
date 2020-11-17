@@ -10,7 +10,7 @@ from vmaf.tools.bd_rate_calculator import BDrateCalculator
 import tester.core.test as test
 from tester.core.cfg import Cfg
 from tester.core.video import VideoFileBase, RawVideoSequence
-from tester.encoders.base import QualityParam
+from tester.encoders.base import QualityParam, EncoderBase
 
 
 class EncodingRunMetrics:
@@ -126,20 +126,16 @@ class SequenceMetrics:
 
 
 class TestMetrics:
-    def __init__(self, test: "Test", sequences):
-        encoder = test.encoder
-        if not encoder._use_prebuilt:
-            base_path = Cfg().tester_output_dir_path \
-                              / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
-                                f"{encoder.get_short_define_hash()}" \
-                              / test.subtests[0].param_set.to_cmdline_str(False, include_directory_data=True)
-        else:
-            base_path = Cfg().tester_output_dir_path \
-                              / f"{encoder.get_name().lower()}_{encoder.get_revision()}" \
-                              / test.subtests[0].param_set.to_cmdline_str(False, include_directory_data=True)
+    def __init__(self, test_instance: "Test", sequences):
+        encoder: EncoderBase = test_instance.encoder
+        base_path = encoder.get_output_dir(test_instance.subtests[0].param_set)
 
         self.seq_data = {
-            seq: SequenceMetrics(base_path, seq, test.quality_param_type, test.quality_param_list, test.rounds)
+            seq: SequenceMetrics(base_path,
+                                 seq,
+                                 test_instance.quality_param_type,
+                                 test_instance.quality_param_list,
+                                 test_instance.rounds)
             for seq
             in sequences
         }

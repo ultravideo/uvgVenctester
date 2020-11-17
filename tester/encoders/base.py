@@ -374,6 +374,34 @@ class EncoderBase:
     def validate_config(test_config: test.Test):
         return True
 
+    def get_output_dir(self, paramset: EncoderBase.ParamSet):
+        params = paramset.to_cmdline_str(False, include_directory_data=True)
+        if not self._use_prebuilt:
+            base = tester.Cfg().tester_output_dir_path \
+                   / f"{self.get_name().lower()}_{self.get_short_revision()}_" \
+                     f"{self.get_short_define_hash()}"
+        else:
+            base = tester.Cfg().tester_output_dir_path \
+                   / f"{self.get_name().lower()}_{self.get_revision()}"
+
+        if tester.Cfg().system_os_name == "Windows" and len(str(base)) + len(params) > 200:
+            md5_params = hashlib.md5(params.encode()).hexdigest()
+            md5map_file = base / "hash_to_cmdline.txt"
+            hash_in_file = False
+            if md5map_file.exists():
+                with open(md5map_file, "r") as md5_f:
+                    for line in md5_f:
+                        if md5_params == line.split(":")[0]:
+                            hash_in_file = True
+                            break
+
+            if not hash_in_file:
+                with open(md5map_file, "a") as md5_f:
+                    md5_f.write(f"{md5_params}:{params}")
+
+            return base / md5_params
+        return base / params
+
     class ParamSet:
         """An interface representing a set of parameters to be passed to an encoder when encoding.
         The purpose of the class is to provide an interface through which the parameter sets
@@ -533,7 +561,8 @@ class EncoderBase:
                            include_frames: bool = True,
                            include_directory_data: bool = False, ) -> str:
             """Returns the command line arguments in a string that has been ordered."""
-            return " ".join(self.to_cmdline_tuple(include_quality_param, include_seek, include_frames, include_directory_data))
+            return " ".join(
+                self.to_cmdline_tuple(include_quality_param, include_seek, include_frames, include_directory_data))
 
         def get_quality_param_type(self) -> QualityParam:
             return self._quality_param_type

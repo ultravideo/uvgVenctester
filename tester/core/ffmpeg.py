@@ -91,6 +91,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
 
     # VTM output is in YUV format, so use different command.
     if encoding_run.decoded_output_file_path:
+        encoding_run.encoder._decode(encoding_run)
         ffmpeg_command = (
             # Change working directory to make relative paths work.
             "cd", f"{encoding_run.output_file.get_filepath().parent}",
@@ -164,6 +165,9 @@ def compute_metrics(encoding_run: test.EncodingRun,
             # Remove the temporary VMAF model file.
             os.remove(vmaf_model_dest_path1)
             os.remove(vmaf_model_dest_path2)
+
+        if encoding_run.decoded_output_file_path:
+            os.remove(encoding_run.decoded_output_file_path)
 
         # Ugly but simple:
 

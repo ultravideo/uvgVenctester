@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from hashlib import md5
 from math import sqrt
 from pathlib import Path
 from typing import Iterable
@@ -44,15 +45,7 @@ class EncodingRun:
 
         base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
                         f"{qp_name}{self.param_set.get_quality_param_value()}_{round_number}"
-        if not encoder._use_prebuilt:
-            output_dir_path = Cfg().tester_output_dir_path \
-                              / f"{encoder.get_name().lower()}_{encoder.get_short_revision()}_" \
-                                f"{encoder.get_short_define_hash()}" \
-                              / param_set.to_cmdline_str(include_quality_param=False, include_directory_data=True)
-        else:
-            output_dir_path = Cfg().tester_output_dir_path \
-                              / f"{encoder.get_name().lower()}_{encoder.get_revision()}" \
-                              / param_set.to_cmdline_str(include_quality_param=False, include_directory_data=True)
+        output_dir_path = encoder.get_output_dir(param_set)
 
         self.encoding_log_path: Path = output_dir_path / f"{base_filename}_encoding_log.txt"
         self.metrics_path: Path = output_dir_path / f"{base_filename}_metrics.json"

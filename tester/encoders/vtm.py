@@ -251,14 +251,11 @@ class Vtm(EncoderBase):
                 "-wdt", str(encoding_run.input_sequence.get_width()),
                 "-hgt", str(encoding_run.input_sequence.get_height()),
                 "-b", str(encoding_run.output_file.get_filepath()),
-                "-f", str(encoding_run.frames),
+                "-f", str(encoding_run.frames * Cfg().frame_step_size),
                 "-o", os.devnull,
             ) + quality
 
         self.encode_finish(encode_cmd, encoding_run)
-
-        # Decode the output because ffmpeg can't decode VVC.
-        self._decode(encoding_run)
 
     def _decode(self,
                 encoding_run: test.EncodingRun):

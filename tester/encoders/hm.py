@@ -156,7 +156,7 @@ class Hm(EncoderBase):
                 "-wdt", str(encoding_run.input_sequence.get_width()),
                 "-hgt", str(encoding_run.input_sequence.get_height()),
                 "-b", str(encoding_run.output_file.get_filepath()),
-                "-f", str(encoding_run.frames),
+                "-f", str(encoding_run.frames * tester.Cfg().frame_step_size),
                 "-o", os.devnull,
             ) + quality
         self.encode_finish(encode_cmd, encoding_run)
