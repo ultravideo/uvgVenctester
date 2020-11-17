@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Iterable
 
 import tester
+import tester.core.git as git
 import tester.core.test as test
 from . import EncoderBase
 
@@ -34,17 +36,53 @@ class X265(EncoderBase):
             self._exe_src_path = self._git_local_path / "build" / "linux" / "x265"
 
     def build(self) -> None:
-        # TODO: Add building from source
-        if self._use_prebuilt:
-            if not self.build_start():
-                return
-            self.build_finish(tuple())
-        else:
-            raise NotImplementedError
+        if not self.build_start():
+            return
+        
+        build_cmd = tuple()
 
+        if tester.Cfg().system_os_name == "Windows":
+            build_dir = self._git_local_path / "build" / tester.Cfg().x265_build_folder
+            cmake_cmd = ""
+            msbuild_cmd = []
+            # A bit hacky, but minimizes user configuration. TODO: Unify with vs handling?
+            with open(build_dir / tester.Cfg().x265_make_solution_bat) as cmake_bat:
+                for line in cmake_bat:
+                    if line.strip().startswith("cmake"):
+                        cmake_cmd = line.split("&&")[0].strip()
+            with open(build_dir / tester.Cfg().x265_build_bat) as build_bat:
+                for line in build_bat:
+                    if line.strip().startswith("call") and tester.Cfg().x265_make_solution_bat not in line:
+                        msbuild_cmd.append(line.strip())
+                    elif line.strip().startswith("MSBuild") and "Release" in line:
+                        msbuild_cmd.append(line.strip())
+            build_cmd = (
+                "cd", build_dir,
+                "&&", cmake_cmd,
+                "&&", msbuild_cmd[0],
+                "&&", msbuild_cmd[1],
+            )
+        elif tester.Cfg().system_os_name == "Linux":
+            build_cmd = (
+                "cd", str(self._git_local_path / "build" / "linux"),
+                "&&", "./make-Makefiles.bash",
+                "&&", "make",
+            )
+
+        self.build_finish(build_cmd)
 
     def clean(self) -> None:
-        raise NotImplementedError
+        self.clean_start()
+
+        clean_cmd = ()
+
+        if tester.Cfg().system_os_name == "Linux":
+            clean_cmd = (
+                "cd", str(self._git_local_path / "build" / "linux"),
+                "&&", "make", "clean",
+            )
+
+        self.clean_finish(clean_cmd)
 
     def dummy_run(self,
                   param_set: EncoderBase.ParamSet) -> bool:

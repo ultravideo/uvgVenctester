@@ -261,8 +261,10 @@ class Cfg(metaclass=Singleton):
     ##########################################################################
 
     """The remote from which x265 will be cloned."""
-    x265_remote_url: str = "git@bitbucket.org:multicoreware/x265_git.git"
+    x265_remote_url: str = "https://bitbucket.org/multicoreware/x265_git.git"
     x265_build_folder: str = "vc15-x86_64"
+    x265_make_solution_bat: str = "make-solutions.bat"
+    x265_build_bat: str = "build-all.bat"
 
     ##########################################################################
     # Visual Studio
