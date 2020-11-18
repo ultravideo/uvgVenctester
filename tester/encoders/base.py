@@ -402,6 +402,9 @@ class EncoderBase:
             return base / md5_params
         return base / params
 
+    def __call__(self, *args, **kwargs):
+        return self
+
     class ParamSet:
         """An interface representing a set of parameters to be passed to an encoder when encoding.
         The purpose of the class is to provide an interface through which the parameter sets
