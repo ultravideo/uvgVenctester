@@ -17,10 +17,12 @@
   - Must be in `PATH` and able to be used as `ffmpeg`
 - [CMake](https://cmake.org)
   - Must be in `PATH` and able to be used as `cmake`
+- [git](https://git-scm.com/)
+  - Must be in `PATH``, in particular this might require some work in Windows
 - [Python interpreter (3.8+)](https://python.org/)
 - Python libraries
-  - [colorama](https://github.com/tartley/colorama)
-  - [vmaf](https://github.com/Netflix/vmaf)
+  - [requirements.txt](requirements.txt) has a list of needed libraris
+  - [vmaf](https://github.com/Netflix/vmaf) is not currently on pypi and needs to be installed manually
     1. Clone the repository
     2. Go to vmaf/python
     3. Run `python setup.py install`
@@ -42,7 +44,7 @@ Clone this repository and install the dependencies.
 
 ### 1. SSH
 
-The tester clones source code from gitlab.tut.fi using SSH. Make sure you have an SSH key set up.
+The tester clones source code from gitlab.tut.fi using SSH. Make sure you have an SSH key set up. Or use HTTPS for cloning.
 
 ### 2. Tester configuration
 
@@ -93,6 +95,11 @@ from tester import Tester, Test, QualityParam
 from tester.core import csv
 from tester.encoders import Kvazaar
 ```
+- It's possible to set the `Cfg()` variables inside the `main.py` but in that case it is important to note that when 
+the parallel encoding / result generation is used the changes made inside `__name__ == "__main__"` guard or any
+function called inside the guard will not be visible inside the parallel units. Currently the only variables that are
+ effected are `frame_step_size` and `vmaf_repo_path` but if you are unsure it is safest to set the `Cfg()` variables 
+ in the `userconfig.py` or at the lowest level of `main.py`
 
 ### 3. Specify the video sequences you want to have encoded.
 
@@ -132,7 +139,7 @@ test2 = Test(
     quality_param_type=QualityParam.BITRATE,
     quality_param_list=[100000, 250000, 500000, 750000,],
     cl_args="--gop=8 --preset ultrafast --owf 5",
-    encoder_id=Encoder.KVAZAAR,
+    encoder=Kvazaar,
     encoder_revision="master",
     encoder_defines=["NDEBUG"],
     anchor_names=["test1"],
