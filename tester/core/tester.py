@@ -6,8 +6,9 @@ from typing import Iterable
 from multiprocessing import Pool
 
 import tester
+import pdfkit
 import tester.core.cmake as cmake
-from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs
+from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs, table
 from tester.core.cfg import Cfg
 from tester.core.log import console_log, log_exception
 from tester.core.metrics import TestMetrics
@@ -116,6 +117,7 @@ class Tester:
             ffmpeg.ffmpeg_validate_config()
             vmaf.vmaf_validate_config()
             vs.vs_validate_config()
+            table.table_validate_config()
 
             csv.csv_validate_config()
 
@@ -362,3 +364,36 @@ class Tester:
                     console_log.error(f"Tester: Failed to create directory '{path}'")
                     log_exception(exception)
                     exit(1)
+
+    @staticmethod
+    def create_tables(context: TesterContext,
+                      table_filepath: str,
+                      format_: [table.TableFormats, None] = None):
+        filepath = Path(table_filepath)
+        if format_ is None:
+            try:
+                format_ = {
+                    ".html": table.TableFormats.HTML,
+                    ".pdf": table.TableFormats.PDF
+                }[filepath.suffix]
+            except KeyError:
+                raise ValueError("Can't detect table type from file suffix")
+
+        if format_ == table.TableFormats.HTML:
+            with open(filepath, "wb") as f:
+                html, _ = table.tablefy(context)
+                f.write(html.encode("utf-8"))
+        elif format_ == table.TableFormats.PDF:
+            html, pixels = table.tablefy(context)
+            config = pdfkit.configuration(wkhtmltopdf=Cfg().wkhtmltopdf)
+            options = {
+                'page-height': f"{pixels + 50}px",
+                'page-width': "1400px",
+                'margin-top': "25px",
+                'margin-bottom': "25px",
+                'margin-right': "25px",
+                'margin-left': "25px",
+                "disable-smart-shrinking": None
+            }
+            pdfkit.from_string(html, filepath, options=options, configuration=config)
+

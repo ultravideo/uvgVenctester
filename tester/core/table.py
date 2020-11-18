@@ -1,10 +1,31 @@
+import subprocess
 from enum import Enum
 from collections import defaultdict
 from typing import List, Dict
 
 import tester.core.metrics as met
+from tester.core.log import console_log
+from tester.core.test import Test
 from tester.core.video import RawVideoSequence
 import tester.core.cfg as cfg
+
+
+def table_validate_config():
+    for field in cfg.Cfg().table_enabled_fields:
+        if field not in cfg.Cfg().table_column_headers or field not in cfg.Cfg().table_column_formats:
+            console_log.error(f"Table: Field {field} is enabled but missing for table columns of formats")
+
+    try:
+        subprocess.check_call([str(cfg.Cfg().wkhtmltopdf), "--version"],
+                              stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL)
+    except FileNotFoundError:
+        console_log.warning(f"wkhtmltopdf command not reachable")
+
+
+class TableFormats(Enum):
+    HTML = 1
+    PDF = 2
 
 
 class TableColumns(Enum):
@@ -34,8 +55,6 @@ def tablefy(context):
         }
         
         .info {
-          float: left
-          font: 20px times;
           height: 100%;
           top: 40%;
           position: relative;
@@ -80,7 +99,7 @@ def tablefy(context):
         }
         
         div {
-          margin-right: 20px;
+          margin-right: 40px;
         }
         </style>
         '''
@@ -88,16 +107,18 @@ def tablefy(context):
         '   </head>',
         '<body>'
     ]
+    pixels = 4
     for test in context.get_tests():
         for anchor in [context.get_test(name) for name in test.anchor_names]:
-            a.append(tablefy_one(context, test, anchor))
+            html, pixels = tablefy_one(context, test, anchor)
+            a.append(html)
 
     a.append('</body>')
     a.append('</html>')
-    return "\n".join(a)
+    return "\n".join(a), pixels + 4
 
 
-def tablefy_one(context, test, anchor):
+def tablefy_one(context, test: Test, anchor: Test):
     html = [
         '<div class="complete">',
         '   <div class="data_table">',
@@ -108,6 +129,8 @@ def tablefy_one(context, test, anchor):
     total_averages = defaultdict(list)
     all_data = defaultdict(lambda: defaultdict(dict))
     collect_data(all_data, test, anchor, class_averages, context, total_averages)
+
+    pixels = 23 * len(class_averages) + 21 * len(all_data) + 72
 
     for cls in sorted(class_averages.keys()):
         html.append(
@@ -122,18 +145,38 @@ def tablefy_one(context, test, anchor):
         row_from_data(total_averages, "total")
     )
 
+    test_params = "\n".join(
+        [f'<li>{x if y is None else x + " " + y} </li>'
+         for x, y
+         in test.subtests[0].param_set._to_args_dict(False).items()]
+    )
+
+    anchor_params = "\n".join(
+        [f'<li>{x if y is None else x + " " + y} </li>'
+         for x, y
+         in anchor.subtests[0].param_set._to_args_dict(False).items()]
+    )
+
     html.extend([
         '       </table>',
         '   </div>',
         '<div class="info">',
-        'This should be explaining anchor and tested',
+        f'<p style="margin-bottom: 5px">{test.encoder.get_name()} using {test.quality_param_type.name}: [{", ".join(str(x) for x in test.quality_param_list)}]</p>',
+        '<ul style="margin-top: 5px">',
+        test_params,
+        '</ul>',
+        f'<p style="margin-bottom: 5px">{anchor.encoder.get_name()} using {anchor.quality_param_type.name}: [{", ".join(str(x) for x in test.quality_param_list)}]</p>',
+        '<ul style="margin-top: 5px">',
+        anchor_params,
+        '</ul>',
         '</div>',
     ])
 
     html += [
         '</div>'
     ]
-    return "\n".join(html)
+
+    return "\n".join(html), pixels
 
 
 def collect_data(all_data, test, anchor, class_averages, context, total_averages):
@@ -191,7 +234,7 @@ def row_from_data(row_data, row_class: [str, None] = None):
     out = [
               f'''<tr{"" if not row_class else f' class="{row_class}"'}>''',
           ] + [
-              f'      <td> <div> {cfg.Cfg().table_column_formats[x](row_data[x])} <div> </td>'
+              f'      <td> <div> {cfg.Cfg().table_column_formats[x](row_data[x])} </div> </td>'
               for x
               in cfg.Cfg().table_enabled_fields
           ] + [

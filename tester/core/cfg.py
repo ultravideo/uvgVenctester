@@ -223,6 +223,16 @@ class Cfg(metaclass=Singleton):
         table.TableColumns.SPEEDUP: lambda x: f"{x:.2f}×",
     }
 
+    _wkhtmltopdf_path = None
+    @property
+    def wkhtmltopdf(self) -> Path():
+        return Path(self._wkhtmltopdf_path or "wkhtmltopdf")
+
+    @wkhtmltopdf.setter
+    def wkhtmltopdf(self, value):
+        self._wkhtmltopdf_path = value
+
+
     ##########################################################################
     # General
     ##########################################################################
