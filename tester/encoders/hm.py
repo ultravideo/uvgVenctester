@@ -9,87 +9,10 @@ from typing import Iterable
 
 import tester
 import tester.core.git as git
+import tester.core.test as test
 from tester.core import cmake, vs
 from tester.core.log import console_log
-from . import EncoderBase, ParamSetBase
-
-
-def hm_validate_config():
-    # Using the public property raises an exception, so access the private attribute instead.
-    if not git.git_remote_exists(tester.Cfg().hm_remote_url):
-        console_log.error(f"HM: Remote '{tester.Cfg().hm_remote_url}' is not available")
-        raise RuntimeError
-
-
-def hm_get_temporal_subsample_ratio() -> int:
-    hm_validate_config()
-    return 1
-    pattern = re.compile(r"TemporalSubsampleRatio.*: ([0-9]+)", re.DOTALL)
-    lines = tester.Cfg().hm_cfg_file_path.open("r").readlines()
-    for line in lines:
-        match = pattern.match(line)
-        if match:
-            return int(match[1])
-
-    return None
-
-
-class HmParamSet(ParamSetBase):
-    """Represents the command line parameters passed to HM when encoding."""
-
-    def __init__(self,
-                 quality_param_type: tester.QualityParam,
-                 quality_param_value: int,
-                 seek: int,
-                 frames: int,
-                 cl_args: str):
-
-        super().__init__(
-            quality_param_type,
-            quality_param_value,
-            seek,
-            frames,
-            cl_args
-        )
-
-    @staticmethod
-    def _get_arg_order() -> list:
-        return []
-
-    def _to_unordered_args_list(self,
-                                include_quality_param: bool = True,
-                                include_seek: bool = True,
-                                include_frames: bool = True,
-                                inode_safe=False) -> list:
-
-        args = self._cl_args
-
-        if include_quality_param:
-            if self._quality_param_type == tester.QualityParam.QP:
-                args += f" --QP={self._quality_param_value}"
-            elif self._quality_param_type == tester.QualityParam.BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
-            elif self.get_quality_param_type() == tester.QualityParam.BPP:
-                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
-            elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
-            elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
-            else:
-                raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
-
-        if include_seek and self._seek:
-            args += f" -fs {self._seek}"
-        if include_frames and self._frames:
-            args += f" -f {self._frames}"
-        # TODO: Figure out why this is needed or if it's needed.
-        if not "--SEIDecodedPictureHash" in args:
-            args += " --SEIDecodedPictureHash=3"
-
-        if inode_safe:
-            args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
-
-        return args.split()
+from . import EncoderBase
 
 
 class Hm(EncoderBase):
@@ -99,9 +22,8 @@ class Hm(EncoderBase):
                  user_given_revision: str,
                  defines: Iterable,
                  use_prebuilt: bool):
-
         super().__init__(
-            id=tester.Encoder.HM,
+            name="HM",
             user_given_revision=user_given_revision,
             defines=defines,
             git_local_path=tester.Cfg().tester_sources_dir_path / "hm",
@@ -128,6 +50,8 @@ class Hm(EncoderBase):
             return
 
         build_cmd = ()
+        if not (self._git_local_path / "build").exists():
+            (self._git_local_path / "build").mkdir()
 
         if tester.Cfg().system_os_name == "Windows":
 
@@ -137,7 +61,6 @@ class Hm(EncoderBase):
             # Configure CMake, run VsDevCmd.bat, then MSBuild.
             build_cmd = (
                             "cd", str(self._git_local_path),
-                            "&&", "mkdir", "build",
                             "&&", "cd", "build",
                             "&&", "cmake", "..",
                             "-G", cmake.get_cmake_build_system_generator(),
@@ -174,18 +97,15 @@ class Hm(EncoderBase):
             )
 
         elif tester.Cfg().system_os_name == "Linux":
-
-            # TODO: This is SUPER slow (the binary seems to be recompiled for whatever reason).
-            # TODO: Eliminate?
             clean_cmd = (
                 "cd", str(self._git_local_path),
-                "&&", "make", "clean", "TAppEncoder-r"
+                "&&", "make", "clean"
             )
 
         self.clean_finish(clean_cmd)
 
     def dummy_run(self,
-                  param_set: ParamSetBase) -> bool:
+                  param_set: EncoderBase.ParamSet) -> bool:
 
         self.dummy_run_start(param_set)
 
@@ -236,7 +156,72 @@ class Hm(EncoderBase):
                 "-wdt", str(encoding_run.input_sequence.get_width()),
                 "-hgt", str(encoding_run.input_sequence.get_height()),
                 "-b", str(encoding_run.output_file.get_filepath()),
-                "-f", str(encoding_run.frames),
+                "-f", str(encoding_run.frames * tester.Cfg().frame_step_size),
                 "-o", os.devnull,
             ) + quality
         self.encode_finish(encode_cmd, encoding_run)
+
+    @staticmethod
+    def validate_config(test_config: test.Test):
+        # Using the public property raises an exception, so access the private attribute instead.
+        if not git.git_remote_exists(tester.Cfg().hm_remote_url):
+            console_log.error(f"HM: Remote '{tester.Cfg().hm_remote_url}' is not available")
+            raise RuntimeError
+
+        args = test_config.subtests[0].param_set._to_args_dict(False, False, False)
+        pattern = re.compile(r"TemporalSubsampleRatio.*: (\d+)", re.DOTALL)
+        # Test if
+        for key, value in args.items():
+            if key == "-c":
+                with open(value, "r") as f:
+                    for line in f:
+                        match = pattern.match(line)
+                        if match:
+                            assert int(match[1]) == tester.Cfg().frame_step_size
+                            break
+            elif key == "--TemporalSubsampleRatio":
+                assert int(value) == tester.Cfg().frame_step_size
+
+    class ParamSet(EncoderBase.ParamSet):
+        """Represents the command line parameters passed to HM when encoding."""
+        @staticmethod
+        def _get_arg_order() -> list:
+            return ["-c"]
+
+        def _to_unordered_args_list(self,
+                                    include_quality_param: bool = True,
+                                    include_seek: bool = True,
+                                    include_frames: bool = True,
+                                    include_directory_data=False) -> list:
+
+            args = self._cl_args
+
+            if include_quality_param:
+                if self._quality_param_type == tester.QualityParam.QP:
+                    args += f" --QP={self._quality_param_value}"
+                elif self._quality_param_type == tester.QualityParam.BITRATE:
+                    args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
+                elif self.get_quality_param_type() == tester.QualityParam.BPP:
+                    args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
+                elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
+                    args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
+                elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
+                    args += f" --TargetBitrate={self._quality_param_value} --RateControl=1"
+                else:
+                    raise ValueError(
+                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+
+            if include_seek and self._seek:
+                args += f" -fs {self._seek}"
+            if include_frames and self._frames:
+                args += f" -f {self._frames}"
+            # TODO: Figure out why this is needed or if it's needed.
+            if not "--SEIDecodedPictureHash" in args:
+                args += " --SEIDecodedPictureHash=3"
+
+            if include_directory_data:
+                if tester.Cfg().frame_step_size != 1:
+                    args += f" --TemporalSubsampleRatio={tester.Cfg().frame_step_size}"
+                args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
+
+            return args.split()

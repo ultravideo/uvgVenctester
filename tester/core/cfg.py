@@ -53,53 +53,66 @@ class Cfg(metaclass=Singleton):
     # May be overridden by the user.
     ##########################################################################
 
+    ##########################################################################
+    # Logging
+    ##########################################################################
+
     _logging_level = logging.INFO
+
     @property
     def logging_level(self) -> int:
         return self._logging_level
+
     @logging_level.setter
     def logging_level(self, value: int):
         assert value in logging._levelToName
         console_log.setLevel(value)
-
 
     ##########################################################################
     # Tester
     ##########################################################################
 
     _tester_binaries_dir_path: Union[str, Path] = __TESTER_ROOT_PATH / "_binaries"
+
     # The following enables the user to override the value as a string.
     @property
     def tester_binaries_dir_path(self) -> Path:
         """The base directory of encoder binaries."""
         return Path(self._tester_binaries_dir_path).resolve()
+
     @tester_binaries_dir_path.setter
     def tester_binaries_dir_path(self, value: Union[str, Path]):
         self._tester_binaries_dir_path = value
 
     _tester_sources_dir_path: Union[str, Path] = __TESTER_ROOT_PATH / "_sources"
+
     @property
     def tester_sources_dir_path(self) -> Path:
         """The base directory of encoder sources."""
         return Path(self._tester_sources_dir_path).resolve()
+
     @tester_sources_dir_path.setter
     def tester_sources_dir_path(self, value: Union[str, Path]):
         self._tester_sources_dir_path = value
 
     _tester_output_dir_path: Union[str, Path] = __TESTER_ROOT_PATH / "_output"
+
     @property
     def tester_output_dir_path(self) -> Path:
         """The base directory of encoding output."""
         return Path(self._tester_output_dir_path).resolve()
+
     @tester_output_dir_path.setter
     def tester_output_dir_path(self, value: Union[str, Path]):
         self._tester_output_dir_path = value
 
     _tester_input_dir_path: Union[str, Path] = Path.cwd()
+
     @property
     def tester_sequences_dir_path(self) -> Path:
         """The base directory of input sequences. Sequence paths are relative to this directory."""
-        return Path(self._tester_input_dir_path).resolve()
+        return Path(Path(self._tester_input_dir_path).resolve())
+
     @tester_sequences_dir_path.setter
     def tester_sequences_dir_path(self, value: Union[str, Path]):
         self._tester_input_dir_path = value
@@ -109,7 +122,6 @@ class Cfg(metaclass=Singleton):
 
     """How many characters of the define hash are included in file names."""
     tester_define_hash_len: int = 6
-
 
     ##########################################################################
     # CSV
@@ -183,6 +195,15 @@ class Cfg(metaclass=Singleton):
     csv_float_rounding_accuracy: int = 6
 
     ##########################################################################
+    # General
+    ##########################################################################
+
+    """Determines that only every nth frame is encoded.
+    In case the encoder has built in feature for this the tester will assert that the value here is the same as
+    what the encoder set value is."""
+    frame_step_size: int = 1
+
+    ##########################################################################
     # HM
     ##########################################################################
 
@@ -202,10 +223,12 @@ class Cfg(metaclass=Singleton):
 
     """The Visual Studio base installation directory."""
     _vs_install_path: Union[str, Path] = Path("C:/") / "Program Files (x86)" / "Microsoft Visual Studio"
+
     @property
     def vs_install_path(self) -> Path:
         """The Visual Studio base installation directory."""
         return Path(self._vs_install_path).resolve()
+
     @vs_install_path.setter
     def vs_install_path(self, value: Union[str, Path]):
         self._vs_install_path = value
@@ -234,10 +257,12 @@ class Cfg(metaclass=Singleton):
     ##########################################################################
 
     _vmaf_repo_path: Union[str, Path] = None
+
     @property
     def vmaf_repo_path(self) -> Path:
         """The path of the VMAF repository. Must be set by the user."""
         return Path(self._vmaf_repo_path).resolve()
+
     @vmaf_repo_path.setter
     def vmaf_repo_path(self, value: Union[str, Path]):
         self._vmaf_repo_path = value
@@ -247,7 +272,6 @@ class Cfg(metaclass=Singleton):
     ##########################################################################
 
     vtm_remote_url: str = "https://vcgit.hhi.fraunhofer.de/jvet/VVCSoftware_VTM.git"
-
 
     """The path of the VTM configuration file. Must be set by the user."""
     _vtm_cfg_file_path: Union[str, Path] = None

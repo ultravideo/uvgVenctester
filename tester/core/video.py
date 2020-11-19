@@ -20,7 +20,6 @@ class VideoFileBase:
                  framerate: int,
                  framecount: int,
                  duration_seconds: float):
-
         assert width
         assert height
         assert framerate
@@ -85,10 +84,14 @@ class RawVideoSequence:
                  height: int = None,
                  framerate: int = 25,
                  chroma: int = 420,
-                 bit_depth: int = 8,
-                 seek: int = 0,
-                 frames: int = None,
-                 step: int = 1):
+                 bit_depth: int = 8):
+
+        self._width: [int, None] = None
+        self._height: [int, None] = None
+        self._fps: [int, None] = None
+        self._chroma: [int, None] = None
+        self._bit_depth: [int, None] = None
+        self._total_frames: [int, None] = None
 
         stats = {
             "width": width,
@@ -96,7 +99,6 @@ class RawVideoSequence:
             "fps": framerate,
             "chroma": chroma,
             "bit_depth": bit_depth,
-            "total_frames": frames,
         }
 
         stats.update(self.guess_values(filepath))
@@ -107,40 +109,25 @@ class RawVideoSequence:
         for key, value in stats.items():
             setattr(self, "_" + key, value)
 
-        if seek is None:
-            seek = 0
-
         assert self._width and self._height
         assert self._fps
         assert self._chroma in (400, 420)
         assert self._bit_depth in (8, 10)
         assert self._total_frames
-        assert self._total_frames > seek
 
         self._frames = self._total_frames
         assert self._total_frames
-
-        # Only ever <step>th frame is encoded.
-        framecount = math.ceil(self._frames / step)
-        assert framecount
-        assert framecount <= self._total_frames - seek
 
 
         sequence_class = RawVideoSequence.guess_sequence_class(filepath)
 
         self._filepath = filepath
-        # This doesn't take step (only encoding every nth frame) into account:
-        # This takes step into account:
-        self._framecount = framecount
-        self._duration_seconds: float = framecount / self._fps
-        self._seek: int = seek
-        self._step: int = step
         self._sequence_class: str = sequence_class
 
         # For bitrate calculation.
         self._bytes_per_pixel: int = 1 if self._bit_depth == 8 else 2
         self._pixels_per_frame: int = self._width * self._height \
-            if self._chroma == 400\
+            if self._chroma == 400 \
             else int(self._width * self._height * 1.5)
         self._bitrate: int = int(self._fps * self._pixels_per_frame * self._bytes_per_pixel * 8)
 
@@ -158,13 +145,10 @@ class RawVideoSequence:
         return self._filepath == other._filepath
 
     def get_size_bytes(self):
-        return self._framecount * self._pixels_per_frame * self._bytes_per_pixel
+        return self.get_framecount() * self._pixels_per_frame * self._bytes_per_pixel
 
     def get_size_bits(self):
         return self.get_size_bytes() * 8
-
-    def get_seek(self) -> int:
-        return self._seek
 
     def get_chroma(self) -> int:
         return self._chroma
@@ -175,18 +159,15 @@ class RawVideoSequence:
     def get_pixel_format(self) -> str:
         PIXEL_FORMATS: dict = {
             # (chroma, bit depth) : pixel format (ffmpeg)
-            (400,  8): "gray",
+            (400, 8): "gray",
             (400, 10): "gray16le",
-            (420,  8): "yuv420p",
+            (420, 8): "yuv420p",
             (420, 10): "yuv420p10le",
         }
         return PIXEL_FORMATS[(self._chroma, self._bit_depth)]
 
     def get_sequence_class(self) -> str:
         return self._sequence_class
-
-    def get_step(self) -> int:
-        return self._step
 
     def get_filepath(self) -> Path:
         return self._filepath
@@ -200,14 +181,14 @@ class RawVideoSequence:
     def get_framerate(self) -> int:
         return self._fps
 
-    def get_frames(self) -> int:
-        return self._frames
+    def get_frames(self, seek=0) -> int:
+        return self._frames - seek
 
-    def get_framecount(self) -> int:
-        return self._framecount
+    def get_framecount(self, seek=0) -> int:
+        return (self._frames - seek + Cfg().frame_step_size - 1) // Cfg().frame_step_size
 
     def get_duration_seconds(self) -> float:
-        return self._duration_seconds
+        return self.get_framecount() / self._fps
 
     def get_bitrate(self) -> float:
         return self._bitrate
@@ -282,7 +263,6 @@ class EncodedVideoFile(VideoFileBase):
                  framerate: int,
                  frames: int,
                  duration_seconds: float):
-
         assert filepath.suffix in (".hevc", ".vvc")
 
         super().__init__(

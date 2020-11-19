@@ -11,100 +11,95 @@ import tester.core.git as git
 import tester.core.test as test
 from tester.core import vs
 from tester.core.log import console_log
-from . import ParamSetBase, EncoderBase
-
-
-def kvazaar_validate_config():
-    if not git.git_remote_exists(tester.Cfg().kvazaar_remote_url):
-        console_log.error(f"Kvazaar: Remote '{tester.Cfg().kvazaar_remote_url}' is unavailable")
-        raise RuntimeError
-
-
-class KvazaarParamSet(ParamSetBase):
-    """Represents the command line parameters passed to Kvazaar when encoding."""
-
-    # These have to be the first two arguments on the command line.
-    POSITIONAL_ARGS = ("--preset", "--gop")
-
-    def __init__(self,
-                 quality_param_type: tester.QualityParam,
-                 quality_param_value: int,
-                 seek: int,
-                 frames: int,
-                 cl_args: str):
-
-        super().__init__(
-            quality_param_type,
-            quality_param_value,
-            seek,
-            frames,
-            cl_args
-        )
-
-        # This checks the integrity of the parameters.
-        self.to_cmdline_tuple(include_quality_param=False)
-
-    def _to_unordered_args_list(self,
-                                include_quality_param: bool = True,
-                                include_seek: bool = True,
-                                include_frames: bool = True,
-                                inode_safe=False) -> list:
-
-        args = self._cl_args
-
-        if include_quality_param:
-            if self._quality_param_type == tester.QualityParam.QP:
-                args += f" --qp {self._quality_param_value}"
-            elif self._quality_param_type == tester.QualityParam.BITRATE:
-                args += f" --bitrate {self._quality_param_value}"
-            elif self.get_quality_param_type() == tester.QualityParam.BPP:
-                args += f" --bitrate {self._quality_param_value}"
-            elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
-                args += f" --bitrate {self._quality_param_value}"
-            elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
-                args += f" --bitrate {self._quality_param_value}"
-            else:
-                raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
-        if include_seek and self._seek:
-            args += f" --seek {self._seek}"
-        if include_frames and self._frames:
-            args += f" --frames {self._frames}"
-
-        if inode_safe:
-            args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
-
-        split_args: list = []
-
-        # Split the arguments such that each option and its value, if any, are separated.
-        for item in args.split():
-            if ParamSetBase._is_short_option(item):
-                # A short option is of the form -<short form><value> or -<short form> <value>,
-                # so split after the second character.
-                option_name: str = item[:2]
-                option_value: str = item[2:].strip()
-                split_args.append(option_name)
-                if option_value:
-                    split_args.append(option_value)
-            else:
-                for item in item.split("="):
-                    split_args.append(item)
-
-        return split_args
-
-    @staticmethod
-    def _get_arg_order() -> list:
-        return ["--preset", "--gop"]
+from . import EncoderBase
 
 
 class Kvazaar(EncoderBase):
     """Represents a Kvazaar executable."""
+
+    class ParamSet(EncoderBase.ParamSet):
+        """Represents the command line parameters passed to Kvazaar when encoding."""
+
+        # These have to be the first two arguments on the command line.
+        POSITIONAL_ARGS = ("--preset", "--gop")
+
+        def __init__(self,
+                     quality_param_type: tester.QualityParam,
+                     quality_param_value: int,
+                     seek: int,
+                     frames: int,
+                     cl_args: str):
+
+            super().__init__(
+                quality_param_type,
+                quality_param_value,
+                seek,
+                frames,
+                cl_args
+            )
+
+            # This checks the integrity of the parameters.
+            self.to_cmdline_tuple(include_quality_param=False)
+
+        def _to_unordered_args_list(self,
+                                    include_quality_param: bool = True,
+                                    include_seek: bool = True,
+                                    include_frames: bool = True,
+                                    include_directory_data=False) -> list:
+
+            args = self._cl_args
+
+            if include_quality_param:
+                if self._quality_param_type == tester.QualityParam.QP:
+                    args += f" --qp {self._quality_param_value}"
+                elif self._quality_param_type == tester.QualityParam.BITRATE:
+                    args += f" --bitrate {self._quality_param_value}"
+                elif self.get_quality_param_type() == tester.QualityParam.BPP:
+                    args += f" --bitrate {self._quality_param_value}"
+                elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
+                    args += f" --bitrate {self._quality_param_value}"
+                elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
+                    args += f" --bitrate {self._quality_param_value}"
+                else:
+                    raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+            if include_seek and self._seek:
+                args += f" --seek {self._seek}"
+            if include_frames and self._frames:
+                args += f" --frames {self._frames}"
+
+            if include_directory_data:
+                if tester.Cfg().frame_step_size != 1:
+                    args += f" --temporal_subsample {tester.Cfg().frame_step_size}"
+                args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
+
+            split_args: list = []
+
+            # Split the arguments such that each option and its value, if any, are separated.
+            for item in args.split():
+                if EncoderBase.ParamSet._is_short_option(item):
+                    # A short option is of the form -<short form><value> or -<short form> <value>,
+                    # so split after the second character.
+                    option_name: str = item[:2]
+                    option_value: str = item[2:].strip()
+                    split_args.append(option_name)
+                    if option_value:
+                        split_args.append(option_value)
+                else:
+                    for item in item.split("="):
+                        split_args.append(item)
+
+            return split_args
+
+        @staticmethod
+        def _get_arg_order() -> list:
+            return ["--preset", "--gop"]
 
     def __init__(self,
                  user_given_revision: str,
                  defines: Iterable,
                  use_prebuilt: bool):
         super().__init__(
-            id=tester.Encoder.KVAZAAR,
+            name="Kvazaar",
             user_given_revision=user_given_revision,
             defines=defines,
             git_local_path=tester.Cfg().tester_sources_dir_path / "kvazaar",
@@ -168,7 +163,7 @@ class Kvazaar(EncoderBase):
         self.clean_finish(clean_cmd)
 
     def dummy_run(self,
-                  param_set: KvazaarParamSet) -> bool:
+                  param_set: EncoderBase.ParamSet) -> bool:
 
         self.dummy_run_start(param_set)
 
@@ -201,11 +196,17 @@ class Kvazaar(EncoderBase):
 
         encode_cmd = (
             str(self._exe_path),
-            "-i", str(encoding_run.input_sequence.get_filepath()),
+            "-i", str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
             "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
             "--input-fps", str(encoding_run.input_sequence.get_framerate()),
             "-o", str(encoding_run.output_file.get_filepath()),
             "--frames", str(encoding_run.frames),
         ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False, include_frames=False) + quality
 
-        self.encode_finish(encode_cmd, encoding_run)
+        self.encode_finish(encode_cmd, encoding_run, tester.Cfg().frame_step_size != 1)
+
+    @staticmethod
+    def validate_config(test_config: test.Test):
+        if not git.git_remote_exists(tester.Cfg().kvazaar_remote_url):
+            console_log.error(f"Kvazaar: Remote '{tester.Cfg().kvazaar_remote_url}' is unavailable")
+            raise RuntimeError

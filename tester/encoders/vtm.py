@@ -14,86 +14,7 @@ import tester.core.test as test
 from tester.core import ffmpeg, cmake, git, vs
 from tester.core.cfg import Cfg
 from tester.core.log import console_log
-from . import EncoderBase, ParamSetBase
-
-
-def vtm_validate_config():
-    if not git.git_remote_exists(Cfg().vtm_remote_url):
-        console_log.error(f"VTM: Remote '{Cfg().vtm_remote_url}' is not available")
-        raise RuntimeError
-
-
-def vtm_get_temporal_subsample_ratio() -> int:
-    return 1
-
-    pattern = re.compile(r"TemporalSubsampleRatio.*: ([0-9]+)", re.DOTALL)
-    lines = Cfg().vtm_cfg_file_path.open("r").readlines()
-    for line in lines:
-        match = pattern.match(line)
-        if match:
-            return int(match[1])
-
-    return None
-
-
-class VtmParamSet(ParamSetBase):
-    """Represents the command line parameters passed to VTM when encoding."""
-
-    def __init__(self,
-                 quality_param_type: tester.QualityParam,
-                 quality_param_value: int,
-                 seek: int,
-                 frames: int,
-                 cl_args: str):
-
-        super().__init__(
-            quality_param_type,
-            quality_param_value,
-            seek,
-            frames,
-            cl_args
-        )
-
-    @staticmethod
-    def _get_arg_order() -> list:
-        return []
-
-    def _to_unordered_args_list(self,
-                                include_quality_param: bool = True,
-                                include_seek: bool = True,
-                                include_frames: bool = True,
-                                inode_safe: bool = False) -> list:
-
-        args = self._cl_args
-
-        if include_quality_param:
-            if self._quality_param_type == tester.QualityParam.QP:
-                args += f" --QP={self._quality_param_value}"
-            elif self._quality_param_type == tester.QualityParam.BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
-            elif self.get_quality_param_type() == tester.QualityParam.BPP:
-                args += f" --TargetBitrate={self._quality_param_value}"
-            elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
-            elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
-                args += f" --TargetBitrate={self._quality_param_value}"
-            else:
-                raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
-        if include_seek and self._seek:
-            args += f" -fs {self._seek}"
-        if include_frames and self._frames:
-            args += f" -f {self._frames}"
-
-        # TODO: Figure out why this is needed or if it's needed.
-        if not "--SEIDecodedPictureHash" in args:
-            args += " --SEIDecodedPictureHash=3"
-        if not "--ConformanceWindowMode" in args:
-            args += " --ConformanceWindowMode=1"
-
-        if inode_safe:
-            args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
-
-        return args.split()
+from . import EncoderBase
 
 
 class Vtm(EncoderBase):
@@ -105,9 +26,8 @@ class Vtm(EncoderBase):
                  user_given_revision: str,
                  defines: Iterable,
                  use_prebuilt: bool):
-
         super().__init__(
-            id=tester.Encoder.VTM,
+            name="VTM",
             user_given_revision=user_given_revision,
             defines=defines,
             git_local_path=Cfg().tester_sources_dir_path / "vtm",
@@ -142,6 +62,8 @@ class Vtm(EncoderBase):
             return
 
         build_cmd = ()
+        if not (self._git_local_path / "build").exists():
+            (self._git_local_path / "build").mkdir()
 
         if Cfg().system_os_name == "Windows":
 
@@ -151,7 +73,6 @@ class Vtm(EncoderBase):
             # Configure CMake, run VsDevCmd.bat, then MSBuild.
             build_cmd = (
                             "cd", str(self._git_local_path),
-                            "&&", "mkdir", "build",
                             "&&", "cd", "build",
                             "&&", "cmake", "..",
                             "-G", cmake.get_cmake_build_system_generator(),
@@ -273,7 +194,7 @@ class Vtm(EncoderBase):
             raise
 
     def dummy_run(self,
-                  param_set: ParamSetBase) -> bool:
+                  param_set: EncoderBase.ParamSet) -> bool:
 
         self.dummy_run_start(param_set)
 
@@ -330,14 +251,11 @@ class Vtm(EncoderBase):
                 "-wdt", str(encoding_run.input_sequence.get_width()),
                 "-hgt", str(encoding_run.input_sequence.get_height()),
                 "-b", str(encoding_run.output_file.get_filepath()),
-                "-f", str(encoding_run.frames),
+                "-f", str(encoding_run.frames * Cfg().frame_step_size),
                 "-o", os.devnull,
             ) + quality
 
         self.encode_finish(encode_cmd, encoding_run)
-
-        # Decode the output because ffmpeg can't decode VVC.
-        self._decode(encoding_run)
 
     def _decode(self,
                 encoding_run: test.EncodingRun):
@@ -359,3 +277,70 @@ class Vtm(EncoderBase):
             console_log.error(f"{type(self.__name__)}: Failed to decode file "
                               f"'{encoding_run.output_file.get_filepath()}'")
             raise
+
+    @staticmethod
+    def validate_config(test_config: test.Test):
+        if not git.git_remote_exists(Cfg().vtm_remote_url):
+            console_log.error(f"VTM: Remote '{Cfg().vtm_remote_url}' is not available")
+            raise RuntimeError
+
+        args = test_config.subtests[0].param_set._to_args_dict(False, False, False)
+
+        pattern = re.compile(r"TemporalSubsampleRatio.*: (\d+)", re.DOTALL)
+        # Test if
+        for key, value in args.items():
+            if key == "-c":
+                with open(value, "r") as f:
+                    for line in f:
+                        match = pattern.match(line)
+                        if match:
+                            assert int(match[1]) == tester.Cfg().frame_step_size
+                            break
+            elif key == "--TemporalSubsampleRatio":
+                assert int(value) == tester.Cfg().frame_step_size
+
+    class ParamSet(EncoderBase.ParamSet):
+        """Represents the command line parameters passed to VTM when encoding."""
+        @staticmethod
+        def _get_arg_order() -> list:
+            return ["-c"]
+
+        def _to_unordered_args_list(self,
+                                    include_quality_param: bool = True,
+                                    include_seek: bool = True,
+                                    include_frames: bool = True,
+                                    include_directory_data: bool = False) -> list:
+
+            args = self._cl_args
+
+            if include_quality_param:
+                if self._quality_param_type == tester.QualityParam.QP:
+                    args += f" --QP={self._quality_param_value}"
+                elif self._quality_param_type == tester.QualityParam.BITRATE:
+                    args += f" --TargetBitrate={self._quality_param_value}"
+                elif self.get_quality_param_type() == tester.QualityParam.BPP:
+                    args += f" --TargetBitrate={self._quality_param_value}"
+                elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
+                    args += f" --TargetBitrate={self._quality_param_value}"
+                elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
+                    args += f" --TargetBitrate={self._quality_param_value}"
+                else:
+                    raise ValueError(
+                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+            if include_seek and self._seek:
+                args += f" -fs {self._seek}"
+            if include_frames and self._frames:
+                args += f" -f {self._frames}"
+
+            # TODO: Figure out why this is needed or if it's needed.
+            if not "--SEIDecodedPictureHash" in args:
+                args += " --SEIDecodedPictureHash=3"
+            if not "--ConformanceWindowMode" in args:
+                args += " --ConformanceWindowMode=1"
+
+            if include_directory_data:
+                if tester.Cfg().frame_step_size != 1:
+                    args += f" --TemporalSubsampleRatio={tester.Cfg().frame_step_size}"
+                args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
+
+            return args.split()

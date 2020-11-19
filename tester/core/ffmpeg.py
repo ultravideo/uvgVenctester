@@ -62,7 +62,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
     no_of_metrics = sum(int(boolean) for boolean in (psnr, ssim, vmaf))
 
     # Adjust for frame step (it could be that only every <step>th frame of the input sequence was encoded).
-    split1 = f"[0:v]select=not(mod(n\\,{encoding_run.input_sequence.get_step()}))[select1_out]; " \
+    split1 = f"[0:v]select=not(mod(n\\,{Cfg().frame_step_size}))[select1_out]; " \
              f"[select1_out]split={no_of_metrics}"
     split2 = f"[1:v]split={no_of_metrics}"
     filters = []
@@ -91,6 +91,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
 
     # VTM output is in YUV format, so use different command.
     if encoding_run.decoded_output_file_path:
+        encoding_run.encoder._decode(encoding_run)
         ffmpeg_command = (
             # Change working directory to make relative paths work.
             "cd", f"{encoding_run.output_file.get_filepath().parent}",
@@ -100,9 +101,9 @@ def compute_metrics(encoding_run: test.EncodingRun,
                   "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                   "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                   "-f", "rawvideo",
-                  "-r", f"{encoding_run.input_sequence.get_step()}", # multiply framerate by step
-                  "-ss", f"{encoding_run.input_sequence.get_seek()}",
-                  "-t", f"{encoding_run.frames}",
+                  "-r", f"{Cfg().frame_step_size}",  # multiply framerate by step
+                  "-ss", f"{encoding_run.param_set.get_seek()}",
+                  "-t", f"{encoding_run.frames * Cfg().frame_step_size}",
                   "-i", f"{encoding_run.input_sequence.get_filepath()}",
 
                   # YUV output decoded from VVC output
@@ -128,9 +129,9 @@ def compute_metrics(encoding_run: test.EncodingRun,
                   "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                   "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                   "-f", "rawvideo",
-                  "-r", "1",
-                  "-ss", f"{encoding_run.input_sequence.get_seek()}",
-                  "-t", f"{encoding_run.frames}",
+                  "-r", f"{Cfg().frame_step_size}",
+                  "-ss", f"{encoding_run.param_set.get_seek()}",
+                  "-t", f"{encoding_run.frames * Cfg().frame_step_size}",
                   "-i", f"{encoding_run.input_sequence.get_filepath()}",
 
                   # HEVC output
@@ -164,6 +165,9 @@ def compute_metrics(encoding_run: test.EncodingRun,
             # Remove the temporary VMAF model file.
             os.remove(vmaf_model_dest_path1)
             os.remove(vmaf_model_dest_path2)
+
+        if encoding_run.decoded_output_file_path:
+            os.remove(encoding_run.decoded_output_file_path)
 
         # Ugly but simple:
 
@@ -207,7 +211,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
 
 def generate_dummy_sequence() -> Path:
 
-    dummy_sequence_path = Cfg()._tester_input_dir_path / '_dummy.yuv'
+    dummy_sequence_path = Cfg().tester_sequences_dir_path / '_dummy.yuv'
 
     console_log.debug(f"ffmpeg: Dummy sequence '{dummy_sequence_path}' already exists")
 
