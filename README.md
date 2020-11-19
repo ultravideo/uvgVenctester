@@ -19,6 +19,8 @@
   - Must be in `PATH` and able to be used as `cmake`
 - [git](https://git-scm.com/)
   - Must be in `PATH``, in particular this might require some work in Windows
+- [wkhtmltopdf](https://wkhtmltopdf.org/)
+  - Only needed for the PDF generation otherwise optional
 - [Python interpreter (3.8+)](https://python.org/)
 - Python libraries
   - [requirements.txt](requirements.txt) has a list of needed libraris
@@ -256,6 +258,7 @@ tester.create_tables(context,
   - Default: `None` , i.e., guessed from the file extension
   - `table.TableFormat.PDF` and `table.TableFormat.HTML` currently supported
 - `parallel_calculations` will be passed to the `compute_metrics` and not used in any way for the csv generation
+- pdf generation requires `wkhtmltopdf` and setting the Cfg().wkhtmltopdf varialble to point to the executable
 
 
 ## Customization
