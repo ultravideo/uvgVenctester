@@ -106,7 +106,7 @@ class Test:
 
     def __init__(self,
                  name: str,
-                 encoder,
+                 encoder_type,
                  encoder_revision: str,
                  anchor_names: Iterable,
                  cl_args: str,
@@ -122,7 +122,8 @@ class Test:
 
         # Copy every parameter to make cloning easier.
         self.name: str = name
-        self.encoder: encoders.EncoderBase = encoder(encoder_revision, encoder_defines, use_prebuilt)
+        self.encoder_type = encoder_type
+        self.encoder: encoders.EncoderBase = self.encoder_type(encoder_revision, encoder_defines, use_prebuilt)
         self.encoder_revision: str = encoder_revision
         self.encoder_defines: Iterable = encoder_defines
         self.anchor_names: Iterable = anchor_names
@@ -148,7 +149,7 @@ class Test:
             quality_param_list = sorted(quality_param_list)
 
         param_sets = [
-            encoder.ParamSet(quality_param_type,
+            self.encoder.ParamSet(quality_param_type,
                              quality_param_value,
                              seek,
                              frames,

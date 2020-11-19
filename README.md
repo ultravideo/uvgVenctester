@@ -119,7 +119,7 @@ test1 = Test(
     quality_param_type=QualityParam.QP,
     quality_param_list=[22, 27, 32, 37],
     cl_args="--gop=8 --preset ultrafast --no-wpp --owf 5",
-    encoder=Kvazaar,
+    encoder_type=Kvazaar,
     encoder_revision="d1abf85229",
     encoder_defines=["NDEBUG"],
     anchor_names=["test1"],
@@ -158,7 +158,7 @@ Required parameters for `Test()`:
     - Arbitrary, but must be unique
 - `cl_args` Additional encoder-specific command line arguments
     - Must not contain arguments conflicting with those generated from the other parameters to this function (e.g. `quality_param_type`)
-- `encoder` The encoder class to be used
+- `encoder_type` The encoder class to be used
 - `encoder_revision` The Git revision of the encoder to be used
     - Anything that can be used with `git checkout` is valid
     - If `use_prebuilt` is defined then this will be concatenated to the encoder name, i.e., `"kvazaar_" + encoder_revision`
