@@ -153,12 +153,12 @@ class Tester:
 
         return context
 
-    def run_tests(self,
-                  context: TesterContext,
+    @staticmethod
+    def run_tests(context: TesterContext,
                   parallel_runs: int = 1) -> None:
 
         try:
-            self._create_base_directories_if_not_exist()
+            Tester._create_base_directories_if_not_exist()
 
             console_log.info(f"Tester: Building encoders")
             context.validate_initial()
@@ -192,7 +192,7 @@ class Tester:
                     p.map(Tester._do_encoding_run, encoding_runs)
             else:
                 for encoding_run in encoding_runs:
-                    self._do_encoding_run(encoding_run)
+                    Tester._do_encoding_run(encoding_run)
 
         except Exception as exception:
             console_log.error(f"Tester: Failed to run tests")
@@ -399,6 +399,7 @@ class Tester:
         Tester.compute_metrics(context, parallel_calculations, (ResultTypes.TABLE,))
 
         filepath = Path(table_filepath)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
         if format_ is None:
             try:
                 format_ = {

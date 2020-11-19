@@ -1,6 +1,7 @@
 """This module defines functionality related to Git."""
 
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 from tester.core.log import console_log
@@ -106,10 +107,10 @@ class GitRepository(object):
             output: bytes = subprocess.check_output(
                 subprocess.list2cmdline(fetch_cmd),
                 shell=True,
-                stderr=subprocess.STDOUT
             )
             return cmd_as_str, output, None
         except subprocess.CalledProcessError as exception:
+            print("failed", exception)
             return cmd_as_str, None, exception
 
     def rev_parse(self,
@@ -130,3 +131,20 @@ class GitRepository(object):
             return cmd_as_str, output, None
         except subprocess.CalledProcessError as exception:
             return cmd_as_str, None, exception
+
+    def get_latest_commit_between(self, start: datetime, finish: datetime):
+        cmd = (
+            "git",
+            "--work-tree", str(self._local_repo_path),
+            "--git-dir", str(self._git_dir_path),
+            "log", "-1",
+            "--format=%H",
+            "--until", finish.strftime("%Y-%m-%d"),
+            "--since", start.strftime("%Y-%m-%d")
+        )
+        try:
+            out = subprocess.check_output(subprocess.list2cmdline(cmd), shell=True, stderr=subprocess.STDOUT).decode()
+            return out.strip()
+
+        except subprocess.CalledProcessError as e:
+            raise e
