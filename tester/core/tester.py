@@ -216,7 +216,7 @@ class Tester:
                  or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields
                  or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
-                table.TableColumns.PSNR_BDBR in Cfg().csv_enabled_fields and ResultTypes.TABLE in result_t
+                table.TableColumns.PSNR_BDBR in Cfg().table_enabled_fields and ResultTypes.TABLE in result_t
             )
         global_ssim = \
             (
@@ -224,7 +224,7 @@ class Tester:
                      or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields
                      or csv.CsvField.BDBR_SSIM in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
-                    table.TableColumns.SSIM_BDBR in Cfg().csv_enabled_fields and ResultTypes.TABLE in result_t
+                    table.TableColumns.SSIM_BDBR in Cfg().table_enabled_fields and ResultTypes.TABLE in result_t
             )
         global_vmaf = \
             (
@@ -232,7 +232,7 @@ class Tester:
                      or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields
                      or csv.CsvField.BDBR_VMAF in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
-                    table.TableColumns.VMAF_BDBR in Cfg().csv_enabled_fields and ResultTypes.TABLE in result_t
+                    table.TableColumns.VMAF_BDBR in Cfg().table_enabled_fields and ResultTypes.TABLE in result_t
             )
         for sequence in context.get_input_sequences():
             for test in context.get_tests():

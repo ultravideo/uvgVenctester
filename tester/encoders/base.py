@@ -396,6 +396,7 @@ class EncoderBase:
                             break
 
             if not hash_in_file:
+                md5map_file.parent.mkdir(parents=True, exist_ok=True)
                 with open(md5map_file, "a") as md5_f:
                     md5_f.write(f"{md5_params}:{params}")
 
