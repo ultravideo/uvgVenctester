@@ -91,7 +91,7 @@ Cfg().vs_msbuild_platformtoolset = "v142"
 `main.py`:
 ```python
 import userconfig
-from tester import Tester, Test, QualityParam
+from tester import Tester, Test, QualityParam, ResultTypes
 from tester.core import csv
 from tester.encoders import Kvazaar
 ```
@@ -208,24 +208,55 @@ context = tester.create_context(configs, input_sequence_globs)
 
 `main.py`:
 ```python
-tester.run_tests(context)
+tester.run_tests(context, parallel_runs=1)
 ```
+- `parallel_runs` Determines how many encodings are run in parallel.
+  - Default: 1 
+  - 1 Recommended when encoding time is measured and for encoders with built in parallelism
 
-### 7. Calculate the results.
+### 7. Calculate the results. (Optional)
 
 `main.py`:
 ```python
-tester.compute_metrics(context)
+tester.compute_metrics(context, parallel_calculations=1, result_types=(ResultTypes.TABLE, ResultTypes.CSV))
 ```
+- `parallel_calculations` How many metrics are calculated in parallel
+  - Default: 1
+  - If VMAF is included recommended value is cpu_cores / 16, without VMAF cpu_cores / 4. Keep in mind that VMAF requires quite a lot of RAM
+- `result_types` Which result types will be used for determining which metrics are necessary to calculate
+  - Default: (ResultTypes.TABLE, ResultTypes.CSV)
+  - If you don't know what you are doing it is recommended to not call `compute_metrics` explicitly
+
 
 ### 8. Output the results to a CSV file.
 
 - If the file already exists, it will be overwritten!
+- If the metric computation was not performed explicitly this will perform call
+ `compute_metrics(context, parallel_calculations, [ResultTypes.CSV]`
 
 `main.py`:
 ```python
-tester.generate_csv(context, "mycsv.csv")
+tester.generate_csv(context, "mycsv.csv", parallel_calculations=1)
 ```
+- `parallel_calculations` will be passed to the `compute_metrics` and not used in any way for the csv generation
+
+
+### 9. Output summary tables.
+- If the file already exists, it will be overwritten!
+- If the metric computation was not performed explicitly this will perform call
+ `compute_metrics(context, parallel_calculations, [ResultTypes.TABLE]`
+`main.py`:
+````python
+tester.create_tables(context, 
+                     table_filepath="mytable.html",
+                     format_=None,
+                     parallel_calculations=1)
+````
+- `format_`  Explicitly define the format 
+  - Default: `None` , i.e., guessed from the file extension
+  - `table.TableFormat.PDF` and `table.TableFormat.HTML` currently supported
+- `parallel_calculations` will be passed to the `compute_metrics` and not used in any way for the csv generation
+
 
 ## Customization
 
