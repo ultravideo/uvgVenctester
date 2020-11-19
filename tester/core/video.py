@@ -99,6 +99,7 @@ class RawVideoSequence:
             "fps": framerate,
             "chroma": chroma,
             "bit_depth": bit_depth,
+            "total_frames": self._total_frames,
         }
 
         stats.update(self.guess_values(filepath))
