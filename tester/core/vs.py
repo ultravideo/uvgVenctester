@@ -77,7 +77,7 @@ def get_msbuild_args(add_defines: Iterable = None) -> list:
         f"/p:Configuration=Release",
         f"/p:Platform=x64",
         f"/p:PlatformToolset={tester.Cfg().vs_msbuild_platformtoolset}",
-        f"/p:WindowsTargetPlatformVersion=8.1",
+        f"/p:WindowsTargetPlatformVersion=10.0",
     ]
 
     if add_defines:
