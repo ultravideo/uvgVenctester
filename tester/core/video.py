@@ -6,7 +6,7 @@ import math
 import re
 from pathlib import Path
 
-from tester.core.cfg import Cfg
+import tester.core.cfg as cfg
 from tester.core.log import console_log
 
 
@@ -33,7 +33,7 @@ class VideoFileBase:
         self._framecount: int = framecount
 
     def __hash__(self):
-        path = str(self._filepath).lower() if Cfg().system_os_name == "Windows" else str(self._filepath)
+        path = str(self._filepath).lower() if cfg.Cfg().system_os_name == "Windows" else str(self._filepath)
         return hash(path)
 
     def __eq__(self,
@@ -137,7 +137,7 @@ class RawVideoSequence:
                               f"{attribute_name} = {getattr(self, attribute_name)}")
 
     def __hash__(self):
-        path = str(self._filepath).lower() if Cfg().system_os_name == "Windows" else str(self._filepath)
+        path = str(self._filepath).lower() if cfg.Cfg().system_os_name == "Windows" else str(self._filepath)
         return hash(path)
 
     def __eq__(self,
@@ -185,7 +185,7 @@ class RawVideoSequence:
         return self._frames - seek
 
     def get_framecount(self, seek=0) -> int:
-        return (self._frames - seek + Cfg().frame_step_size - 1) // Cfg().frame_step_size
+        return (self._frames - seek + cfg.Cfg().frame_step_size - 1) // cfg.Cfg().frame_step_size
 
     def get_duration_seconds(self) -> float:
         return self.get_framecount() / self._fps

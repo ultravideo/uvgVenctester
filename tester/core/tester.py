@@ -1,18 +1,25 @@
 """This module defines functionality related to testing."""
 import subprocess
 import time
+from enum import Enum
 from pathlib import Path
 from typing import Iterable
 from multiprocessing import Pool
 
 import tester
+import pdfkit
 import tester.core.cmake as cmake
-from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs
+from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs, table
 from tester.core.cfg import Cfg
 from tester.core.log import console_log, log_exception
 from tester.core.metrics import TestMetrics
 from tester.core.test import Test, EncodingRun
 from tester.core.video import RawVideoSequence
+
+
+class ResultTypes(Enum):
+    CSV = 1
+    TABLE = 2
 
 
 class TesterContext:
@@ -36,6 +43,7 @@ class TesterContext:
                     )
                 )
         self._metrics: dict = {test.name: TestMetrics(test, self._input_sequences) for test in self._tests}
+        self._metrics_calculated_for = []
 
     def get_tests(self) -> Iterable:
         return self._tests
@@ -50,6 +58,12 @@ class TesterContext:
 
     def get_input_sequences(self) -> list:
         return self._input_sequences
+
+    def add_metrics_calculated_for(self, type_: ResultTypes):
+        self._metrics_calculated_for.append(type_)
+
+    def get_metrics_calculate_for(self):
+        return self._metrics_calculated_for
 
     def validate_initial(self) -> None:
         """Validates everything that can be validated without the encoder binaries
@@ -116,6 +130,7 @@ class Tester:
             ffmpeg.ffmpeg_validate_config()
             vmaf.vmaf_validate_config()
             vs.vs_validate_config()
+            table.table_validate_config()
 
             csv.csv_validate_config()
 
@@ -177,12 +192,44 @@ class Tester:
             log_exception(exception)
             exit(1)
 
-    def compute_metrics(self,
-                        context: TesterContext,
-                        parallel_calculations: int = 1) -> None:
+    @staticmethod
+    def compute_metrics(context: TesterContext,
+                        parallel_calculations: int = 1,
+                        result_types: Iterable = (ResultTypes.CSV, ResultTypes.TABLE)) -> None:
+        result_t = []
+        for r in result_types:
+            if r not in context.get_metrics_calculate_for():
+                result_t.append(r)
+
+        if not result_t:
+            return
 
         values = []
         parallel_calculations = max(parallel_calculations, 1)
+        global_psnr = \
+            (
+                (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
+                 or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields
+                 or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+            ) or (
+                table.TableColumns.PSNR_BDBR in Cfg().csv_enabled_fields and ResultTypes.TABLE in result_t
+            )
+        global_ssim = \
+            (
+                    (csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields
+                     or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields
+                     or csv.CsvField.BDBR_SSIM in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+            ) or (
+                    table.TableColumns.PSNR_SSIM in Cfg().csv_enabled_fields and ResultTypes.TABLE in result_t
+            )
+        global_vmaf = \
+            (
+                    (csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields
+                     or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields
+                     or csv.CsvField.BDBR_VMAF in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+            ) or (
+                    table.TableColumns.PSNR_VMAF in Cfg().csv_enabled_fields and ResultTypes.TABLE in result_t
+            )
         for sequence in context.get_input_sequences():
             for test in context.get_tests():
                 for subtest in test.subtests:
@@ -198,27 +245,21 @@ class Tester:
                         )
 
                         metric = encoding_run.metrics
-                        psnr_needed = "psnr" not in metric \
-                                      and (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
-                                           or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields
-                                           or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields)
-                        ssim_needed = "ssim" not in metric \
-                                      and (csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields
-                                           or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields
-                                           or csv.CsvField.BDBR_SSIM in Cfg().csv_enabled_fields)
-                        vmaf_needed = "vmaf" not in metric \
-                                      and (csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields
-                                           or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields
-                                           or csv.CsvField.BDBR_VMAF in Cfg().csv_enabled_fields)
+                        psnr_needed = "psnr" not in metric and global_psnr
+                        ssim_needed = "ssim" not in metric and global_ssim
+                        vmaf_needed = "vmaf" not in metric and global_vmaf
                         arguments = (encoding_run, metric, psnr_needed, ssim_needed, vmaf_needed)
                         if parallel_calculations > 1:
                             values.append(arguments)
                         else:
-                            self._calculate_metrics_for_one_run(arguments)
+                            Tester._calculate_metrics_for_one_run(arguments)
 
         if parallel_calculations > 1:
             with Pool(parallel_calculations) as p:
                 p.map(Tester._calculate_metrics_for_one_run, values)
+
+        for m in result_types:
+            context.add_metrics_calculated_for(m)
 
     @staticmethod
     def _calculate_metrics_for_one_run(in_args):
@@ -254,8 +295,10 @@ class Tester:
 
     @staticmethod
     def generate_csv(context: TesterContext,
-                     csv_filepath: str) -> None:
+                     csv_filepath: str,
+                     parallel_calculations=1) -> None:
 
+        Tester.compute_metrics(context, parallel_calculations, (ResultTypes.CSV, ))
         console_log.info(f"Tester: Generating CSV file '{csv_filepath}'")
         metrics = context.get_metrics()
 
@@ -362,3 +405,38 @@ class Tester:
                     console_log.error(f"Tester: Failed to create directory '{path}'")
                     log_exception(exception)
                     exit(1)
+
+    @staticmethod
+    def create_tables(context: TesterContext,
+                      table_filepath: str,
+                      format_: [table.TableFormats, None] = None,
+                      parallel_calculations=1):
+        Tester.compute_metrics(context, parallel_calculations, (ResultTypes.TABLE, ))
+
+        filepath = Path(table_filepath)
+        if format_ is None:
+            try:
+                format_ = {
+                    ".html": table.TableFormats.HTML,
+                    ".pdf": table.TableFormats.PDF
+                }[filepath.suffix]
+            except KeyError:
+                raise ValueError("Can't detect table type from file suffix")
+
+        if format_ == table.TableFormats.HTML:
+            with open(filepath, "wb") as f:
+                html, _ = table.tablefy(context)
+                f.write(html.encode("utf-8"))
+        elif format_ == table.TableFormats.PDF:
+            html, pixels = table.tablefy(context)
+            config = pdfkit.configuration(wkhtmltopdf=Cfg().wkhtmltopdf)
+            options = {
+                'page-height': f"{pixels + 50}px",
+                'page-width': "1400px",
+                'margin-top': "25px",
+                'margin-bottom': "25px",
+                'margin-right': "25px",
+                'margin-left': "25px",
+                "disable-smart-shrinking": None
+            }
+            pdfkit.from_string(html, filepath, options=options, configuration=config)

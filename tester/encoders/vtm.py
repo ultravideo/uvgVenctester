@@ -12,7 +12,7 @@ from pathlib import Path
 import tester
 import tester.core.test as test
 from tester.core import ffmpeg, cmake, git, vs
-from tester.core.cfg import Cfg
+import tester.core.cfg as cfg
 from tester.core.log import console_log
 from . import EncoderBase
 
@@ -30,30 +30,30 @@ class Vtm(EncoderBase):
             name="VTM",
             user_given_revision=user_given_revision,
             defines=defines,
-            git_local_path=Cfg().tester_sources_dir_path / "vtm",
-            git_remote_url=Cfg().vtm_remote_url,
+            git_local_path=cfg.Cfg().tester_sources_dir_path / "vtm",
+            git_remote_url=cfg.Cfg().vtm_remote_url,
             use_prebuilt=use_prebuilt
         )
 
         self._exe_src_path: Path = None
-        if Cfg().system_os_name == "Windows":
+        if cfg.Cfg().system_os_name == "Windows":
             self._exe_src_path = \
                 self._git_local_path \
                 / "bin" \
-                / f"vs{Cfg().vs_major_version}" \
-                / f"msvc-{Cfg().vs_msvc_version}" \
+                / f"vs{cfg.Cfg().vs_major_version}" \
+                / f"msvc-{cfg.Cfg().vs_msvc_version}" \
                 / "x86_64" \
                 / "release" \
                 / "EncoderApp.exe"
-        elif Cfg().system_os_name == "Linux":
+        elif cfg.Cfg().system_os_name == "Linux":
             self._exe_src_path = self._git_local_path / "bin" / "EncoderAppStatic"
 
         self._decoder_exe_src_path: Path = None
-        self._decoder_exe_path: Path = Cfg().tester_binaries_dir_path / f"vtmdecoder_{self._commit_hash_short}.exe"
+        self._decoder_exe_path: Path = cfg.Cfg().tester_binaries_dir_path / f"vtmdecoder_{self._commit_hash_short}.exe"
 
-        if Cfg().system_os_name == "Windows":
+        if cfg.Cfg().system_os_name == "Windows":
             self._decoder_exe_src_path = self._exe_src_path.with_name("DecoderApp.exe")
-        elif Cfg().system_os_name == "Linux":
+        elif cfg.Cfg().system_os_name == "Linux":
             self._decoder_exe_src_path = self._exe_src_path.with_name("DecoderAppStatic")
 
     def build(self) -> None:
@@ -65,7 +65,7 @@ class Vtm(EncoderBase):
         if not (self._git_local_path / "build").exists():
             (self._git_local_path / "build").mkdir()
 
-        if Cfg().system_os_name == "Windows":
+        if cfg.Cfg().system_os_name == "Windows":
 
             # Add defines to msbuild arguments.
             msbuild_args = vs.get_msbuild_args(add_defines=self._defines)
@@ -81,7 +81,7 @@ class Vtm(EncoderBase):
                             "&&", "msbuild", "NextSoftware.sln", r"/t:App\EncoderApp",
                         ) + tuple(msbuild_args)
 
-        elif Cfg().system_os_name == "Linux":
+        elif cfg.Cfg().system_os_name == "Linux":
 
             # Add defines to make arguments.
             cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self._defines])}".strip()
@@ -101,7 +101,7 @@ class Vtm(EncoderBase):
         if self._decoder_exe_src_path.exists():
             console_log.info(f"VTM: Executable {self._decoder_exe_src_path.name} already exists")
 
-        if Cfg().system_os_name == "Windows":
+        if cfg.Cfg().system_os_name == "Windows":
 
             decoder_build_cmd = (
                                     "cd", str(self._git_local_path),
@@ -143,7 +143,7 @@ class Vtm(EncoderBase):
 
         clean_cmd = ()
 
-        if Cfg().system_os_name == "Windows":
+        if cfg.Cfg().system_os_name == "Windows":
 
             clean_cmd = (
                 "call", str(vs.get_vsdevcmd_bat_path()),
@@ -152,7 +152,7 @@ class Vtm(EncoderBase):
                 "&&", "msbuild", "NextSoftware.sln", r"/t:App\EncoderApp:clean"
             )
 
-        elif Cfg().system_os_name == "Linux":
+        elif cfg.Cfg().system_os_name == "Linux":
 
             clean_cmd = (
                 "cd", str(self._git_local_path),
@@ -167,7 +167,7 @@ class Vtm(EncoderBase):
 
         decoder_clean_cmd = ()
 
-        if Cfg().system_os_name == "Windows":
+        if cfg.Cfg().system_os_name == "Windows":
 
             decoder_clean_cmd = (
                 "call", str(vs.get_vsdevcmd_bat_path()),
@@ -176,7 +176,7 @@ class Vtm(EncoderBase):
                 "&&", "msbuild", "NextSoftware.sln", r"/t:App\DecoderApp:clean"
             )
 
-        elif Cfg().system_os_name == "Linux":
+        elif cfg.Cfg().system_os_name == "Linux":
 
             decoder_clean_cmd = (
                 "cd", str(self._git_local_path),
@@ -251,7 +251,7 @@ class Vtm(EncoderBase):
                 "-wdt", str(encoding_run.input_sequence.get_width()),
                 "-hgt", str(encoding_run.input_sequence.get_height()),
                 "-b", str(encoding_run.output_file.get_filepath()),
-                "-f", str(encoding_run.frames * Cfg().frame_step_size),
+                "-f", str(encoding_run.frames * cfg.Cfg().frame_step_size),
                 "-o", os.devnull,
             ) + quality
 
@@ -280,8 +280,8 @@ class Vtm(EncoderBase):
 
     @staticmethod
     def validate_config(test_config: test.Test):
-        if not git.git_remote_exists(Cfg().vtm_remote_url):
-            console_log.error(f"VTM: Remote '{Cfg().vtm_remote_url}' is not available")
+        if not git.git_remote_exists(cfg.Cfg().vtm_remote_url):
+            console_log.error(f"VTM: Remote '{cfg.Cfg().vtm_remote_url}' is not available")
             raise RuntimeError
 
         args = test_config.subtests[0].param_set._to_args_dict(False, False, False)

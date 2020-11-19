@@ -10,7 +10,7 @@ from pathlib import Path
 
 import tester.core.csv as csv
 import tester.core.test as test
-from tester.core.cfg import Cfg
+import tester.core.cfg as cfg
 from tester.core.log import console_log
 
 # Compile Regex patterns only once for better performance.
@@ -22,8 +22,8 @@ _VMAF_PATTERN: re.Pattern = re.compile(r".*\"VMAF score\":([0-9]+.[0-9]+).*", re
 def ffmpeg_validate_config():
     try:
         output = subprocess.check_output("ffmpeg -version", shell=True)
-        if csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields \
-                or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields:
+        if csv.CsvField.VMAF_AVG in cfg.Cfg().csv_enabled_fields \
+                or csv.CsvField.VMAF_STDEV in cfg.Cfg().csv_enabled_fields:
             for line in output.decode().split("\n"):
                 if str(line).startswith("configuration") and not "--enable-libvmaf" in line:
                     console_log.error("Ffmpeg: VMAF field enabled in CSV but ffmpeg is not "
@@ -50,8 +50,8 @@ def compute_metrics(encoding_run: test.EncodingRun,
 
     # Copy the VMAF model into the working directory to enable using a relative path.
     if vmaf:
-        vmaf_model_src_path1 = Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
-        vmaf_model_src_path2 = Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
+        vmaf_model_src_path1 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
+        vmaf_model_src_path2 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
         vmaf_model_dest_path1 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl"
         vmaf_model_dest_path2 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl.model"
         shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
@@ -62,7 +62,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
     no_of_metrics = sum(int(boolean) for boolean in (psnr, ssim, vmaf))
 
     # Adjust for frame step (it could be that only every <step>th frame of the input sequence was encoded).
-    split1 = f"[0:v]select=not(mod(n\\,{Cfg().frame_step_size}))[select1_out]; " \
+    split1 = f"[0:v]select=not(mod(n\\,{cfg.Cfg().frame_step_size}))[select1_out]; " \
              f"[select1_out]split={no_of_metrics}"
     split2 = f"[1:v]split={no_of_metrics}"
     filters = []
@@ -101,9 +101,9 @@ def compute_metrics(encoding_run: test.EncodingRun,
                   "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                   "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                   "-f", "rawvideo",
-                  "-r", f"{Cfg().frame_step_size}",  # multiply framerate by step
+                  "-r", f"{cfg.Cfg().frame_step_size}",  # multiply framerate by step
                   "-ss", f"{encoding_run.param_set.get_seek()}",
-                  "-t", f"{encoding_run.frames * Cfg().frame_step_size}",
+                  "-t", f"{encoding_run.frames * cfg.Cfg().frame_step_size}",
                   "-i", f"{encoding_run.input_sequence.get_filepath()}",
 
                   # YUV output decoded from VVC output
@@ -129,9 +129,9 @@ def compute_metrics(encoding_run: test.EncodingRun,
                   "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                   "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                   "-f", "rawvideo",
-                  "-r", f"{Cfg().frame_step_size}",
+                  "-r", f"{cfg.Cfg().frame_step_size}",
                   "-ss", f"{encoding_run.param_set.get_seek()}",
-                  "-t", f"{encoding_run.frames * Cfg().frame_step_size}",
+                  "-t", f"{encoding_run.frames * cfg.Cfg().frame_step_size}",
                   "-i", f"{encoding_run.input_sequence.get_filepath()}",
 
                   # HEVC output
@@ -211,7 +211,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
 
 def generate_dummy_sequence() -> Path:
 
-    dummy_sequence_path = Cfg().tester_sequences_dir_path / '_dummy.yuv'
+    dummy_sequence_path = cfg.Cfg().tester_sequences_dir_path / '_dummy.yuv'
 
     console_log.debug(f"ffmpeg: Dummy sequence '{dummy_sequence_path}' already exists")
 

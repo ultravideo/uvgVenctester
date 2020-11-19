@@ -17,10 +17,14 @@
   - Must be in `PATH` and able to be used as `ffmpeg`
 - [CMake](https://cmake.org)
   - Must be in `PATH` and able to be used as `cmake`
+- [git](https://git-scm.com/)
+  - Must be in `PATH``, in particular this might require some work in Windows
+- [wkhtmltopdf](https://wkhtmltopdf.org/)
+  - Only needed for the PDF generation otherwise optional
 - [Python interpreter (3.8+)](https://python.org/)
 - Python libraries
-  - [colorama](https://github.com/tartley/colorama)
-  - [vmaf](https://github.com/Netflix/vmaf)
+  - [requirements.txt](requirements.txt) has a list of needed libraris
+  - [vmaf](https://github.com/Netflix/vmaf) is not currently on pypi and needs to be installed manually
     1. Clone the repository
     2. Go to vmaf/python
     3. Run `python setup.py install`
@@ -42,7 +46,7 @@ Clone this repository and install the dependencies.
 
 ### 1. SSH
 
-The tester clones source code from gitlab.tut.fi using SSH. Make sure you have an SSH key set up.
+The tester clones source code from gitlab.tut.fi using SSH. Make sure you have an SSH key set up. Or use HTTPS for cloning.
 
 ### 2. Tester configuration
 
@@ -89,10 +93,15 @@ Cfg().vs_msbuild_platformtoolset = "v142"
 `main.py`:
 ```python
 import userconfig
-from tester import Tester, Test, QualityParam
+from tester import Tester, Test, QualityParam, ResultTypes
 from tester.core import csv
 from tester.encoders import Kvazaar
 ```
+- It's possible to set the `Cfg()` variables inside the `main.py` but in that case it is important to note that when 
+the parallel encoding / result generation is used the changes made inside `__name__ == "__main__"` guard or any
+function called inside the guard will not be visible inside the parallel units. Currently the only variables that are
+ effected are `frame_step_size` and `vmaf_repo_path` but if you are unsure it is safest to set the `Cfg()` variables 
+ in the `userconfig.py` or at the lowest level of `main.py`
 
 ### 3. Specify the video sequences you want to have encoded.
 
@@ -132,7 +141,7 @@ test2 = Test(
     quality_param_type=QualityParam.BITRATE,
     quality_param_list=[100000, 250000, 500000, 750000,],
     cl_args="--gop=8 --preset ultrafast --owf 5",
-    encoder_id=Encoder.KVAZAAR,
+    encoder=Kvazaar,
     encoder_revision="master",
     encoder_defines=["NDEBUG"],
     anchor_names=["test1"],
@@ -201,24 +210,56 @@ context = tester.create_context(configs, input_sequence_globs)
 
 `main.py`:
 ```python
-tester.run_tests(context)
+tester.run_tests(context, parallel_runs=1)
 ```
+- `parallel_runs` Determines how many encodings are run in parallel.
+  - Default: 1 
+  - 1 Recommended when encoding time is measured and for encoders with built in parallelism
 
-### 7. Calculate the results.
+### 7. Calculate the results. (Optional)
 
 `main.py`:
 ```python
-tester.compute_metrics(context)
+tester.compute_metrics(context, parallel_calculations=1, result_types=(ResultTypes.TABLE, ResultTypes.CSV))
 ```
+- `parallel_calculations` How many metrics are calculated in parallel
+  - Default: 1
+  - If VMAF is included recommended value is cpu_cores / 16, without VMAF cpu_cores / 4. Keep in mind that VMAF requires quite a lot of RAM
+- `result_types` Which result types will be used for determining which metrics are necessary to calculate
+  - Default: (ResultTypes.TABLE, ResultTypes.CSV)
+  - If you don't know what you are doing it is recommended to not call `compute_metrics` explicitly
+
 
 ### 8. Output the results to a CSV file.
 
 - If the file already exists, it will be overwritten!
+- If the metric computation was not performed explicitly this will perform call
+ `compute_metrics(context, parallel_calculations, [ResultTypes.CSV]`
 
 `main.py`:
 ```python
-tester.generate_csv(context, "mycsv.csv")
+tester.generate_csv(context, "mycsv.csv", parallel_calculations=1)
 ```
+- `parallel_calculations` will be passed to the `compute_metrics` and not used in any way for the csv generation
+
+
+### 9. Output summary tables.
+- If the file already exists, it will be overwritten!
+- If the metric computation was not performed explicitly this will perform call
+ `compute_metrics(context, parallel_calculations, [ResultTypes.TABLE]`
+`main.py`:
+````python
+tester.create_tables(context, 
+                     table_filepath="mytable.html",
+                     format_=None,
+                     parallel_calculations=1)
+````
+- `format_`  Explicitly define the format 
+  - Default: `None` , i.e., guessed from the file extension
+  - `table.TableFormat.PDF` and `table.TableFormat.HTML` currently supported
+- `parallel_calculations` will be passed to the `compute_metrics` and not used in any way for the csv generation
+- pdf generation requires `wkhtmltopdf` and setting the Cfg().wkhtmltopdf varialble to point to the executable
+
 
 ## Customization
 
