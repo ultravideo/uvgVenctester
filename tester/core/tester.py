@@ -36,7 +36,11 @@ class TesterContext:
 
         self._input_sequences: list = []
         for glob in input_sequence_globs:
-            for filepath in Cfg().tester_sequences_dir_path.glob(glob):
+            paths = [x for x in Cfg().tester_sequences_dir_path.glob(glob)]
+            if not paths:
+                console_log.error(f"Context: glob \"{glob}\" failed to expand into any sequences")
+                raise RuntimeError
+            for filepath in paths:
                 self._input_sequences.append(
                     RawVideoSequence(
                         filepath=filepath.resolve(),
@@ -220,7 +224,7 @@ class Tester:
                      or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields
                      or csv.CsvField.BDBR_SSIM in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
-                    table.TableColumns.PSNR_SSIM in Cfg().csv_enabled_fields and ResultTypes.TABLE in result_t
+                    table.TableColumns.SSIM_BDBR in Cfg().csv_enabled_fields and ResultTypes.TABLE in result_t
             )
         global_vmaf = \
             (
@@ -228,7 +232,7 @@ class Tester:
                      or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields
                      or csv.CsvField.BDBR_VMAF in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
-                    table.TableColumns.PSNR_VMAF in Cfg().csv_enabled_fields and ResultTypes.TABLE in result_t
+                    table.TableColumns.VMAF_BDBR in Cfg().csv_enabled_fields and ResultTypes.TABLE in result_t
             )
         for sequence in context.get_input_sequences():
             for test in context.get_tests():
