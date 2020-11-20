@@ -44,21 +44,14 @@ class X265(EncoderBase):
 
         if tester.Cfg().system_os_name == "Windows":
             build_dir = self._git_local_path / "build" / tester.Cfg().x265_build_folder
-            cmake_cmd = ""
-            # A bit hacky, but minimizes user configuration. TODO: Unify with vs handling?
-            with open(build_dir / tester.Cfg().x265_make_solution_bat) as cmake_bat:
-                for line in cmake_bat:
-                    if line.strip().startswith("cmake"):
-                        cmake_cmd = line.split("&&")[0].strip()
-
             build_cmd = (
                 "cd", build_dir,
                 "&&", "call", str(vs.get_vsdevcmd_bat_path()),
                 "&&", "cmake", "../../source",
                 "-G", cmake.get_cmake_build_system_generator(),
                 "-A", cmake.get_cmake_architecture(),
-                f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}" if tester.Cfg().nasm_path else "",
-                "&&", "msbuild", "x265.sln"
+            ) + ((f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}",) if tester.Cfg().nasm_path else tuple()) + (
+                "&&", "msbuild", "x265.sln",
             ) + tuple(vs.get_msbuild_args(self._defines))
         elif tester.Cfg().system_os_name == "Linux":
             build_cmd = (
