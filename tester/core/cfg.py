@@ -300,6 +300,10 @@ class Cfg(metaclass=Singleton):
     """The /p:PlatformToolset parameter to be passed to MSBuild."""
     vs_msbuild_platformtoolset: str = None
 
+    """The /p:WindowsTargetPlatformVersion parameter to be passed to MSBuild.
+    In older visual studios (2017 etc.) need to specify the exact version i.e. 10.0.xxxxx.x"""
+    vs_msbuild_windowstargetplatformversion: str = "10.0"
+
     ##########################################################################
     # VMAF
     ##########################################################################
