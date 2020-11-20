@@ -318,7 +318,7 @@ class EncoderBase:
         console_log.debug(f"{self._name}: Log: '{encoding_run.encoding_log_path.name}'")
 
         if encoding_run.output_file.get_filepath().exists() \
-                and "encoding_time" in encoding_run.metrics[encoding_run]:
+                and "encoding_time" in encoding_run.metrics:
             console_log.info(f"{self._name}: File '{encoding_run.output_file.get_filepath().name}' already exists")
             # Don't encode unnecessarily.
             return False
