@@ -115,7 +115,7 @@ def tablefy(context):
 
     a.append('</body>')
     a.append('</html>')
-    return "\n".join(a), pixels + 4
+    return "\n".join(a), pixels
 
 
 def tablefy_one(context, test: Test, anchor: Test):
@@ -129,8 +129,8 @@ def tablefy_one(context, test: Test, anchor: Test):
     total_averages = defaultdict(list)
     all_data = defaultdict(lambda: defaultdict(dict))
     collect_data(all_data, test, anchor, class_averages, context, total_averages)
-
-    pixels = 23 * len(class_averages) + 21 * len(all_data) + 72
+    pixels = 23 * len(class_averages) + 21 * sum(len(x) for x in all_data.values()) + 72
+    pixels += 5 if pixels % 2 else 4
 
     for cls in sorted(class_averages.keys()):
         html.append(
