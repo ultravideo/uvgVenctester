@@ -181,6 +181,8 @@ class X265(EncoderBase):
                 args += f" --frames {self._frames}"
 
             if inode_safe:
+                if tester.Cfg().frame_step_size != 1:
+                    args += f" --temporal_subsample {tester.Cfg().frame_step_size}"
                 args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
 
             split_args: list = []
