@@ -10,6 +10,7 @@ import tester
 import tester.core.git as git
 import tester.core.test as test
 from . import EncoderBase
+from ..core import vs, cmake
 
 
 class X265(EncoderBase):
@@ -31,7 +32,7 @@ class X265(EncoderBase):
         # TODO: check that exe paths are correct
         self._exe_src_path: Path = None
         if tester.Cfg().system_os_name == "Windows":
-            self._exe_src_path = self._git_local_path / "build" / tester.Cfg().x265_build_folder / "x265.exe"
+            self._exe_src_path = self._git_local_path / "build" / tester.Cfg().x265_build_folder / "Release" / "x265.exe"
         elif tester.Cfg().system_os_name == "Linux":
             self._exe_src_path = self._git_local_path / "build" / "linux" / "x265"
 
@@ -44,24 +45,20 @@ class X265(EncoderBase):
         if tester.Cfg().system_os_name == "Windows":
             build_dir = self._git_local_path / "build" / tester.Cfg().x265_build_folder
             cmake_cmd = ""
-            msbuild_cmd = []
             # A bit hacky, but minimizes user configuration. TODO: Unify with vs handling?
             with open(build_dir / tester.Cfg().x265_make_solution_bat) as cmake_bat:
                 for line in cmake_bat:
                     if line.strip().startswith("cmake"):
                         cmake_cmd = line.split("&&")[0].strip()
-            with open(build_dir / tester.Cfg().x265_build_bat) as build_bat:
-                for line in build_bat:
-                    if line.strip().startswith("call") and tester.Cfg().x265_make_solution_bat not in line:
-                        msbuild_cmd.append(line.strip())
-                    elif line.strip().startswith("MSBuild") and "Release" in line:
-                        msbuild_cmd.append(line.strip())
+
             build_cmd = (
                 "cd", build_dir,
-                "&&", cmake_cmd,
-                "&&", msbuild_cmd[0],
-                "&&", msbuild_cmd[1],
-            )
+                "&&", "call", str(vs.get_vsdevcmd_bat_path()),
+                "&&", "cmake", "../../source",
+                "-G", cmake.get_cmake_build_system_generator(),
+                "-A", cmake.get_cmake_architecture(),
+                "&&", "msbuild", "x265.sln"
+            ) + tuple(vs.get_msbuild_args(self._defines))
         elif tester.Cfg().system_os_name == "Linux":
             build_cmd = (
                 "cd", str(self._git_local_path / "build" / "linux"),
@@ -88,12 +85,13 @@ class X265(EncoderBase):
                   param_set: EncoderBase.ParamSet) -> bool:
         self.dummy_run_start(param_set)
 
-        RESOLUTION_PLACEHOLDER = "2x2"
+        RESOLUTION_PLACEHOLDER = "64x64"
 
         dummy_cmd = (
             str(self._exe_path),
             "--input", os.devnull,
             "--input-res", RESOLUTION_PLACEHOLDER,
+            "--fps", "25",
             "--output", os.devnull,
         ) + param_set.to_cmdline_tuple()
 
