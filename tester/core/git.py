@@ -132,7 +132,7 @@ class GitRepository(object):
         except subprocess.CalledProcessError as exception:
             return cmd_as_str, None, exception
 
-    def get_latest_commit_between(self, start: datetime, finish: datetime):
+    def get_latest_commit_between(self, start: datetime, finish: datetime, branch="origin/master"):
         cmd = (
             "git",
             "--work-tree", str(self._local_repo_path),
@@ -140,7 +140,8 @@ class GitRepository(object):
             "log", "-1",
             "--format=%H",
             "--until", finish.strftime("%Y-%m-%d"),
-            "--since", start.strftime("%Y-%m-%d")
+            "--since", start.strftime("%Y-%m-%d"),
+            branch
         )
         try:
             out = subprocess.check_output(subprocess.list2cmdline(cmd), shell=True, stderr=subprocess.STDOUT).decode()
