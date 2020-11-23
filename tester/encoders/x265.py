@@ -157,13 +157,13 @@ class X265(EncoderBase):
                 if self._quality_param_type == tester.QualityParam.QP:
                     args += f" --qp {self._quality_param_value}"
                 elif self._quality_param_type == tester.QualityParam.BITRATE:
-                    args += f" --bitrate {self._quality_param_value}"
+                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
                 elif self.get_quality_param_type() == tester.QualityParam.BPP:
-                    args += f" --bitrate {self._quality_param_value}"
+                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
                 elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
-                    args += f" --bitrate {self._quality_param_value}"
+                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
                 elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
-                    args += f" --bitrate {self._quality_param_value}"
+                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
                 elif self.get_quality_param_type() == tester.QualityParam.CRF:
                     args += f" --crf {self._quality_param_value}"
                 else:
