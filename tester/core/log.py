@@ -6,6 +6,8 @@ import traceback
 from pathlib import Path
 
 # For printing colored text.
+from typing import Any
+
 import colorama
 
 colorama.init()
@@ -43,13 +45,42 @@ class ColoredFormatter(logging.Formatter):
         self._style._fmt = original_format
         return result
 
+
+class MyLogger(logging.Logger):
+    def __init__(self, *args, **kwargs):
+        super(MyLogger, self).__init__(*args, **kwargs)
+        self._call_counts = {"error": 0, "warning": 0, "info": 0, "debug": 0}
+        self._warnings = []
+
+    def error(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        self._call_counts["error"] += 1
+        super(MyLogger, self).error(msg=msg, *args, **kwargs)
+
+    def info(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        self._call_counts["info"] += 1
+        super(MyLogger, self).info(msg=msg, *args, **kwargs)
+
+    def warning(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        self._call_counts["warning"] += 1
+        self._warnings.append(msg)
+        super(MyLogger, self).warning(msg=msg, *args, **kwargs)
+
+    def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        self._call_counts["debug"] += 1
+        super(MyLogger, self).debug(msg=msg, *args, **kwargs)
+
+    def __del__(self):
+        temp = '\n'.join(self._warnings)
+        print(f"Caught {self._call_counts['warning']} warnings:\n{temp}")
+
+
+logging.setLoggerClass(MyLogger)
 # Set up the global console logger.
 formatter = ColoredFormatter("--%(levelname)s: %(message)s")
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
 console_log = logging.getLogger("console")
 console_log.addHandler(handler)
-
 
 
 def log_exception(exception: Exception) -> None:
@@ -61,6 +92,8 @@ def log_exception(exception: Exception) -> None:
 
 
 UNAVAILABLE_LOG_FILENAMES = []
+
+
 def setup_build_log(log_filepath: Path) -> logging.Logger:
     """Initializes and returns a Logger object with the given filename.
     The returned object is intended to be used for build logging.
