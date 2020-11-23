@@ -56,10 +56,11 @@ class X265(EncoderBase):
         elif tester.Cfg().system_os_name == "Linux":
             build_cmd = (
                 "cd", str(self._git_local_path / "build" / "linux"),
-                "&&", "./make-Makefiles.bash",
+                "&&", "cmake", "../../source", "-DENABLE_SHARED=OFF",
+                # TODO: enable this
+                # f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}" if tester.Cfg().nasm_path else "",
                 "&&", "make",
             )
-
         self.build_finish(build_cmd)
 
     def clean(self) -> None:
