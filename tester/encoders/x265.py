@@ -103,7 +103,7 @@ class X265(EncoderBase):
                                       tester.QualityParam.RES_SCALED_BITRATE,
                                       tester.QualityParam.BPP,
                                       tester.QualityParam.RES_ROOT_SCALED_BITRATE):
-            quality = ("--bitrate", str(encoding_run.qp_value))
+            quality = ("--bitrate", str(int(encoding_run.qp_value / 1000)))
         elif encoding_run.qp_name == tester.QualityParam.CRF:
             quality = ("--crf", str(encoding_run.qp_value))
         else:
