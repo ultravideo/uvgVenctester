@@ -257,6 +257,15 @@ class Cfg(metaclass=Singleton):
     kvazaar_remote_url: str = "git@gitlab.tut.fi:TIE/ultravideo/kvazaar.git"
 
     ##########################################################################
+    # x265
+    ##########################################################################
+
+    """The remote from which x265 will be cloned."""
+    x265_remote_url: str = "https://bitbucket.org/multicoreware/x265_git.git"
+    x265_build_folder: str = "vc15-x86_64"
+    nasm_path: [None, str] = None
+
+    ##########################################################################
     # Visual Studio
     ##########################################################################
 
@@ -290,6 +299,10 @@ class Cfg(metaclass=Singleton):
 
     """The /p:PlatformToolset parameter to be passed to MSBuild."""
     vs_msbuild_platformtoolset: str = None
+
+    """The /p:WindowsTargetPlatformVersion parameter to be passed to MSBuild.
+    In older visual studios (2017 etc.) need to specify the exact version i.e. 10.0.xxxxx.x"""
+    vs_msbuild_windowstargetplatformversion: str = "10.0"
 
     ##########################################################################
     # VMAF

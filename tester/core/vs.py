@@ -32,6 +32,10 @@ def vs_validate_config():
         console_log.error(f"Visual Studio: MSVC version has not been set")
         raise RuntimeError
 
+    if tester.Cfg().vs_msbuild_windowstargetplatformversion is None:
+        console_log.error(f"Visual Studio: MSBuild target platform version has not been set")
+        raise RuntimeError
+
     VALID_EDITIONS = ["Community", "Professional", "Enterprise"]
     if tester.Cfg().vs_edition not in VALID_EDITIONS:
         console_log.error(f"Visual Studio: Edition '{tester.Cfg().vs_edition}' is not valid "
@@ -77,7 +81,7 @@ def get_msbuild_args(add_defines: Iterable = None) -> list:
         f"/p:Configuration=Release",
         f"/p:Platform=x64",
         f"/p:PlatformToolset={tester.Cfg().vs_msbuild_platformtoolset}",
-        f"/p:WindowsTargetPlatformVersion=10.0",
+        f"/p:WindowsTargetPlatformVersion={tester.Cfg().vs_msbuild_windowstargetplatformversion}",
     ]
 
     if add_defines:
