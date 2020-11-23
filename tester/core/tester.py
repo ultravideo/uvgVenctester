@@ -173,16 +173,15 @@ class Tester:
                     for subtest in test.subtests:
                         for round_ in range(1, test.rounds + 1):
                             name = f"{subtest.name}/{sequence.get_filepath().name} ({round_}/{test.rounds})"
-                            encoding_runs.append(
-                                EncodingRun(
-                                    subtest,
-                                    name,
-                                    round_,
-                                    test.encoder,
-                                    subtest.param_set,
-                                    sequence
+                            encoding_run = EncodingRun(subtest, name, round_, test.encoder, subtest.param_set, sequence)
+                            if encoding_run.needs_encoding:
+                                encoding_runs.append(
+                                    encoding_run
                                 )
-                            )
+                            else:
+                                console_log.info(f"{test.name}:"
+                                                 f" File '{encoding_run.output_file.get_filepath().name}'"
+                                                 f" already exists")
 
             if parallel_runs > 1:
                 with Pool(parallel_runs) as p:
@@ -212,11 +211,11 @@ class Tester:
         parallel_calculations = max(parallel_calculations, 1)
         global_psnr = \
             (
-                (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
-                 or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields
-                 or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                    (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
+                     or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields
+                     or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
-                table.TableColumns.PSNR_BDBR in Cfg().table_enabled_fields and ResultTypes.TABLE in result_t
+                    table.TableColumns.PSNR_BDBR in Cfg().table_enabled_fields and ResultTypes.TABLE in result_t
             )
         global_ssim = \
             (
@@ -302,7 +301,7 @@ class Tester:
                      csv_filepath: str,
                      parallel_calculations=1) -> None:
 
-        Tester.compute_metrics(context, parallel_calculations, (ResultTypes.CSV, ))
+        Tester.compute_metrics(context, parallel_calculations, (ResultTypes.CSV,))
         console_log.info(f"Tester: Generating CSV file '{csv_filepath}'")
         metrics = context.get_metrics()
 
@@ -377,8 +376,7 @@ class Tester:
         console_log.info(f"Tester: Running '{encoding_run.name}'")
 
         try:
-            if not encoding_run.output_file.get_filepath().exists() or \
-                    "encoding_time" not in encoding_run.metrics:
+            if encoding_run.needs_encoding:
 
                 start_time: float = time.perf_counter()
                 encoding_run.encoder.encode(encoding_run)
@@ -415,7 +413,7 @@ class Tester:
                       table_filepath: str,
                       format_: [table.TableFormats, None] = None,
                       parallel_calculations=1):
-        Tester.compute_metrics(context, parallel_calculations, (ResultTypes.TABLE, ))
+        Tester.compute_metrics(context, parallel_calculations, (ResultTypes.TABLE,))
 
         filepath = Path(table_filepath)
         if format_ is None:

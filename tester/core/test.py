@@ -68,6 +68,10 @@ class EncodingRun:
         if type(encoder) == encoders.Vtm:
             self.decoded_output_file_path: Path = output_dir_path / f"{base_filename}_decoded.yuv"
 
+    @property
+    def needs_encoding(self):
+        return not self.output_file.get_filepath().exists() and "encoding_time"  not in self.metrics
+
     def __eq__(self,
                other: EncodingRun):
         return str(self.input_sequence.get_filepath()) == str(other.input_sequence.get_filepath()) \
