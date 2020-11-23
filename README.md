@@ -9,6 +9,7 @@
 - [HM](https://vcgit.hhi.fraunhofer.de/jct-vc/HM)
 - [Kvazaar](https://github.com/ultravideo/kvazaar)
 - [VTM](https://vcgit.hhi.fraunhofer.de/jvet/VVCSoftware_VTM)
+- [x265](https://bitbucket.org/multicoreware/x265_git)
 
 ## Dependencies
 
@@ -141,7 +142,7 @@ test2 = Test(
     quality_param_type=QualityParam.BITRATE,
     quality_param_list=[100000, 250000, 500000, 750000,],
     cl_args="--gop=8 --preset ultrafast --owf 5",
-    encoder=Kvazaar,
+    encoder_type=Kvazaar,
     encoder_revision="master",
     encoder_defines=["NDEBUG"],
     anchor_names=["test1"],
