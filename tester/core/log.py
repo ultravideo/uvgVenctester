@@ -70,6 +70,8 @@ class MyLogger(logging.Logger):
         super(MyLogger, self).debug(msg=msg, *args, **kwargs)
 
     def __del__(self):
+        if not self._warnings:
+            return 
         temp = '\n'.join(self._warnings)
         print(f"Caught {self._call_counts['warning']} warnings:\n{temp}")
 
