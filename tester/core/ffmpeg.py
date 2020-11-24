@@ -43,6 +43,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
     if not psnr and not ssim and not vmaf:
         return None, None, None
 
+    assert encoding_run.output_file.get_filepath().exists()
     # Absolute paths were causing trouble, so use relative paths.
     psnr_log_name = encoding_run.psnr_log_path.name
     ssim_log_name = encoding_run.ssim_log_path.name

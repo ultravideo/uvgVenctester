@@ -1,4 +1,5 @@
 """This module defines functionality related to testing."""
+import os
 import subprocess
 import time
 from enum import Enum
@@ -251,7 +252,8 @@ class Tester:
                         psnr_needed = "psnr" not in metric and global_psnr
                         ssim_needed = "ssim" not in metric and global_ssim
                         vmaf_needed = "vmaf" not in metric and global_vmaf
-                        arguments = (encoding_run, metric, psnr_needed, ssim_needed, vmaf_needed)
+                        arguments = (encoding_run, metric, psnr_needed, ssim_needed, vmaf_needed,
+                                     Cfg().remove_encodings_after_metric_calculation)
                         if parallel_calculations > 1:
                             values.append(arguments)
                         else:
@@ -266,13 +268,14 @@ class Tester:
 
     @staticmethod
     def _calculate_metrics_for_one_run(in_args):
-        encoding_run, metrics, psnr_needed, ssim_needed, vmaf_needed = in_args
+        encoding_run, metrics, psnr_needed, ssim_needed, vmaf_needed, remove_encoding = in_args
         try:
             console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
 
             if encoding_run.qp_name != tester.QualityParam.QP:
                 metrics["target_bitrate"] = encoding_run.qp_value
-            metrics["bitrate"] = encoding_run.output_file.get_bitrate()
+            if "bitrate" not in metrics:
+                metrics["bitrate"] = encoding_run.output_file.get_bitrate()
             if psnr_needed or ssim_needed or vmaf_needed:
                 psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
                     encoding_run,
@@ -288,6 +291,9 @@ class Tester:
                     metrics["vmaf"] = vmaf_avg
             else:
                 console_log.info(f"Tester: Metrics for '{encoding_run.name}' already exist")
+
+            if encoding_run.output_file.get_filepath().exists() and remove_encoding:
+                os.remove(encoding_run.output_file.get_filepath())
 
         except Exception as exception:
             console_log.error(f"Tester: Failed to compute metrics for '{encoding_run.name}'")

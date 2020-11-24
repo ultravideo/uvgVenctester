@@ -3,11 +3,18 @@ import logging
 import platform
 from pathlib import Path
 from typing import Union
+from enum import Enum
 
 import tester.core.csv as csv
 import tester.core.table as table
 from .log import console_log
 from .singleton import Singleton
+
+
+class ReEncoding(Enum):
+    OFF = 0
+    SOFT = 1
+    FORCE = 2
 
 
 class Cfg(metaclass=Singleton):
@@ -225,7 +232,7 @@ class Cfg(metaclass=Singleton):
 
     _wkhtmltopdf_path = None
     @property
-    def wkhtmltopdf(self) -> Path():
+    def wkhtmltopdf(self) -> Path:
         return Path(self._wkhtmltopdf_path or "wkhtmltopdf")
 
     @wkhtmltopdf.setter
@@ -241,6 +248,21 @@ class Cfg(metaclass=Singleton):
     In case the encoder has built in feature for this the tester will assert that the value here is the same as
     what the encoder set value is."""
     frame_step_size: int = 1
+
+    """
+    Whether re-encode encodings that are not necessary to encode:
+    OFF: Encode sequences only if results do not exist.
+    SOFT: Encode if the encoding is missing regardless of whether results exists. 
+        This should be used if the previous encoding didn't include all necessary metrics.
+    FORCE: Always re-encode 
+    """
+    overwrite_encoding: ReEncoding = ReEncoding.OFF
+
+    """
+    Should the encoded videos be removed after calculating metrics.
+    Heavily recommended to call `Tester.calculate_metrics()` explicitly if this is True
+    """
+    remove_encodings_after_metric_calculation: bool = False
 
     ##########################################################################
     # HM

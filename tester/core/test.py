@@ -9,6 +9,7 @@ from typing import Iterable
 
 import tester.encoders as encoders
 import tester.core.metrics as met
+import tester.core.cfg as cfg
 from tester.core.video import RawVideoSequence, EncodedVideoFile
 from tester.encoders.base import QualityParam
 
@@ -70,7 +71,12 @@ class EncodingRun:
 
     @property
     def needs_encoding(self):
-        return not self.output_file.get_filepath().exists() and "encoding_time"  not in self.metrics
+        if cfg.Cfg().overwrite_encoding == cfg.ReEncoding.FORCE:
+            return True
+        elif cfg.Cfg().overwrite_encoding == cfg.ReEncoding.SOFT:
+            return not self.output_file.get_filepath().exists() or "encoding_time" not in self.metrics
+        elif cfg.Cfg().overwrite_encoding == cfg.ReEncoding.OFF:
+            return not self.output_file.get_filepath().exists() and not self.metrics.has_calculated_metrics
 
     def __eq__(self,
                other: EncodingRun):

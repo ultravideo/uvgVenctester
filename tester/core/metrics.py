@@ -47,6 +47,14 @@ class EncodingRunMetrics:
         self._read_in()
         return item in self._data
 
+    @property
+    def has_calculated_metrics(self):
+        """
+        Used to determine if the metric object has any calculated metrics such as PSNR, SSIM, or VMAF
+        The two non-calculated and always existing metrics are bitrate and encoding speed
+        """
+        return len(self._data) >= 3
+
     def clear(self):
         self._data = {}
         self._write_out()
