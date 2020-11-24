@@ -10,7 +10,7 @@ from multiprocessing import Pool
 import tester
 import pdfkit
 import tester.core.cmake as cmake
-from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs, table
+from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs, table, conformance
 from tester.core.cfg import Cfg
 from tester.core.log import console_log, log_exception
 from tester.core.metrics import TestMetrics
@@ -136,6 +136,7 @@ class Tester:
             vmaf.vmaf_validate_config()
             vs.vs_validate_config()
             table.table_validate_config()
+            conformance.validate_conformance()
 
             csv.csv_validate_config()
 
@@ -234,6 +235,8 @@ class Tester:
             ) or (
                     table.TableColumns.VMAF_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
+        global_conformance = csv.CsvField.CONFORMANCE in Cfg().csv_enabled_fields and ResultTypes.CSV in result_t
+
         for sequence in context.get_input_sequences():
             for test in context.get_tests():
                 for subtest in test.subtests:
@@ -252,7 +255,8 @@ class Tester:
                         psnr_needed = "psnr" not in metric and global_psnr
                         ssim_needed = "ssim" not in metric and global_ssim
                         vmaf_needed = "vmaf" not in metric and global_vmaf
-                        arguments = (encoding_run, metric, psnr_needed, ssim_needed, vmaf_needed,
+                        conformance_needed = "conforms" not in metric and global_conformance
+                        arguments = (encoding_run, metric, psnr_needed, ssim_needed, vmaf_needed, conformance_needed,
                                      Cfg().remove_encodings_after_metric_calculation)
                         if parallel_calculations > 1:
                             values.append(arguments)
@@ -268,14 +272,23 @@ class Tester:
 
     @staticmethod
     def _calculate_metrics_for_one_run(in_args):
-        encoding_run, metrics, psnr_needed, ssim_needed, vmaf_needed, remove_encoding = in_args
+        encoding_run, metrics, psnr_needed, ssim_needed, vmaf_needed, conf, remove_encoding = in_args
         try:
             console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
 
             if encoding_run.qp_name != tester.QualityParam.QP:
                 metrics["target_bitrate"] = encoding_run.qp_value
+
             if "bitrate" not in metrics:
                 metrics["bitrate"] = encoding_run.output_file.get_bitrate()
+
+            if conf and "conforms" not in metrics:
+                if encoding_run.encoder.file_suffix == "hevc":
+                    metrics["conforms"] = conformance.check_hevc_conformance(encoding_run)
+                else:
+                    # TODO: implement for other codecs
+                    metrics["conforms"] = False
+
             if psnr_needed or ssim_needed or vmaf_needed:
                 psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
                     encoding_run,
@@ -372,7 +385,8 @@ class Tester:
                 csv.CsvField.BDBR_VMAF: lambda: metrics[test.name][sequence].compute_bdbr_to_anchor(
                     metrics[anchor.name][sequence], "vmaf"),
                 csv.CsvField.BITRATE_ERROR: lambda: -1 + metric["bitrate_avg"] / metric[
-                    "target_bitrate_avg"] if "target_bitrate_avg" in metric else "-"
+                    "target_bitrate_avg"] if "target_bitrate_avg" in metric else "-",
+                csv.CsvField.CONFORMANCE: lambda: metric["conforms_avg"],
             }
         )
 

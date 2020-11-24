@@ -195,7 +195,8 @@ class Cfg(metaclass=Singleton):
         csv.CsvField.BDBR_PSNR: "BD-BR (PSNR)",
         csv.CsvField.BDBR_SSIM: "BD-BR (SSIM)",
         csv.CsvField.BDBR_VMAF: "BD-BR (VMAF)",
-        csv.CsvField.BITRATE_ERROR: "Bitrate error"
+        csv.CsvField.BITRATE_ERROR: "Bitrate error",
+        csv.CsvField.CONFORMANCE: "Conforming bitstream",
     }
     """Key = CSV field ID, value = CSV field name."""
 
@@ -267,6 +268,20 @@ class Cfg(metaclass=Singleton):
     Should the encoded videos be removed after calculating metrics.
     Heavily recommended to call `Tester.calculate_metrics()` explicitly if this is True
     """
+
+    ##########################################################################
+    # HEVC
+    ##########################################################################
+
+    _hevc_reference_decoder = None
+
+    @property
+    def hevc_reference_decoder(self) -> Path:
+        return Path(self._hevc_reference_decoder)
+
+    @hevc_reference_decoder.setter
+    def hevc_reference_decoder(self, value):
+        self._hevc_reference_decoder = value
 
     ##########################################################################
     # HM

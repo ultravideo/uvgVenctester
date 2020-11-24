@@ -52,6 +52,7 @@ class EncodingRun:
         self.psnr_log_path: Path = output_dir_path / f"{base_filename}_psnr_log.txt"
         self.ssim_log_path: Path = output_dir_path / f"{base_filename}_ssim_log.txt"
         self.vmaf_log_path: Path = output_dir_path / f"{base_filename}_vmaf_log.txt"
+        self.conformance_log_path: Path = output_dir_path / f"{base_filename}_conformance_log.txt"
 
         output_file_path: Path = output_dir_path / f"{base_filename}.{encoder.file_suffix}"
         self.output_file = EncodedVideoFile(

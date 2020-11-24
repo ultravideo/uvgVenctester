@@ -44,6 +44,7 @@ class CsvField(Enum):
     BDBR_SSIM: int = 24
     BDBR_VMAF: int = 25
     BITRATE_ERROR: int = 26
+    CONFORMANCE: int = 27
 
 
 class CsvFile():
