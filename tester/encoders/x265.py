@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 from typing import Iterable
 
@@ -11,6 +12,7 @@ import tester.core.git as git
 import tester.core.test as test
 from . import EncoderBase
 from ..core import vs, cmake
+from ..core.log import console_log
 
 
 class X265(EncoderBase):
@@ -119,6 +121,16 @@ class X265(EncoderBase):
         ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False, include_frames=False) + quality
 
         self.encode_finish(encode_cmd, encoding_run, tester.Cfg().frame_step_size != 1)
+
+    @staticmethod
+    def validate_config(test_config: test.Test):
+        if not git.git_remote_exists(tester.Cfg().kvazaar_remote_url):
+            console_log.error(f"Kvazaar: Remote '{tester.Cfg().kvazaar_remote_url}' is unavailable")
+            raise RuntimeError
+    try:
+        subprocess.check_output(f"{tester.Cfg().nasm_path} --version", shell=True)
+    except FileNotFoundError:
+        console_log.warning(f"x265: Executable 'nasm' was not found. The x265 is going to be much slower.")
 
     class ParamSet(EncoderBase.ParamSet):
         """Represents the commandline parameters passed to x265 when encoding."""

@@ -11,7 +11,7 @@ import tester.core.cfg as cfg
 
 
 def table_validate_config():
-    for field in cfg.Cfg().table_enabled_fields:
+    for field in cfg.Cfg().table_enabled_columns:
         if field not in cfg.Cfg().table_column_headers or field not in cfg.Cfg().table_column_formats:
             console_log.error(f"Table: Field {field} is enabled but missing for table columns of formats")
 
@@ -195,7 +195,7 @@ def collect_data(all_data, test, anchor, class_averages, context, total_averages
                 metrics[anchor.name][sequence]),
             TableColumns.VIDEO: lambda: sequence.get_suffixless_name()
         }
-        for m in cfg.Cfg().table_enabled_fields:
+        for m in cfg.Cfg().table_enabled_columns:
             temp = actions[m]()
             all_data[c][sequence.get_suffixless_name()][m] = temp
             if m == TableColumns.VIDEO:
@@ -204,13 +204,13 @@ def collect_data(all_data, test, anchor, class_averages, context, total_averages
             total_averages[m].append(temp)
 
     for cls in class_averages:
-        for m in cfg.Cfg().table_enabled_fields:
+        for m in cfg.Cfg().table_enabled_columns:
             if m == TableColumns.VIDEO:
                 continue
             class_averages[cls][m] = sum(class_averages[cls][m]) / len(class_averages[cls][m])
         class_averages[cls][TableColumns.VIDEO] = cls
 
-    for m in cfg.Cfg().table_enabled_fields:
+    for m in cfg.Cfg().table_enabled_columns:
         if m == TableColumns.VIDEO:
             continue
         total_averages[m] = sum(total_averages[m]) / len(total_averages[m])
@@ -223,7 +223,7 @@ def table_header():
         ] + [
             f"  <th>{cfg.Cfg().table_column_headers[x]}</th>"
             for x
-            in cfg.Cfg().table_enabled_fields
+            in cfg.Cfg().table_enabled_columns
         ] + [
             "</tr>"
         ]
@@ -236,7 +236,7 @@ def row_from_data(row_data, row_class: [str, None] = None):
           ] + [
               f'      <td> <div> {cfg.Cfg().table_column_formats[x](row_data[x])} </div> </td>'
               for x
-              in cfg.Cfg().table_enabled_fields
+              in cfg.Cfg().table_enabled_columns
           ] + [
               '</tr>'
           ]
