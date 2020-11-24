@@ -122,6 +122,52 @@ class SequenceMetrics:
              in zip(self._data.values(), anchor._data.values())]
         return sum(a) / len(a)
 
+    def rd_curve_crossings(self, anchor: SequenceMetrics, quality_metric: str):
+        def linear_equ(first, second):
+            slope = (second[1] - first[1]) / (second[0] - first[0])
+            b = first[1] - slope * first[0]
+            return lambda x: slope * x + b
+
+        if self == anchor:
+            return 0
+
+        own = self.get_quality_with_bitrates(quality_metric)
+        other = anchor.get_quality_with_bitrates(quality_metric)
+
+        first_index = 0
+        second_index = 0
+
+        crossings = 0
+        while True:
+            if first_index == len(own) - 1 or second_index == len(other) - 1:
+                break
+            if own[first_index + 1][0] < other[second_index][0]:
+                first_index += 1
+                continue
+            if own[first_index][0] > other[second_index + 1][0]:
+                second_index += 1
+                continue
+            equ1 = linear_equ(own[first_index], own[first_index + 1])
+            equ2 = linear_equ(other[second_index], other[second_index + 1])
+
+            if own[first_index][0] < other[second_index][0]:
+                start = equ1(other[second_index][0]) - other[second_index][1]
+            else:
+                start = own[first_index][1] - equ2(own[first_index][0])
+
+            if own[first_index + 1][0] > other[second_index + 1][0]:
+                stop = equ1(other[second_index + 1][0]) - other[second_index + 1][1]
+            else:
+                stop = own[first_index + 1][1] - equ2(own[first_index + 1][0])
+
+            if start * stop < 0:
+                crossings += 1
+
+            if own[first_index + 1][0] < other[second_index + 1][0]:
+                first_index += 1
+            else:
+                second_index += 1
+        return crossings
 
     @staticmethod
     def _compute_bdbr(anchor_values, compared_values):

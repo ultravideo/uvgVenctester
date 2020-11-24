@@ -197,6 +197,9 @@ class Cfg(metaclass=Singleton):
         csv.CsvField.BDBR_VMAF: "BD-BR (VMAF)",
         csv.CsvField.BITRATE_ERROR: "Bitrate error",
         csv.CsvField.CONFORMANCE: "Conforming bitstream",
+        csv.CsvField.PSNR_CURVE_CROSSINGS: "PSNR curves cross",
+        csv.CsvField.SSIM_CURVE_CROSSINGS: "SSIM curves cross",
+        csv.CsvField.VMAF_CURVE_CROSSINGS: "VMAF curves cross",
     }
     """Key = CSV field ID, value = CSV field name."""
 

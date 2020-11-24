@@ -215,7 +215,8 @@ class Tester:
             (
                     (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
                      or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields
-                     or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                     or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields
+                     or csv.CsvField.PSNR_CURVE_CROSSINGS in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.PSNR_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
@@ -223,7 +224,8 @@ class Tester:
             (
                     (csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields
                      or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields
-                     or csv.CsvField.BDBR_SSIM in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                     or csv.CsvField.BDBR_SSIM in Cfg().csv_enabled_fields
+                     or csv.CsvField.SSIM_CURVE_CROSSINGS in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.SSIM_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
@@ -231,7 +233,8 @@ class Tester:
             (
                     (csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields
                      or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields
-                     or csv.CsvField.BDBR_VMAF in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                     or csv.CsvField.BDBR_VMAF in Cfg().csv_enabled_fields
+                     or csv.CsvField.VMAF_CURVE_CROSSINGS in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.VMAF_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
@@ -385,6 +388,12 @@ class Tester:
                 csv.CsvField.BITRATE_ERROR: lambda: -1 + metric["bitrate_avg"] / metric[
                     "target_bitrate_avg"] if "target_bitrate_avg" in metric else "-",
                 csv.CsvField.CONFORMANCE: lambda: metric["conforms_avg"],
+                csv.CsvField.PSNR_CURVE_CROSSINGS: lambda: metrics[test.name][sequence].rd_curve_crossings(
+                    metrics[anchor.name][sequence], "psnr"),
+                csv.CsvField.SSIM_CURVE_CROSSINGS: lambda: metrics[test.name][sequence].rd_curve_crossings(
+                    metrics[anchor.name][sequence], "ssim"),
+                csv.CsvField.VMAF_CURVE_CROSSINGS: lambda: metrics[test.name][sequence].rd_curve_crossings(
+                    metrics[anchor.name][sequence], "vmaf"),
             }
         )
 
