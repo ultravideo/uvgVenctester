@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Dict
 
 import tester.core.csv as csv
 import tester.core.test as test
@@ -17,6 +18,12 @@ from tester.core.log import console_log
 _PSNR_PATTERN: re.Pattern = re.compile(r".*psnr_avg:([0-9]+.[0-9]+).*", re.DOTALL)
 _SSIM_PATTERN: re.Pattern = re.compile(r".*All:([0-9]+.[0-9]+).*", re.DOTALL)
 _VMAF_PATTERN: re.Pattern = re.compile(r".*\"VMAF score\":([0-9]+.[0-9]+).*", re.DOTALL)
+
+_PATTERNS = {
+    "psnr":_PSNR_PATTERN,
+    "ssim": _SSIM_PATTERN,
+    "vmaf": _VMAF_PATTERN
+}
 
 
 def ffmpeg_validate_config():
@@ -35,22 +42,17 @@ def ffmpeg_validate_config():
         raise RuntimeError
 
 
-def compute_metrics(encoding_run: test.EncodingRun,
-                    psnr: bool,
-                    ssim: bool,
-                    vmaf: bool) -> (float, float, float):
+def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: float]:
 
-    if not psnr and not ssim and not vmaf:
+    if not metrics:
         return None, None, None
 
     assert encoding_run.output_file.get_filepath().exists()
     # Absolute paths were causing trouble, so use relative paths.
-    psnr_log_name = encoding_run.psnr_log_path.name
-    ssim_log_name = encoding_run.ssim_log_path.name
-    vmaf_log_name = encoding_run.vmaf_log_path.name
+    logs = {x: encoding_run.get_log_path(x) for x in metrics}
 
     # Copy the VMAF model into the working directory to enable using a relative path.
-    if vmaf:
+    if "vmaf" in metrics:
         vmaf_model_src_path1 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
         vmaf_model_src_path2 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
         vmaf_model_dest_path1 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl"
@@ -60,7 +62,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
 
     # Build the filter based on which metrics are to be computed:
 
-    no_of_metrics = sum(int(boolean) for boolean in (psnr, ssim, vmaf))
+    no_of_metrics = len(metrics)
 
     # Adjust for frame step (it could be that only every <step>th frame of the input sequence was encoded).
     split1 = f"[0:v]select=not(mod(n\\,{cfg.Cfg().frame_step_size}))[select1_out]; " \
@@ -68,22 +70,22 @@ def compute_metrics(encoding_run: test.EncodingRun,
     split2 = f"[1:v]split={no_of_metrics}"
     filters = []
 
-    if psnr:
+    if "psnr" in metrics:
         split1 += "[yuv_psnr]"
         split2 += "[hevc_psnr]"
         filters.append(f"[hevc_psnr][yuv_psnr]"
-                       f"psnr=stats_file={psnr_log_name}")
-    if ssim:
+                       f"psnr=stats_file={logs['psnr'].name}")
+    if "ssim" in metrics:
         split1 += "[yuv_ssim]"
         split2 += "[hevc_ssim]"
         filters.append(f"[hevc_ssim][yuv_ssim]"
-                       f"ssim=stats_file={ssim_log_name}")
-    if vmaf:
+                       f"ssim=stats_file={logs['ssim'].name}")
+    if "vmaf" in metrics:
         split1 += "[yuv_vmaf]"
         split2 += "[hevc_vmaf]"
         filters.append(f"[hevc_vmaf][yuv_vmaf]"
                        f"libvmaf=model_path={vmaf_model_dest_path1.name}:"
-                       f"log_path={vmaf_log_name}:"
+                       f"log_path={logs['vmaf'].name}:"
                        f"log_fmt=json")
 
     ffmpeg_filter = f"{split1}; "\
@@ -149,12 +151,8 @@ def compute_metrics(encoding_run: test.EncodingRun,
         console_log.debug(f"ffmpeg: Computing metrics")
         console_log.debug(f"ffmpeg: Input 1: '{encoding_run.input_sequence.get_filepath().name}'")
         console_log.debug(f"ffmpeg: Input 2: '{encoding_run.output_file.get_filepath().name}'")
-        if psnr:
-            console_log.debug(f"ffmpeg: PSNR log: '{psnr_log_name}'")
-        if ssim:
-            console_log.debug(f"ffmpeg: SSIM log: '{ssim_log_name}'")
-        if vmaf:
-            console_log.debug(f"ffmpeg: VMAF log: '{vmaf_log_name}'")
+        for m in metrics:
+            console_log.debug(f"ffmpeg: {m.upper()} log: '{m}'")
 
         subprocess.check_output(
             subprocess.list2cmdline(ffmpeg_command),
@@ -162,7 +160,7 @@ def compute_metrics(encoding_run: test.EncodingRun,
             shell=True
         )
 
-        if vmaf:
+        if "vmaf" in metrics:
             # Remove the temporary VMAF model file.
             os.remove(vmaf_model_dest_path1)
             os.remove(vmaf_model_dest_path2)
@@ -170,38 +168,17 @@ def compute_metrics(encoding_run: test.EncodingRun,
         if encoding_run.decoded_output_file_path:
             os.remove(encoding_run.decoded_output_file_path)
 
-        # Ugly but simple:
-
-        psnr_avg = None
-        if psnr:
-            frame_psnrs = []
-            with encoding_run.psnr_log_path.open("r") as psnr_log:
-                lines = psnr_log.readlines()
+        results = {}
+        for metric in metrics:
+            frame_results = []
+            with logs[metric].open("r") as log:
+                lines = log.readlines()
                 for line in lines:
-                    for item in _PSNR_PATTERN.fullmatch(line).groups():
-                        frame_psnrs.append(float(item))
-                psnr_avg = sum(frame_psnrs) / len(lines)
+                    for item in _PATTERNS[metric].fullmatch(line).groups():
+                        frame_results.append(float(item))
+                results[metric] = sum(frame_results) / len(frame_results)
 
-        ssim_avg = None
-        if ssim:
-            frame_ssims = []
-            with encoding_run.ssim_log_path.open("r") as ssim_log:
-                lines = ssim_log.readlines()
-                for line in lines:
-                    for item in _SSIM_PATTERN.fullmatch(line).groups():
-                        frame_ssims.append(float(item))
-                ssim_avg = sum(frame_ssims) / len(lines)
-
-        vmaf_avg = None
-        if vmaf:
-            with encoding_run.vmaf_log_path.open("r") as vmaf_log:
-                for line in vmaf_log.readlines():
-                    match = _VMAF_PATTERN.fullmatch(line)
-                    if match:
-                        vmaf_avg = float(match.groups()[0])
-                        break
-
-        return psnr_avg, ssim_avg, vmaf_avg
+        return results
 
     except Exception as exception:
         console_log.error(f"ffmpeg: Failed to compute metrics")

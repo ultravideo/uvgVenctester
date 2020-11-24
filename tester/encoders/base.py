@@ -318,7 +318,7 @@ class EncoderBase:
         console_log.debug(f"{self._name}: Encoding file '{encoding_run.input_sequence.get_filepath().name}'")
         console_log.debug(f"{self._name}: Output: '{encoding_run.output_file.get_filepath().name}'")
         console_log.debug(f"{self._name}: Arguments: '{encoding_run.param_set.to_cmdline_str()}'")
-        console_log.debug(f"{self._name}: Log: '{encoding_run.encoding_log_path.name}'")
+        console_log.debug(f"{self._name}: Log: '{encoding_run.get_log_path('encoding').name}'")
 
         if not encoding_run.needs_encoding:
             console_log.info(f"{self._name}: File '{encoding_run.output_file.get_filepath().name}' already exists")
@@ -363,7 +363,7 @@ class EncoderBase:
                 stderr=subprocess.STDOUT,
                 stdin=ffmpeg_pipe.stdout if ffmpeg_pipe else None
             )
-            with encoding_run.encoding_log_path.open("w") as encoding_log:
+            with encoding_run.get_log_path('encoding').open("w") as encoding_log:
                 encoding_log.write(output.decode())
         except subprocess.CalledProcessError as exception:
             console_log.error(f"{self._name}: Encoding failed "

@@ -252,11 +252,15 @@ class Tester:
                         )
 
                         metric = encoding_run.metrics
-                        psnr_needed = "psnr" not in metric and global_psnr
-                        ssim_needed = "ssim" not in metric and global_ssim
-                        vmaf_needed = "vmaf" not in metric and global_vmaf
+                        needed_metrics = []
+                        if "psnr" not in metric and global_psnr:
+                            needed_metrics.append("psnr")
+                        if "ssim" not in metric and global_ssim:
+                            needed_metrics.append("ssim")
+                        if "vmaf" not in metric and global_vmaf:
+                            needed_metrics.append("vmaf")
                         conformance_needed = "conforms" not in metric and global_conformance
-                        arguments = (encoding_run, metric, psnr_needed, ssim_needed, vmaf_needed, conformance_needed,
+                        arguments = (encoding_run, metric, needed_metrics, conformance_needed,
                                      Cfg().remove_encodings_after_metric_calculation)
                         if parallel_calculations > 1:
                             values.append(arguments)
@@ -272,7 +276,7 @@ class Tester:
 
     @staticmethod
     def _calculate_metrics_for_one_run(in_args):
-        encoding_run, metrics, psnr_needed, ssim_needed, vmaf_needed, conf, remove_encoding = in_args
+        encoding_run, metrics, needed_metrics, conf, remove_encoding = in_args
         try:
             console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
 
@@ -289,19 +293,13 @@ class Tester:
                     # TODO: implement for other codecs
                     metrics["conforms"] = False
 
-            if psnr_needed or ssim_needed or vmaf_needed:
-                psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
+            if needed_metrics:
+                res = ffmpeg.compute_metrics(
                     encoding_run,
-                    psnr=psnr_needed,
-                    ssim=ssim_needed,
-                    vmaf=vmaf_needed
+                    needed_metrics
                 )
-                if psnr_needed:
-                    metrics["psnr"] = psnr_avg
-                if ssim_needed:
-                    metrics["ssim"] = ssim_avg
-                if vmaf_needed:
-                    metrics["vmaf"] = vmaf_avg
+                for m in needed_metrics:
+                    metrics[m] = res[m]
             else:
                 console_log.info(f"Tester: Metrics for '{encoding_run.name}' already exist")
 

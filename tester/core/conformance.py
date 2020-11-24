@@ -24,7 +24,7 @@ def check_hevc_conformance(encoding_run: test.EncodingRun):
         "-b", encoding_run.output_file.get_filepath(),
         "-o", os.devnull
     )
-    with open(encoding_run.conformance_log_path, "w") as log:
+    with open(encoding_run.get_log_path("conformance"), "w") as log:
         try:
             handle = subprocess.Popen(
                 cmd,
