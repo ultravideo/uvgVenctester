@@ -116,7 +116,8 @@ class X265(EncoderBase):
         encode_cmd = \
             (
                 str(self._exe_path),
-                "--input", str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
+                "--input",
+                str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
                 "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                 "--fps", str(encoding_run.input_sequence.get_framerate()),
                 "--output", str(encoding_run.output_file.get_filepath()),

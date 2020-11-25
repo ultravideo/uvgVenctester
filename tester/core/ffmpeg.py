@@ -20,7 +20,7 @@ _SSIM_PATTERN: re.Pattern = re.compile(r".*All:([0-9]+.[0-9]+).*", re.DOTALL)
 _VMAF_PATTERN: re.Pattern = re.compile(r".*\"VMAF score\":([0-9]+.[0-9]+).*", re.DOTALL)
 
 _PATTERNS = {
-    "psnr":_PSNR_PATTERN,
+    "psnr": _PSNR_PATTERN,
     "ssim": _SSIM_PATTERN,
     "vmaf": _VMAF_PATTERN
 }
@@ -43,7 +43,6 @@ def ffmpeg_validate_config():
 
 
 def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: float]:
-
     if not metrics:
         return None, None, None
 
@@ -88,8 +87,8 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
                        f"log_path={logs['vmaf'].name}:"
                        f"log_fmt=json")
 
-    ffmpeg_filter = f"{split1}; "\
-                    f"{split2}; "\
+    ffmpeg_filter = f"{split1}; " \
+                    f"{split2}; " \
                     f"{'; '.join(filters)}"
 
     # VTM output is in YUV format, so use different command.
@@ -100,26 +99,26 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
             "cd", f"{encoding_run.output_file.get_filepath().parent}",
             "&&", "ffmpeg",
 
-                  # YUV input
-                  "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
-                  "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
-                  "-f", "rawvideo",
-                  "-r", f"{cfg.Cfg().frame_step_size}",  # multiply framerate by step
-                  "-ss", f"{encoding_run.param_set.get_seek()}",
-                  "-t", f"{encoding_run.frames * cfg.Cfg().frame_step_size}",
-                  "-i", f"{encoding_run.input_sequence.get_filepath()}",
+            # YUV input
+            "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+            "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
+            "-f", "rawvideo",
+            "-r", f"{cfg.Cfg().frame_step_size}",  # multiply framerate by step
+            "-ss", f"{encoding_run.param_set.get_seek()}",
+            "-t", f"{encoding_run.frames * cfg.Cfg().frame_step_size}",
+            "-i", f"{encoding_run.input_sequence.get_filepath()}",
 
-                  # YUV output decoded from VVC output
-                  "-s:v", f"{encoding_run.output_file.get_width()}x{encoding_run.output_file.get_height()}",
-                  "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
-                  "-f", "rawvideo",
-                  "-r", "1",
-                  "-t", f"{encoding_run.frames}",
-                  "-i", f"{encoding_run.decoded_output_file_path.name}",
+            # YUV output decoded from VVC output
+            "-s:v", f"{encoding_run.output_file.get_width()}x{encoding_run.output_file.get_height()}",
+            "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
+            "-f", "rawvideo",
+            "-r", "1",
+            "-t", f"{encoding_run.frames}",
+            "-i", f"{encoding_run.decoded_output_file_path.name}",
 
-                  "-c:v", "rawvideo",
-                  "-filter_complex", ffmpeg_filter,
-                  "-f", "null", "-",
+            "-c:v", "rawvideo",
+            "-filter_complex", ffmpeg_filter,
+            "-f", "null", "-",
         )
 
     else:
@@ -128,23 +127,23 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
             "cd", f"{encoding_run.output_file.get_filepath().parent}",
             "&&", "ffmpeg",
 
-                  # YUV input
-                  "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
-                  "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
-                  "-f", "rawvideo",
-                  "-r", f"{cfg.Cfg().frame_step_size}",
-                  "-ss", f"{encoding_run.param_set.get_seek()}",
-                  "-t", f"{encoding_run.frames * cfg.Cfg().frame_step_size}",
-                  "-i", f"{encoding_run.input_sequence.get_filepath()}",
+            # YUV input
+            "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+            "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
+            "-f", "rawvideo",
+            "-r", f"{cfg.Cfg().frame_step_size}",
+            "-ss", f"{encoding_run.param_set.get_seek()}",
+            "-t", f"{encoding_run.frames * cfg.Cfg().frame_step_size}",
+            "-i", f"{encoding_run.input_sequence.get_filepath()}",
 
-                  # HEVC output
-                  "-r", "1",
-                  "-t", f"{encoding_run.frames}",
-                  "-i", f"{encoding_run.output_file.get_filepath().name}",
+            # HEVC output
+            "-r", "1",
+            "-t", f"{encoding_run.frames}",
+            "-i", f"{encoding_run.output_file.get_filepath().name}",
 
-                  "-c:v", "rawvideo",
-                  "-filter_complex", ffmpeg_filter,
-                  "-f", "null", "-",
+            "-c:v", "rawvideo",
+            "-filter_complex", ffmpeg_filter,
+            "-f", "null", "-",
         )
 
     try:
@@ -188,7 +187,6 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
 
 
 def generate_dummy_sequence() -> Path:
-
     dummy_sequence_path = cfg.Cfg().tester_sequences_dir_path / '_dummy.yuv'
 
     console_log.debug(f"ffmpeg: Dummy sequence '{dummy_sequence_path}' already exists")

@@ -184,6 +184,7 @@ class Hm(EncoderBase):
 
     class ParamSet(EncoderBase.ParamSet):
         """Represents the command line parameters passed to HM when encoding."""
+
         @staticmethod
         def _get_arg_order() -> list:
             return ["-c"]

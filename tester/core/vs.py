@@ -8,7 +8,6 @@ from tester.core.log import console_log
 
 
 def vs_validate_config():
-
     if tester.Cfg().system_os_name != "Windows":
         return
 
@@ -67,6 +66,7 @@ def vs_validate_config():
         console_log.error(f"Visual Studio: Executable 'msbuild' was not found")
         raise RuntimeError
 
+
 def get_vsdevcmd_bat_path() -> Path:
     return tester.Cfg().vs_install_path \
            / tester.Cfg().vs_year_version \
@@ -75,8 +75,8 @@ def get_vsdevcmd_bat_path() -> Path:
            / "Tools" \
            / "VsDevCmd.bat"
 
-def get_msbuild_args(add_defines: Iterable = None) -> list:
 
+def get_msbuild_args(add_defines: Iterable = None) -> list:
     base_args = [
         f"/p:Configuration=Release",
         f"/p:Platform=x64",

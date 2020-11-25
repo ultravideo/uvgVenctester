@@ -5,7 +5,6 @@ from tester.core.log import console_log
 
 
 def system_validate_config():
-
     if not Cfg().system_os_name in ["Linux", "Windows"]:
         console_log.error(f"System: Invalid OS '{Cfg().system_os_name}' "
                           f"(only Linux and Windows are supported)")

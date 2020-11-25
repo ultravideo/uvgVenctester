@@ -61,7 +61,8 @@ class Kvazaar(EncoderBase):
                 elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
                     args += f" --bitrate {self._quality_param_value}"
                 else:
-                    raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+                    raise ValueError(
+                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
             if include_seek and self._seek:
                 args += f" --seek {self._seek}"
             if include_frames and self._frames:
@@ -127,24 +128,24 @@ class Kvazaar(EncoderBase):
 
             # Run VsDevCmd.bat, then msbuild.
             build_cmd = (
-                "call", str(vs.get_vsdevcmd_bat_path()),
-                "&&", "msbuild", str(self._git_local_path / "build" / "kvazaar_VS2015.sln")
-            ) + tuple(msbuild_args)
+                            "call", str(vs.get_vsdevcmd_bat_path()),
+                            "&&", "msbuild", str(self._git_local_path / "build" / "kvazaar_VS2015.sln")
+                        ) + tuple(msbuild_args)
 
         elif tester.Cfg().system_os_name == "Linux":
 
             # Add defines to configure arguments.
             cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self._defines])}"
-            kvz_configure_args = ["--disable-shared", "--enable-static",]
+            kvz_configure_args = ["--disable-shared", "--enable-static", ]
             kvz_configure_args.append(cflags_str.strip())
 
             # Run autogen.sh, then configure, then make.
             build_cmd = (
-                "cd", str(self._git_local_path),
-                "&&", "./autogen.sh",
-                "&&", "./configure",) + tuple(kvz_configure_args) + (
-                "&&", "make",
-            )
+                            "cd", str(self._git_local_path),
+                            "&&", "./autogen.sh",
+                            "&&", "./configure",) + tuple(kvz_configure_args) + (
+                            "&&", "make",
+                        )
 
         self.build_finish(build_cmd)
 
@@ -169,12 +170,13 @@ class Kvazaar(EncoderBase):
 
         RESOLUTION_PLACEHOLDER = "2x2"
 
-        dummy_cmd = (
-            str(self._exe_path),
-            "-i", os.devnull,
-            "--input-res", RESOLUTION_PLACEHOLDER,
-            "-o", os.devnull,
-        ) + param_set.to_cmdline_tuple()
+        dummy_cmd = \
+            (
+                str(self._exe_path),
+                "-i", os.devnull,
+                "--input-res", RESOLUTION_PLACEHOLDER,
+                "-o", os.devnull,
+            ) + param_set.to_cmdline_tuple()
 
         return self.dummy_run_finish(dummy_cmd, param_set)
 
@@ -194,14 +196,18 @@ class Kvazaar(EncoderBase):
         else:
             assert 0, "Invalid quality parameter"
 
-        encode_cmd = (
-            str(self._exe_path),
-            "-i", str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
-            "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
-            "--input-fps", str(encoding_run.input_sequence.get_framerate()),
-            "-o", str(encoding_run.output_file.get_filepath()),
-            "--frames", str(encoding_run.frames),
-        ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False, include_frames=False) + quality
+        encode_cmd = \
+            (
+                str(self._exe_path),
+                "-i",
+                str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
+                "--input-res",
+                f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+                "--input-fps", str(encoding_run.input_sequence.get_framerate()),
+                "-o", str(encoding_run.output_file.get_filepath()),
+                "--frames", str(encoding_run.frames),
+            ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
+                                                        include_frames=False) + quality
 
         self.encode_finish(encode_cmd, encoding_run, tester.Cfg().frame_step_size != 1)
 

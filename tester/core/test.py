@@ -44,7 +44,7 @@ class EncodingRun:
         qp_name = self.qp_name.short_name
 
         self.base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
-                        f"{qp_name}{self.param_set.get_quality_param_value()}_{round_number}"
+                             f"{qp_name}{self.param_set.get_quality_param_value()}_{round_number}"
         self.output_dir_path = encoder.get_output_dir(param_set)
 
         self.metrics_path: Path = self.output_dir_path / f"{self.base_filename}_metrics.json"
@@ -96,7 +96,6 @@ class SubTest:
                  name: str,
                  encoder: encoders.EncoderBase,
                  param_set: encoders.EncoderBase.ParamSet):
-
         self.parent: Test = parent
         self.name: str = name
         self.encoder: encoders.EncoderBase = encoder
@@ -158,10 +157,10 @@ class Test:
 
         param_sets = [
             self.encoder.ParamSet(quality_param_type,
-                             quality_param_value,
-                             seek,
-                             frames,
-                             cl_args)
+                                  quality_param_value,
+                                  seek,
+                                  frames,
+                                  cl_args)
             for quality_param_value in quality_param_list
         ]
 

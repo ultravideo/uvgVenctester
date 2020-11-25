@@ -5,7 +5,6 @@ from tester.core.log import console_log
 
 
 def vmaf_validate_config():
-
     # Access the private attribute instead of the public property because the latter will raise
     # an exception.
     if Cfg()._vmaf_repo_path is None:

@@ -7,7 +7,6 @@ from tester.core.log import console_log
 
 
 def gcc_validate_config():
-
     if Cfg().system_os_name != "Linux":
         return
 
