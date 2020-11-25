@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import tester
 import pdfkit
 import tester.core.cmake as cmake
-from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs, table, conformance
+from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs, table, conformance, graphs
 from tester.core.cfg import Cfg
 from tester.core.log import console_log, log_exception
 from tester.core.metrics import TestMetrics, SequenceMetrics
@@ -24,6 +24,7 @@ from tester.core.video import RawVideoSequence
 class ResultTypes(Enum):
     CSV = 1
     TABLE = 2
+    GRAPH = 3
 
 
 class TesterContext:
@@ -203,7 +204,7 @@ class Tester:
     @staticmethod
     def compute_metrics(context: TesterContext,
                         parallel_calculations: int = 1,
-                        result_types: Iterable = (ResultTypes.CSV, ResultTypes.TABLE)) -> None:
+                        result_types: Iterable = (ResultTypes.CSV, ResultTypes.TABLE, ResultTypes.GRAPH)) -> None:
         result_t = []
         for r in result_types:
             if r not in context.get_metrics_calculate_for():
@@ -221,6 +222,8 @@ class Tester:
                          in csv.CsvFieldValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.PSNR_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
+            ) or (
+                    graphs.GraphMetrics.PSNR in Cfg().graph_enabled_metrics and ResultTypes.GRAPH in result_t
             )
         global_ssim = \
             (
@@ -229,6 +232,8 @@ class Tester:
                          in csv.CsvFieldValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.SSIM_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
+            ) or (
+                    graphs.GraphMetrics.SSIM in Cfg().graph_enabled_metrics and ResultTypes.GRAPH in result_t
             )
         global_vmaf = \
             (
@@ -237,6 +242,8 @@ class Tester:
                          in csv.CsvFieldValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.VMAF_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
+            ) or (
+                    graphs.GraphMetrics.VMAF in Cfg().graph_enabled_metrics and ResultTypes.GRAPH in result_t
             )
         global_conformance = csv.CsvField.CONFORMANCE in Cfg().csv_enabled_fields and ResultTypes.CSV in result_t
 
@@ -451,7 +458,11 @@ class Tester:
             raise ValueError("Invalid table type")
 
     @staticmethod
-    def generate_rd_graphs(context: TesterContext, basedir: Path, parallel_generations: [int, None] = None):
+    def generate_rd_graphs(context: TesterContext,
+                           basedir: Path,
+                           parallel_generations: [int, None] = None,
+                           parallel_calculations: int = 1):
+        Tester.compute_metrics(context, parallel_calculations, (ResultTypes.GRAPH,))
         if not basedir.exists():
             basedir.mkdir()
         if not basedir.is_dir():

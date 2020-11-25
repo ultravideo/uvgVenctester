@@ -221,13 +221,15 @@ tester.run_tests(context, parallel_runs=1)
 
 `main.py`:
 ```python
-tester.compute_metrics(context, parallel_calculations=1, result_types=(ResultTypes.TABLE, ResultTypes.CSV))
+tester.compute_metrics(context,
+                       parallel_calculations=1,
+                       result_types=(ResultTypes.TABLE, ResultTypes.CSV, ResultTypes.GRAPH))
 ```
 - `parallel_calculations` How many metrics are calculated in parallel
   - Default: 1
   - If VMAF is included recommended value is cpu_cores / 16, without VMAF cpu_cores / 4. Keep in mind that VMAF requires quite a lot of RAM
 - `result_types` Which result types will be used for determining which metrics are necessary to calculate
-  - Default: (ResultTypes.TABLE, ResultTypes.CSV)
+  - Default: (ResultTypes.TABLE, ResultTypes.CSV, ResultTypes.GRAPH, )
   - If you don't know what you are doing it is recommended to not call `compute_metrics` explicitly
 
 
@@ -249,18 +251,37 @@ tester.generate_csv(context, "mycsv.csv", parallel_calculations=1)
 - If the metric computation was not performed explicitly this will perform call
  `compute_metrics(context, parallel_calculations, [ResultTypes.TABLE]`
 `main.py`:
-````python
+```python
 tester.create_tables(context, 
                      table_filepath="mytable.html",
                      format_=None,
                      parallel_calculations=1)
-````
+```
 - `format_`  Explicitly define the format 
   - Default: `None` , i.e., guessed from the file extension
   - `table.TableFormat.PDF` and `table.TableFormat.HTML` currently supported
 - `parallel_calculations` will be passed to the `compute_metrics` and not used in any way for the csv generation
 - pdf generation requires `wkhtmltopdf` and setting the Cfg().wkhtmltopdf varialble to point to the executable
 
+
+### 10. Output RD-graphs
+- If the files already exist, they will be overwritten!
+- If the metric computation was not performed explicitly this will perform call
+ `compute_metrics(context, parallel_calculations, [ResultTypes.GRAPH]`
+`main.py`:
+```python
+tester.create_tables(context: TesterContext,
+                     basedir: Path,
+                     parallel_generations: [int, None] = None,
+                     parallel_calculations: int = 1)
+```
+- `basedir` Where the generated graphs should be placed
+  - Each sequence will have a separate graph
+  - If the directory does not exist it will created
+- `parallel_generations` How many processes to use for generating 
+  - Default: `None`
+  - If `None` the process number will match the number of cores.
+- `parallel_calculations` will be passed to the `compute_metrics` and not used in any way for the csv generation
 
 ## Customization
 
