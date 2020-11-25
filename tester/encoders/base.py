@@ -238,7 +238,8 @@ class EncoderBase:
             from tester.core.cfg import Cfg
             if Cfg().system_os_name == "Windows":
                 # "cp1252" is the encoding the Windows shell uses.
-                self._build_log.info(output.decode(encoding="cp1252"))
+                for line in output.decode(encoding="cp1252").split():
+                    self._build_log.info(line.rstrip() + "\n")
             else:
                 self._build_log.info(output.decode())
         except subprocess.CalledProcessError as exception:
@@ -357,14 +358,16 @@ class EncoderBase:
 
                 ffmpeg_pipe = subprocess.Popen(ffmpeg_cmd, stderr=subprocess.DEVNULL, stdout=subprocess.PIPE)
 
-            output = subprocess.check_output(
-                subprocess.list2cmdline(encode_cmd),
-                shell=True,
-                stderr=subprocess.STDOUT,
-                stdin=ffmpeg_pipe.stdout if ffmpeg_pipe else None
-            )
             with encoding_run.get_log_path('encoding').open("w") as encoding_log:
-                encoding_log.write(output.decode())
+
+                subprocess.check_call(
+                    subprocess.list2cmdline(encode_cmd),
+                    shell=True,
+                    stderr=encoding_log,
+                    stdout=encoding_log,
+                    stdin=ffmpeg_pipe.stdout if ffmpeg_pipe else None
+                )
+
         except subprocess.CalledProcessError as exception:
             console_log.error(f"{self._name}: Encoding failed "
                               f"(input: '{encoding_run.input_sequence.get_filepath()}', "
