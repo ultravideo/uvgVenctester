@@ -8,6 +8,7 @@ from typing import Iterable, Union
 from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
 import tester.core.test as test
+from tester.core.log import console_log
 from tester.core.video import VideoFileBase, RawVideoSequence
 from tester.encoders.base import QualityParam, EncoderBase
 
@@ -106,6 +107,9 @@ class SequenceMetrics:
         base_paths = {x: path_prefix /
                          f"{sequence.get_suffixless_name()}_{quality_type.short_name}{x}_{{}}_metrics.json" for x in
                       quality_values}
+        self.__sequence = sequence
+        self.__qp_type = quality_type
+        self._prefix = path_prefix.name
 
         self._data = {x: EncodingQualityRunMetrics(rounds, base_paths[x]) for x in quality_values}
 
@@ -160,6 +164,9 @@ class SequenceMetrics:
             else:
                 stop = own[first_index + 1][1] - equ2(own[first_index + 1][0])
 
+            if not start or not stop:
+                console_log.warning(f"Potential overlap between {self} and {anchor} that may or may not be recorded.")
+
             if start * stop < 0:
                 crossings += 1
 
@@ -183,6 +190,9 @@ class SequenceMetrics:
 
     def __getitem__(self, item):
         return self._data[item]
+
+    def __repr__(self):
+        return f"{self._prefix}/{self.__sequence}/{self.__qp_type.pretty_name}"
 
 
 class TestMetrics:
