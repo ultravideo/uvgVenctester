@@ -6,6 +6,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Iterable
 from multiprocessing import Pool
+from PyPDF4 import PdfFileMerger
+from tempfile import mkstemp
 
 import tester
 import pdfkit
@@ -439,7 +441,8 @@ class Tester:
     def create_tables(context: TesterContext,
                       table_filepath: str,
                       format_: [table.TableFormats, None] = None,
-                      parallel_calculations=1):
+                      parallel_calculations=1,
+                      first_page=None):
         Tester.compute_metrics(context, parallel_calculations, (ResultTypes.TABLE,))
 
         filepath = Path(table_filepath)
@@ -454,18 +457,40 @@ class Tester:
 
         if format_ == table.TableFormats.HTML:
             with open(filepath, "wb") as f:
-                html, _ = table.tablefy(context)
+                html, *_ = table.tablefy(context, first_page)
                 f.write(html.encode("utf-8"))
         elif format_ == table.TableFormats.PDF:
-            html, pixels = table.tablefy(context)
+            html, pixels, pages = table.tablefy(context)
             config = pdfkit.configuration(wkhtmltopdf=Cfg().wkhtmltopdf)
             options = {
                 'page-height': f"{pixels + 50}px",
-                'page-width': "1400px",
+                'page-width': "1850",
                 'margin-top': "25px",
                 'margin-bottom': "25px",
                 'margin-right': "25px",
                 'margin-left': "25px",
-                "disable-smart-shrinking": None
+                "disable-smart-shrinking": None,
             }
             pdfkit.from_string(html, filepath, options=options, configuration=config)
+
+            merger = PdfFileMerger()
+            if first_page:
+                a, temp_path = mkstemp()
+                first_page_html = \
+                    "\n" \
+                    "<!DOCTYPE html>\n" \
+                    "<html>\n" \
+                    "   <head>\n" \
+                    "   </head>\n" \
+                    "   <body>\n" \
+                    f"       <div> {first_page} </div>\n" \
+                    f"  </body>\n" \
+                    f"</html>\n"
+                pdfkit.from_string(first_page_html, temp_path, options=options, configuration=config)
+                merger.append(open(temp_path, "rb"))
+
+            merger.append(open(filepath, "rb"), pages=(0, pages))
+            merger.write(open(filepath, "wb"))
+
+        else:
+            raise ValueError("Invalid table type")

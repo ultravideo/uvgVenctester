@@ -36,7 +36,7 @@ class TableColumns(Enum):
     SPEEDUP = 5
 
 
-def tablefy(context):
+def tablefy(context, header_page=None):
     a = [
         '',
         '<!DOCTYPE html>',
@@ -108,14 +108,24 @@ def tablefy(context):
         '<body>'
     ]
     pixels = 4
+    pages = []
+    page_count = 0
     for test in context.get_tests():
         for anchor in [context.get_test(name) for name in test.anchor_names]:
+            if anchor == test:
+                continue
             html, pixels = tablefy_one(context, test, anchor)
-            a.append(html)
+            pages.extend(html)
+            page_count += 1
+
+    if header_page:
+        a.append(f'<div">{header_page}</div>')
+    a.extend(pages)
 
     a.append('</body>')
     a.append('</html>')
-    return "\n".join(a), pixels
+    pixels += 5 if pixels % 2 else 4
+    return "\n".join(a), pixels, page_count
 
 
 def tablefy_one(context, test: Test, anchor: Test):
@@ -130,7 +140,6 @@ def tablefy_one(context, test: Test, anchor: Test):
     all_data = defaultdict(lambda: defaultdict(dict))
     collect_data(all_data, test, anchor, class_averages, context, total_averages)
     pixels = 23 * len(class_averages) + 21 * sum(len(x) for x in all_data.values()) + 72
-    pixels += 5 if pixels % 2 else 4
 
     for cls in sorted(class_averages.keys()):
         html.append(
@@ -176,7 +185,7 @@ def tablefy_one(context, test: Test, anchor: Test):
         '</div>'
     ]
 
-    return "\n".join(html), pixels
+    return html, pixels
 
 
 def collect_data(all_data, test, anchor, class_averages, context, total_averages):
