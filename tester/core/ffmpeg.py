@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -44,7 +45,7 @@ def ffmpeg_validate_config():
 
 def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: float]:
     if not metrics:
-        return None, None, None
+        return {}
 
     assert encoding_run.output_file.get_filepath().exists()
     # Absolute paths were causing trouble, so use relative paths.
@@ -169,6 +170,10 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
 
         results = {}
         for metric in metrics:
+            if metric == "vmaf":
+                results[metric] = json.load(logs[metric].open("r"))["VMAF score"]
+                continue
+
             frame_results = []
             with logs[metric].open("r") as log:
                 lines = log.readlines()
