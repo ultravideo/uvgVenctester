@@ -54,17 +54,20 @@ class X265(EncoderBase):
                     "-G", cmake.get_cmake_build_system_generator(),
                     "-A", cmake.get_cmake_architecture(),
                 ) + (
-                    (f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}",) if tester.Cfg().nasm_path else tuple()) + (
+                    (f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}",) if tester.Cfg().nasm_path else tuple()
+                ) + (
                     "&&", "msbuild", "x265.sln",
                 ) + tuple(vs.get_msbuild_args(self._defines))
         elif tester.Cfg().system_os_name == "Linux":
-            build_cmd = (
-                "cd", str(self._git_local_path / "build" / "linux"),
-                "&&", "cmake", "../../source", "-DENABLE_SHARED=OFF",
-                # TODO: enable this
-                # f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}" if tester.Cfg().nasm_path else "",
-                "&&", "make",
-            )
+            build_cmd = \
+                (
+                    "cd", str(self._git_local_path / "build" / "linux"),
+                    "&&", "cmake", "../../source", "-DENABLE_SHARED=OFF",
+                ) + (
+                    (f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}",) if tester.Cfg().nasm_path else tuple()
+                ) + (
+                    "&&", "make",
+                )
         self.build_finish(build_cmd)
 
     def clean(self) -> None:
