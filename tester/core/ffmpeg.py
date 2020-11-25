@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 from typing import Dict
 
+import tester
 import tester.core.csv as csv
 import tester.core.test as test
 import tester.core.cfg as cfg
@@ -43,25 +44,37 @@ def ffmpeg_validate_config():
         raise RuntimeError
 
 
+def copy_vmaf_models(test: tester.Test):
+    temp = test.encoder.get_output_dir(test.subtests[0].param_set)
+    vmaf_model_src_path1 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
+    vmaf_model_src_path2 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
+    vmaf_model_dest_path1 = temp / "vmaf_v0.6.1.pkl"
+    vmaf_model_dest_path2 = temp / "vmaf_v0.6.1.pkl.model"
+    shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
+    shutil.copy(str(vmaf_model_src_path2), str(vmaf_model_dest_path2))
+
+
+def remove_vmaf_models(test: tester.Test):
+    temp = test.encoder.get_output_dir(test.subtests[0].param_set)
+    vmaf_model_dest_path1 = temp / "vmaf_v0.6.1.pkl"
+    vmaf_model_dest_path2 = temp / "vmaf_v0.6.1.pkl.model"
+    try:
+        os.remove(vmaf_model_dest_path1)
+        os.remove(vmaf_model_dest_path2)
+    except:
+        pass
+
+
 def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: float]:
     if not metrics:
         return {}
 
     assert encoding_run.output_file.get_filepath().exists()
-    # Absolute paths were causing trouble, so use relative paths.
+
     logs = {x: encoding_run.get_log_path(x) for x in metrics}
 
-    # Copy the VMAF model into the working directory to enable using a relative path.
-    if "vmaf" in metrics:
-        vmaf_model_src_path1 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
-        vmaf_model_src_path2 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
-        vmaf_model_dest_path1 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl"
-        vmaf_model_dest_path2 = encoding_run.output_file.get_filepath().parent / "vmaf_v0.6.1.pkl.model"
-        shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
-        shutil.copy(str(vmaf_model_src_path2), str(vmaf_model_dest_path2))
-
+    vmaf_model = "vmaf_v0.6.1.pkl"
     # Build the filter based on which metrics are to be computed:
-
     no_of_metrics = len(metrics)
 
     # Adjust for frame step (it could be that only every <step>th frame of the input sequence was encoded).
@@ -84,7 +97,7 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
         split1 += "[yuv_vmaf]"
         split2 += "[hevc_vmaf]"
         filters.append(f"[hevc_vmaf][yuv_vmaf]"
-                       f"libvmaf=model_path={vmaf_model_dest_path1.name}:"
+                       f"libvmaf=model_path={vmaf_model}:"
                        f"log_path={logs['vmaf'].name}:"
                        f"log_fmt=json")
 
@@ -159,11 +172,6 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
             stderr=subprocess.STDOUT,
             shell=True
         )
-
-        if "vmaf" in metrics:
-            # Remove the temporary VMAF model file.
-            os.remove(vmaf_model_dest_path1)
-            os.remove(vmaf_model_dest_path2)
 
         if encoding_run.decoded_output_file_path:
             os.remove(encoding_run.decoded_output_file_path)

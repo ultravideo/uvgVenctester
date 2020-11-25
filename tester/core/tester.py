@@ -272,12 +272,18 @@ class Tester:
                         else:
                             Tester._calculate_metrics_for_one_run(arguments)
 
+        for test in context.get_tests():
+            ffmpeg.copy_vmaf_models(test)
+
         if parallel_calculations > 1:
             with Pool(parallel_calculations) as p:
                 p.map(Tester._calculate_metrics_for_one_run, values)
 
         for m in result_types:
             context.add_metrics_calculated_for(m)
+
+        for test in context.get_tests():
+            ffmpeg.remove_vmaf_models(test)
 
     @staticmethod
     def _calculate_metrics_for_one_run(in_args):
