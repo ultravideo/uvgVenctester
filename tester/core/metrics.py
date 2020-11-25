@@ -121,7 +121,7 @@ class SequenceMetrics:
                                   self.get_quality_with_bitrates(quality_metric))
 
     def average_speedup(self, anchor: SequenceMetrics):
-        a = [first["encoding_time_avg"] / second["encoding_time_avg"]
+        a = [second["encoding_time_avg"] / first["encoding_time_avg"]
              for first, second
              in zip(self._data.values(), anchor._data.values())]
         return sum(a) / len(a)
