@@ -11,7 +11,7 @@ import tester.core.cfg as cfg
 
 
 def table_validate_config():
-    for field in cfg.Cfg().table_enabled_fields:
+    for field in cfg.Cfg().table_enabled_columns:
         if field not in cfg.Cfg().table_column_headers or field not in cfg.Cfg().table_column_formats:
             console_log.error(f"Table: Field {field} is enabled but missing for table columns of formats")
 
@@ -36,7 +36,7 @@ class TableColumns(Enum):
     SPEEDUP = 5
 
 
-def tablefy(context):
+def tablefy(context, header_page=None):
     a = [
         '',
         '<!DOCTYPE html>',
@@ -108,14 +108,24 @@ def tablefy(context):
         '<body>'
     ]
     pixels = 4
+    pages = []
+    page_count = 0
     for test in context.get_tests():
         for anchor in [context.get_test(name) for name in test.anchor_names]:
+            if anchor == test:
+                continue
             html, pixels = tablefy_one(context, test, anchor)
-            a.append(html)
+            pages.extend(html)
+            page_count += 1
+
+    if header_page:
+        a.append(f'<div">{header_page}</div>')
+    a.extend(pages)
 
     a.append('</body>')
     a.append('</html>')
-    return "\n".join(a), pixels
+    pixels += 5 if pixels % 2 else 4
+    return "\n".join(a), pixels, page_count
 
 
 def tablefy_one(context, test: Test, anchor: Test):
@@ -130,7 +140,6 @@ def tablefy_one(context, test: Test, anchor: Test):
     all_data = defaultdict(lambda: defaultdict(dict))
     collect_data(all_data, test, anchor, class_averages, context, total_averages)
     pixels = 23 * len(class_averages) + 21 * sum(len(x) for x in all_data.values()) + 72
-    pixels += 5 if pixels % 2 else 4
 
     for cls in sorted(class_averages.keys()):
         html.append(
@@ -161,13 +170,17 @@ def tablefy_one(context, test: Test, anchor: Test):
         '       </table>',
         '   </div>',
         '<div class="info">',
-        f'<p style="margin-bottom: 5px">{test.encoder.get_name()} using {test.quality_param_type.name}: [{", ".join(str(x) for x in test.quality_param_list)}]</p>',
-        '<ul style="margin-top: 5px">',
-        test_params,
-        '</ul>',
-        f'<p style="margin-bottom: 5px">{anchor.encoder.get_name()} using {anchor.quality_param_type.name}: [{", ".join(str(x) for x in test.quality_param_list)}]</p>',
+        f'<p style="margin-bottom: 5px">Anchor: {anchor.name}:'
+        f' {anchor.encoder.get_name()} using {anchor.quality_param_type.name}:'
+        f' [{", ".join(str(x) for x in test.quality_param_list)}]</p>',
         '<ul style="margin-top: 5px">',
         anchor_params,
+        '</ul>',
+        f'<p style="margin-bottom: 5px">{test.name}:'
+        f' {test.encoder.get_name()} using {test.quality_param_type.name}:'
+        f' [{", ".join(str(x) for x in test.quality_param_list)}]</p>',
+        '<ul style="margin-top: 5px">',
+        test_params,
         '</ul>',
         '</div>',
     ])
@@ -176,7 +189,7 @@ def tablefy_one(context, test: Test, anchor: Test):
         '</div>'
     ]
 
-    return "\n".join(html), pixels
+    return html, pixels
 
 
 def collect_data(all_data, test, anchor, class_averages, context, total_averages):
@@ -195,7 +208,7 @@ def collect_data(all_data, test, anchor, class_averages, context, total_averages
                 metrics[anchor.name][sequence]),
             TableColumns.VIDEO: lambda: sequence.get_suffixless_name()
         }
-        for m in cfg.Cfg().table_enabled_fields:
+        for m in cfg.Cfg().table_enabled_columns:
             temp = actions[m]()
             all_data[c][sequence.get_suffixless_name()][m] = temp
             if m == TableColumns.VIDEO:
@@ -204,13 +217,13 @@ def collect_data(all_data, test, anchor, class_averages, context, total_averages
             total_averages[m].append(temp)
 
     for cls in class_averages:
-        for m in cfg.Cfg().table_enabled_fields:
+        for m in cfg.Cfg().table_enabled_columns:
             if m == TableColumns.VIDEO:
                 continue
             class_averages[cls][m] = sum(class_averages[cls][m]) / len(class_averages[cls][m])
         class_averages[cls][TableColumns.VIDEO] = cls
 
-    for m in cfg.Cfg().table_enabled_fields:
+    for m in cfg.Cfg().table_enabled_columns:
         if m == TableColumns.VIDEO:
             continue
         total_averages[m] = sum(total_averages[m]) / len(total_averages[m])
@@ -223,7 +236,7 @@ def table_header():
         ] + [
             f"  <th>{cfg.Cfg().table_column_headers[x]}</th>"
             for x
-            in cfg.Cfg().table_enabled_fields
+            in cfg.Cfg().table_enabled_columns
         ] + [
             "</tr>"
         ]
@@ -236,7 +249,7 @@ def row_from_data(row_data, row_class: [str, None] = None):
           ] + [
               f'      <td> <div> {cfg.Cfg().table_column_formats[x](row_data[x])} </div> </td>'
               for x
-              in cfg.Cfg().table_enabled_fields
+              in cfg.Cfg().table_enabled_columns
           ] + [
               '</tr>'
           ]

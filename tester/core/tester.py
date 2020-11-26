@@ -1,18 +1,21 @@
 """This module defines functionality related to testing."""
+import os
 import subprocess
 import time
 from enum import Enum
 from pathlib import Path
 from typing import Iterable
 from multiprocessing import Pool
+from PyPDF4 import PdfFileMerger
+from tempfile import mkstemp
 
 import tester
 import pdfkit
 import tester.core.cmake as cmake
-from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs, table
+from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs, table, conformance
 from tester.core.cfg import Cfg
 from tester.core.log import console_log, log_exception
-from tester.core.metrics import TestMetrics
+from tester.core.metrics import TestMetrics, SequenceMetrics
 from tester.core.test import Test, EncodingRun
 from tester.core.video import RawVideoSequence
 
@@ -135,6 +138,7 @@ class Tester:
             vmaf.vmaf_validate_config()
             vs.vs_validate_config()
             table.table_validate_config()
+            conformance.validate_conformance()
 
             csv.csv_validate_config()
 
@@ -211,28 +215,30 @@ class Tester:
         parallel_calculations = max(parallel_calculations, 1)
         global_psnr = \
             (
-                    (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
-                     or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields
-                     or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                    any([csv.CsvField(csv.CsvFieldBaseType.PSNR | value) in Cfg().csv_enabled_fields
+                         for value
+                         in csv.CsvFiledValueType]) and ResultTypes.CSV in result_t
             ) or (
-                    table.TableColumns.PSNR_BDBR in Cfg().table_enabled_fields and ResultTypes.TABLE in result_t
+                    table.TableColumns.PSNR_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
         global_ssim = \
             (
-                    (csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields
-                     or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields
-                     or csv.CsvField.BDBR_SSIM in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                    any([csv.CsvField(csv.CsvFieldBaseType.SSIM | value) in Cfg().csv_enabled_fields
+                         for value
+                         in csv.CsvFiledValueType]) and ResultTypes.CSV in result_t
             ) or (
-                    table.TableColumns.SSIM_BDBR in Cfg().table_enabled_fields and ResultTypes.TABLE in result_t
+                    table.TableColumns.SSIM_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
         global_vmaf = \
             (
-                    (csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields
-                     or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields
-                     or csv.CsvField.BDBR_VMAF in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                    any([csv.CsvField(csv.CsvFieldBaseType.VMAF | value) in Cfg().csv_enabled_fields
+                         for value
+                         in csv.CsvFiledValueType]) and ResultTypes.CSV in result_t
             ) or (
-                    table.TableColumns.VMAF_BDBR in Cfg().table_enabled_fields and ResultTypes.TABLE in result_t
+                    table.TableColumns.VMAF_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
+        global_conformance = csv.CsvField.CONFORMANCE in Cfg().csv_enabled_fields and ResultTypes.CSV in result_t
+
         for sequence in context.get_input_sequences():
             for test in context.get_tests():
                 for subtest in test.subtests:
@@ -248,14 +254,23 @@ class Tester:
                         )
 
                         metric = encoding_run.metrics
-                        psnr_needed = "psnr" not in metric and global_psnr
-                        ssim_needed = "ssim" not in metric and global_ssim
-                        vmaf_needed = "vmaf" not in metric and global_vmaf
-                        arguments = (encoding_run, metric, psnr_needed, ssim_needed, vmaf_needed)
+                        needed_metrics = []
+                        if "psnr" not in metric and global_psnr:
+                            needed_metrics.append("psnr")
+                        if "ssim" not in metric and global_ssim:
+                            needed_metrics.append("ssim")
+                        if "vmaf" not in metric and global_vmaf:
+                            needed_metrics.append("vmaf")
+                        conformance_needed = "conforms" not in metric and global_conformance
+                        arguments = (encoding_run, metric, needed_metrics, conformance_needed,
+                                     Cfg().remove_encodings_after_metric_calculation)
                         if parallel_calculations > 1:
                             values.append(arguments)
                         else:
                             Tester._calculate_metrics_for_one_run(arguments)
+
+        for test in context.get_tests():
+            ffmpeg.copy_vmaf_models(test)
 
         if parallel_calculations > 1:
             with Pool(parallel_calculations) as p:
@@ -264,30 +279,40 @@ class Tester:
         for m in result_types:
             context.add_metrics_calculated_for(m)
 
+        for test in context.get_tests():
+            ffmpeg.remove_vmaf_models(test)
+
     @staticmethod
     def _calculate_metrics_for_one_run(in_args):
-        encoding_run, metrics, psnr_needed, ssim_needed, vmaf_needed = in_args
+        encoding_run, metrics, needed_metrics, conf, remove_encoding = in_args
         try:
             console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
 
             if encoding_run.qp_name != tester.QualityParam.QP:
                 metrics["target_bitrate"] = encoding_run.qp_value
-            metrics["bitrate"] = encoding_run.output_file.get_bitrate()
-            if psnr_needed or ssim_needed or vmaf_needed:
-                psnr_avg, ssim_avg, vmaf_avg = ffmpeg.compute_metrics(
+
+            if "bitrate" not in metrics:
+                metrics["bitrate"] = encoding_run.output_file.get_bitrate()
+
+            if conf and "conforms" not in metrics:
+                if encoding_run.encoder.file_suffix == "hevc":
+                    metrics["conforms"] = conformance.check_hevc_conformance(encoding_run)
+                else:
+                    # TODO: implement for other codecs
+                    metrics["conforms"] = False
+
+            if needed_metrics:
+                res = ffmpeg.compute_metrics(
                     encoding_run,
-                    psnr=psnr_needed,
-                    ssim=ssim_needed,
-                    vmaf=vmaf_needed
+                    needed_metrics
                 )
-                if psnr_needed:
-                    metrics["psnr"] = psnr_avg
-                if ssim_needed:
-                    metrics["ssim"] = ssim_avg
-                if vmaf_needed:
-                    metrics["vmaf"] = vmaf_avg
+                for m in needed_metrics:
+                    metrics[m] = res[m]
             else:
                 console_log.info(f"Tester: Metrics for '{encoding_run.name}' already exist")
+
+            if encoding_run.output_file.get_filepath().exists() and remove_encoding:
+                os.remove(encoding_run.output_file.get_filepath())
 
         except Exception as exception:
             console_log.error(f"Tester: Failed to compute metrics for '{encoding_run.name}'")
@@ -314,7 +339,7 @@ class Tester:
                         for subtest, anchor_subtest in zip(test.subtests, anchor.subtests):
 
                             try:
-                                Tester.__add_csv_line(anchor, anchor_subtest, csvfile, sequence, subtest, test, metrics)
+                                csvfile.add_entry(metrics, test, subtest, anchor, anchor_subtest, sequence)
 
                             except Exception as exception:
                                 console_log.error(f"Tester: Failed to add CSV entry for "
@@ -326,49 +351,6 @@ class Tester:
             console_log.error(f"Tester: Failed to generate CSV file '{csv_filepath}'")
             log_exception(exception)
             exit(1)
-
-    @staticmethod
-    def __add_csv_line(anchor, anchor_subtest, csvfile, sequence, subtest, test, metrics):
-        console_log.info(f"Tester: Adding CSV entry for "
-                         f"'{subtest.name}/{sequence.get_filepath().name}'")
-        metric = metrics[test.name][sequence][subtest.param_set.get_quality_param_value()]
-        anchor_metric = metrics[anchor.name][sequence][anchor_subtest.param_set.get_quality_param_value()]
-        csvfile.add_entry(
-            {
-                csv.CsvField.SEQUENCE_NAME: lambda: sequence.get_filepath().name,
-                csv.CsvField.SEQUENCE_CLASS: lambda: sequence.get_sequence_class(),
-                csv.CsvField.SEQUENCE_FRAMECOUNT: lambda: sequence.get_framecount(),
-                csv.CsvField.ENCODER_NAME: lambda: test.encoder.get_pretty_name(),
-                csv.CsvField.ENCODER_REVISION: lambda: test.encoder.get_short_revision(),
-                csv.CsvField.ENCODER_DEFINES: lambda: test.encoder.get_defines(),
-                csv.CsvField.ENCODER_CMDLINE: lambda: subtest.param_set.to_cmdline_str(),
-                csv.CsvField.QUALITY_PARAM_NAME: lambda: subtest.param_set.get_quality_param_type().pretty_name,
-                csv.CsvField.QUALITY_PARAM_VALUE: lambda: subtest.param_set.get_quality_param_value()
-                if "target_bitrate_avg" not in metric
-                else metric["target_bitrate_avg"],
-                csv.CsvField.CONFIG_NAME: lambda: test.name,
-                csv.CsvField.ANCHOR_NAME: lambda: anchor.name,
-                csv.CsvField.TIME_SECONDS: lambda: metric["encoding_time_avg"],
-                csv.CsvField.TIME_STDEV: lambda: metric["encoding_time_stdev"],
-                csv.CsvField.BITRATE: lambda: metric["bitrate_avg"],
-                csv.CsvField.BITRATE_STDEV: lambda: metric["bitrate_stdev"],
-                csv.CsvField.SPEEDUP: lambda: metric.speedup(anchor_metric),
-                csv.CsvField.PSNR_AVG: lambda: metric["psnr_avg"],
-                csv.CsvField.PSNR_STDEV: lambda: metric["psnr_stdev"],
-                csv.CsvField.SSIM_AVG: lambda: metric["ssim_avg"],
-                csv.CsvField.SSIM_STDEV: lambda: metric["ssim_stdev"],
-                csv.CsvField.VMAF_AVG: lambda: metric["vmaf_avg"],
-                csv.CsvField.VMAF_STDEV: lambda: metric["vmaf_stdev"],
-                csv.CsvField.BDBR_PSNR: lambda: metrics[test.name][sequence].compute_bdbr_to_anchor(
-                    metrics[anchor.name][sequence], "psnr"),
-                csv.CsvField.BDBR_SSIM: lambda: metrics[test.name][sequence].compute_bdbr_to_anchor(
-                    metrics[anchor.name][sequence], "ssim"),
-                csv.CsvField.BDBR_VMAF: lambda: metrics[test.name][sequence].compute_bdbr_to_anchor(
-                    metrics[anchor.name][sequence], "vmaf"),
-                csv.CsvField.BITRATE_ERROR: lambda: -1 + metric["bitrate_avg"] / metric[
-                    "target_bitrate_avg"] if "target_bitrate_avg" in metric else "-"
-            }
-        )
 
     @staticmethod
     def _do_encoding_run(encoding_run: EncodingRun) -> None:
@@ -412,7 +394,8 @@ class Tester:
     def create_tables(context: TesterContext,
                       table_filepath: str,
                       format_: [table.TableFormats, None] = None,
-                      parallel_calculations=1):
+                      parallel_calculations=1,
+                      first_page=None):
         Tester.compute_metrics(context, parallel_calculations, (ResultTypes.TABLE,))
 
         filepath = Path(table_filepath)
@@ -427,18 +410,40 @@ class Tester:
 
         if format_ == table.TableFormats.HTML:
             with open(filepath, "wb") as f:
-                html, _ = table.tablefy(context)
+                html, *_ = table.tablefy(context, first_page)
                 f.write(html.encode("utf-8"))
         elif format_ == table.TableFormats.PDF:
-            html, pixels = table.tablefy(context)
+            html, pixels, pages = table.tablefy(context)
             config = pdfkit.configuration(wkhtmltopdf=Cfg().wkhtmltopdf)
             options = {
                 'page-height': f"{pixels + 50}px",
-                'page-width': "1400px",
+                'page-width': "1850",
                 'margin-top': "25px",
                 'margin-bottom': "25px",
                 'margin-right': "25px",
                 'margin-left': "25px",
-                "disable-smart-shrinking": None
+                "disable-smart-shrinking": None,
             }
             pdfkit.from_string(html, filepath, options=options, configuration=config)
+
+            merger = PdfFileMerger()
+            if first_page:
+                a, temp_path = mkstemp()
+                first_page_html = \
+                    "\n" \
+                    "<!DOCTYPE html>\n" \
+                    "<html>\n" \
+                    "   <head>\n" \
+                    "   </head>\n" \
+                    "   <body>\n" \
+                    f"       <div> {first_page} </div>\n" \
+                    f"  </body>\n" \
+                    f"</html>\n"
+                pdfkit.from_string(first_page_html, temp_path, options=options, configuration=config)
+                merger.append(open(temp_path, "rb"))
+
+            merger.append(open(filepath, "rb"), pages=(0, pages))
+            merger.write(open(filepath, "wb"))
+
+        else:
+            raise ValueError("Invalid table type")

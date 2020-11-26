@@ -71,7 +71,7 @@ class MyLogger(logging.Logger):
 
     def __del__(self):
         if not self._warnings:
-            return 
+            return
         temp = '\n'.join(self._warnings)
         print(f"Caught {self._call_counts['warning']} warnings:\n{temp}")
 

@@ -119,7 +119,6 @@ class RawVideoSequence:
         self._frames = self._total_frames
         assert self._total_frames
 
-
         sequence_class = RawVideoSequence.guess_sequence_class(filepath)
 
         self._filepath = filepath

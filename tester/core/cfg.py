@@ -3,11 +3,18 @@ import logging
 import platform
 from pathlib import Path
 from typing import Union
+from enum import Enum
 
 import tester.core.csv as csv
 import tester.core.table as table
 from .log import console_log
 from .singleton import Singleton
+
+
+class ReEncoding(Enum):
+    OFF = 0
+    SOFT = 1
+    FORCE = 2
 
 
 class Cfg(metaclass=Singleton):
@@ -118,23 +125,22 @@ class Cfg(metaclass=Singleton):
     def tester_sequences_dir_path(self, value: Union[str, Path]):
         self._tester_input_dir_path = value
 
-    """How many characters of the commit hash are included in file names."""
     tester_commit_hash_len: int = 10
+    """How many characters of the commit hash are included in file names."""
 
-    """How many characters of the define hash are included in file names."""
     tester_define_hash_len: int = 6
+    """How many characters of the define hash are included in file names."""
 
     ##########################################################################
     # CSV
     ##########################################################################
 
-    """The field delimiter to be used in the CSV."""
     csv_field_delimiter: str = ";"
+    """The field delimiter to be used in the CSV."""
 
-    """The decimal point to be used in the CSV."""
     csv_decimal_point: str = "."
+    """The decimal point to be used in the CSV."""
 
-    """List of enabled CSV fields from left to right."""
     csv_enabled_fields: list = [
         csv.CsvField.SEQUENCE_NAME,
         csv.CsvField.SEQUENCE_CLASS,
@@ -161,8 +167,8 @@ class Cfg(metaclass=Singleton):
         csv.CsvField.BDBR_PSNR,
         csv.CsvField.BDBR_SSIM,
     ]
+    """List of enabled CSV fields from left to right."""
 
-    """Key = CSV field ID, value = CSV field name."""
     csv_field_names: dict = {
         csv.CsvField.SEQUENCE_NAME: "Sequence name",
         csv.CsvField.SEQUENCE_CLASS: "Sequence class",
@@ -189,23 +195,33 @@ class Cfg(metaclass=Singleton):
         csv.CsvField.BDBR_PSNR: "BD-BR (PSNR)",
         csv.CsvField.BDBR_SSIM: "BD-BR (SSIM)",
         csv.CsvField.BDBR_VMAF: "BD-BR (VMAF)",
-        csv.CsvField.BITRATE_ERROR: "Bitrate error"
+        csv.CsvField.BITRATE_ERROR: "Bitrate error",
+        csv.CsvField.CONFORMANCE: "Conforming bitstream",
+        csv.CsvField.PSNR_CURVE_CROSSINGS: "PSNR curves cross",
+        csv.CsvField.SSIM_CURVE_CROSSINGS: "SSIM curves cross",
+        csv.CsvField.VMAF_CURVE_CROSSINGS: "VMAF curves cross",
+        csv.CsvField.RATE_OVERLAP: "Rate overlap",
+        csv.CsvField.PSNR_OVERLAP: "PSNR overlap",
+        csv.CsvField.SSIM_OVERLAP: "SSIM overlap",
+        csv.CsvField.VMAF_OVERLAP: "VMAF overlap",
     }
+    """Key = CSV field ID, value = CSV field name."""
 
-    """The accuracy with which floats are rounded when generating the output CSV."""
     csv_float_rounding_accuracy: int = 6
+    """The accuracy with which floats are rounded when generating the output CSV."""
 
     ##########################################################################
     # Table
     ##########################################################################
 
-    table_enabled_fields: list = [
+    table_enabled_columns: list = [
         table.TableColumns.VIDEO,
         table.TableColumns.PSNR_BDBR,
         table.TableColumns.SSIM_BDBR,
         table.TableColumns.VMAF_BDBR,
         table.TableColumns.SPEEDUP,
     ]
+    """List of enabled columns from left to right"""
 
     table_column_headers: dict = {
         table.TableColumns.VIDEO: "Video",
@@ -214,63 +230,97 @@ class Cfg(metaclass=Singleton):
         table.TableColumns.VMAF_BDBR: "BD-BR (VMAF)",
         table.TableColumns.SPEEDUP: "Speedup",
     }
+    """Header values for the table columns"""
 
     table_column_formats = {
         table.TableColumns.VIDEO: lambda x: x,
-        table.TableColumns.PSNR_BDBR: lambda x: f"{x*100:.1f}%",
-        table.TableColumns.SSIM_BDBR: lambda x: f"{x*100:.1f}%",
-        table.TableColumns.VMAF_BDBR: lambda x: f"{x*100:.1f}%",
+        table.TableColumns.PSNR_BDBR: lambda x: f"{x * 100:.1f}%",
+        table.TableColumns.SSIM_BDBR: lambda x: f"{x * 100:.1f}%",
+        table.TableColumns.VMAF_BDBR: lambda x: f"{x * 100:.1f}%",
         table.TableColumns.SPEEDUP: lambda x: f"{x:.2f}×",
     }
+    """How the column values should be formatted"""
 
     _wkhtmltopdf_path = None
+
     @property
-    def wkhtmltopdf(self) -> Path():
+    def wkhtmltopdf(self) -> Path:
+        """Path to the the wkhtmltopdf executable"""
         return Path(self._wkhtmltopdf_path or "wkhtmltopdf")
 
     @wkhtmltopdf.setter
     def wkhtmltopdf(self, value):
         self._wkhtmltopdf_path = value
 
-
     ##########################################################################
     # General
     ##########################################################################
 
+    frame_step_size: int = 1
     """Determines that only every nth frame is encoded.
     In case the encoder has built in feature for this the tester will assert that the value here is the same as
     what the encoder set value is."""
-    frame_step_size: int = 1
+
+    overwrite_encoding: ReEncoding = ReEncoding.OFF
+    """
+    Whether re-encode encodings that are not necessary to encode:
+    OFF: Encode sequences only if results do not exist.
+    SOFT: Encode if the encoding is missing regardless of whether results exists. 
+        This should be used if the previous encoding didn't include all necessary metrics.
+    FORCE: Always re-encode 
+    """
+
+    remove_encodings_after_metric_calculation: bool = False
+    """
+    Should the encoded videos be removed after calculating metrics.
+    Heavily recommended to call `Tester.calculate_metrics()` explicitly if this is True
+    """
+
+    ##########################################################################
+    # HEVC
+    ##########################################################################
+
+    _hevc_reference_decoder = None
+
+    @property
+    def hevc_reference_decoder(self) -> Path:
+        return Path(self._hevc_reference_decoder)
+
+    @hevc_reference_decoder.setter
+    def hevc_reference_decoder(self, value):
+        self._hevc_reference_decoder = value
 
     ##########################################################################
     # HM
     ##########################################################################
 
-    """The remote from which HM will be cloned."""
     hm_remote_url: str = "https://vcgit.hhi.fraunhofer.de/jct-vc/HM.git"
+    """The remote from which HM will be cloned."""
 
     ##########################################################################
     # Kvazaar
     ##########################################################################
 
-    """The remote from which Kvazaar will be cloned."""
     kvazaar_remote_url: str = "git@gitlab.tut.fi:TIE/ultravideo/kvazaar.git"
+    """The remote from which Kvazaar will be cloned."""
 
     ##########################################################################
     # x265
     ##########################################################################
 
-    """The remote from which x265 will be cloned."""
     x265_remote_url: str = "https://bitbucket.org/multicoreware/x265_git.git"
+    """The remote from which x265 will be cloned."""
     x265_build_folder: str = "vc15-x86_64"
+    """The windows build folder for x265"""
     nasm_path: [None, str] = None
+    """Path to the nasm executable, should be set for Windows since it's unlikely to be auto detected"""
 
     ##########################################################################
     # Visual Studio
     ##########################################################################
 
-    """The Visual Studio base installation directory."""
     _vs_install_path: Union[str, Path] = Path("C:/") / "Program Files (x86)" / "Microsoft Visual Studio"
+    """The Visual Studio base installation directory."""
 
     @property
     def vs_install_path(self) -> Path:
@@ -281,28 +331,28 @@ class Cfg(metaclass=Singleton):
     def vs_install_path(self, value: Union[str, Path]):
         self._vs_install_path = value
 
+    vs_year_version: str = None
     """The release year of the Visual Studio version in use (for example 2019 for VS 2019).
     Must be set by the user."""
-    vs_year_version: str = None
 
+    vs_major_version: str = None
     """The version of Visual Studio in use (for example VS 2019 is version 16).
     Must be set by the user."""
-    vs_major_version: str = None
 
+    vs_edition: str = None
     """The edition of Visual Studio in use (Community/Professional/Enterprise).
     Must be set by the user."""
-    vs_edition: str = None
 
+    vs_msvc_version: str = None
     """The version of MSVC in use (for example 19.26). Can be checked with 'cl /version' on the
     command line. Must be set by the user."""
-    vs_msvc_version: str = None
 
-    """The /p:PlatformToolset parameter to be passed to MSBuild."""
     vs_msbuild_platformtoolset: str = None
+    """The /p:PlatformToolset parameter to be passed to MSBuild."""
 
+    vs_msbuild_windowstargetplatformversion: str = "10.0"
     """The /p:WindowsTargetPlatformVersion parameter to be passed to MSBuild.
     In older visual studios (2017 etc.) need to specify the exact version i.e. 10.0.xxxxx.x"""
-    vs_msbuild_windowstargetplatformversion: str = "10.0"
 
     ##########################################################################
     # VMAF
@@ -325,5 +375,5 @@ class Cfg(metaclass=Singleton):
 
     vtm_remote_url: str = "https://vcgit.hhi.fraunhofer.de/jvet/VVCSoftware_VTM.git"
 
-    """The path of the VTM configuration file. Must be set by the user."""
     _vtm_cfg_file_path: Union[str, Path] = None
+    """The path of the VTM configuration file. Must be set by the user."""

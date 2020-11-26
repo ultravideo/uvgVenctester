@@ -3,19 +3,21 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 from typing import Iterable
 
 import tester
 import tester.core.git as git
 import tester.core.test as test
+from tester.core import cmake, vs
+from tester.core.log import console_log
 from . import EncoderBase
-from ..core import vs, cmake
 
 
 class X265(EncoderBase):
     """Represents a x265 executable."""
-    
+
     def __init__(self,
                  user_given_revision: str,
                  defines: Iterable,
@@ -39,28 +41,33 @@ class X265(EncoderBase):
     def build(self) -> None:
         if not self.build_start():
             return
-        
+
         build_cmd = tuple()
 
         if tester.Cfg().system_os_name == "Windows":
             build_dir = self._git_local_path / "build" / tester.Cfg().x265_build_folder
-            build_cmd = (
-                "cd", build_dir,
-                "&&", "call", str(vs.get_vsdevcmd_bat_path()),
-                "&&", "cmake", "../../source",
-                "-G", cmake.get_cmake_build_system_generator(),
-                "-A", cmake.get_cmake_architecture(),
-            ) + ((f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}",) if tester.Cfg().nasm_path else tuple()) + (
-                "&&", "msbuild", "x265.sln",
-            ) + tuple(vs.get_msbuild_args(self._defines))
+            build_cmd = \
+                (
+                    "cd", build_dir,
+                    "&&", "call", str(vs.get_vsdevcmd_bat_path()),
+                    "&&", "cmake", "../../source",
+                    "-G", cmake.get_cmake_build_system_generator(),
+                    "-A", cmake.get_cmake_architecture(),
+                ) + (
+                    (f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}",) if tester.Cfg().nasm_path else tuple()
+                ) + (
+                    "&&", "msbuild", "x265.sln",
+                ) + tuple(vs.get_msbuild_args(self._defines))
         elif tester.Cfg().system_os_name == "Linux":
-            build_cmd = (
-                "cd", str(self._git_local_path / "build" / "linux"),
-                "&&", "cmake", "../../source", "-DENABLE_SHARED=OFF",
-                # TODO: enable this
-                # f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}" if tester.Cfg().nasm_path else "",
-                "&&", "make",
-            )
+            build_cmd = \
+                (
+                    "cd", str(self._git_local_path / "build" / "linux"),
+                    "&&", "cmake", "../../source", "-DENABLE_SHARED=OFF",
+                ) + (
+                    (f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}",) if tester.Cfg().nasm_path else tuple()
+                ) + (
+                    "&&", "make",
+                )
         self.build_finish(build_cmd)
 
     def clean(self) -> None:
@@ -83,12 +90,12 @@ class X265(EncoderBase):
         RESOLUTION_PLACEHOLDER = "64x64"
 
         dummy_cmd = (
-            str(self._exe_path),
-            "--input", os.devnull,
-            "--input-res", RESOLUTION_PLACEHOLDER,
-            "--fps", "25",
-            "--output", os.devnull,
-        ) + param_set.to_cmdline_tuple()
+                        str(self._exe_path),
+                        "--input", os.devnull,
+                        "--input-res", RESOLUTION_PLACEHOLDER,
+                        "--fps", "25",
+                        "--output", os.devnull,
+                    ) + param_set.to_cmdline_tuple()
 
         return self.dummy_run_finish(dummy_cmd, param_set)
 
@@ -109,20 +116,34 @@ class X265(EncoderBase):
         else:
             assert 0, "Invalid quality parameter"
 
-        encode_cmd = (
-            str(self._exe_path),
-            "--input", str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
-            "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
-            "--fps", str(encoding_run.input_sequence.get_framerate()),
-            "--output", str(encoding_run.output_file.get_filepath()),
-            "--frames", str(encoding_run.frames),
-        ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False, include_frames=False) + quality
+        encode_cmd = \
+            (
+                str(self._exe_path),
+                "--input",
+                str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
+                "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+                "--fps", str(encoding_run.input_sequence.get_framerate()),
+                "--output", str(encoding_run.output_file.get_filepath()),
+                "--frames", str(encoding_run.frames),
+            ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
+                                                        include_frames=False) + quality
 
         self.encode_finish(encode_cmd, encoding_run, tester.Cfg().frame_step_size != 1)
 
+    @staticmethod
+    def validate_config(test_config: test.Test):
+        if not git.git_remote_exists(tester.Cfg().x265_remote_url):
+            console_log.error(f"Kvazaar: Remote '{tester.Cfg().kvazaar_remote_url}' is unavailable")
+            raise RuntimeError
+
+        try:
+            subprocess.check_output((tester.Cfg().nasm_path, "--version"))
+        except FileNotFoundError:
+            console_log.warning(f"x265: Executable 'nasm' was not found. The x265 is going to be much slower.")
+
     class ParamSet(EncoderBase.ParamSet):
         """Represents the commandline parameters passed to x265 when encoding."""
-        
+
         def __init__(self,
                      quality_param_type: tester.QualityParam,
                      quality_param_value: int,
@@ -143,7 +164,7 @@ class X265(EncoderBase):
 
         @staticmethod
         def _get_arg_order() -> list:
-            return [] # "--preset" and "--tune" should be handled correctly despite their position
+            return []  # "--preset" and "--tune" should be handled correctly despite their position
 
         def _to_unordered_args_list(self,
                                     include_quality_param: bool = True,
@@ -167,7 +188,8 @@ class X265(EncoderBase):
                 elif self.get_quality_param_type() == tester.QualityParam.CRF:
                     args += f" --crf {self._quality_param_value}"
                 else:
-                    raise ValueError(f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+                    raise ValueError(
+                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
 
             if include_seek and self._seek:
                 args += f" --seek {self._seek}"

@@ -301,6 +301,7 @@ class Vtm(EncoderBase):
 
     class ParamSet(EncoderBase.ParamSet):
         """Represents the command line parameters passed to VTM when encoding."""
+
         @staticmethod
         def _get_arg_order() -> list:
             return ["-c"]

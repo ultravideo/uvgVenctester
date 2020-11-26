@@ -9,6 +9,7 @@ from typing import Iterable
 
 import tester.encoders as encoders
 import tester.core.metrics as met
+import tester.core.cfg as cfg
 from tester.core.video import RawVideoSequence, EncodedVideoFile
 from tester.encoders.base import QualityParam
 
@@ -42,17 +43,13 @@ class EncodingRun:
 
         qp_name = self.qp_name.short_name
 
-        base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
-                        f"{qp_name}{self.param_set.get_quality_param_value()}_{round_number}"
-        output_dir_path = encoder.get_output_dir(param_set)
+        self.base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
+                             f"{qp_name}{self.param_set.get_quality_param_value()}_{round_number}"
+        self.output_dir_path = encoder.get_output_dir(param_set)
 
-        self.encoding_log_path: Path = output_dir_path / f"{base_filename}_encoding_log.txt"
-        self.metrics_path: Path = output_dir_path / f"{base_filename}_metrics.json"
-        self.psnr_log_path: Path = output_dir_path / f"{base_filename}_psnr_log.txt"
-        self.ssim_log_path: Path = output_dir_path / f"{base_filename}_ssim_log.txt"
-        self.vmaf_log_path: Path = output_dir_path / f"{base_filename}_vmaf_log.txt"
+        self.metrics_path: Path = self.output_dir_path / f"{self.base_filename}_metrics.json"
 
-        output_file_path: Path = output_dir_path / f"{base_filename}.{encoder.file_suffix}"
+        output_file_path: Path = self.output_dir_path / f"{self.base_filename}.{encoder.file_suffix}"
         self.output_file = EncodedVideoFile(
             filepath=output_file_path,
             width=input_sequence.get_width(),
@@ -66,11 +63,19 @@ class EncodingRun:
 
         self.decoded_output_file_path: Path = None
         if type(encoder) == encoders.Vtm:
-            self.decoded_output_file_path: Path = output_dir_path / f"{base_filename}_decoded.yuv"
+            self.decoded_output_file_path: Path = self.output_dir_path / f"{self.base_filename}_decoded.yuv"
 
     @property
     def needs_encoding(self):
-        return not self.output_file.get_filepath().exists() and "encoding_time"  not in self.metrics
+        if cfg.Cfg().overwrite_encoding == cfg.ReEncoding.FORCE:
+            return True
+        elif cfg.Cfg().overwrite_encoding == cfg.ReEncoding.SOFT:
+            return not self.output_file.get_filepath().exists() or "encoding_time" not in self.metrics
+        elif cfg.Cfg().overwrite_encoding == cfg.ReEncoding.OFF:
+            return not self.output_file.get_filepath().exists() and not self.metrics.has_calculated_metrics
+
+    def get_log_path(self, type_: str):
+        return self.output_dir_path / f"{self.base_filename}_{type_}_log.txt"
 
     def __eq__(self,
                other: EncodingRun):
@@ -91,7 +96,6 @@ class SubTest:
                  name: str,
                  encoder: encoders.EncoderBase,
                  param_set: encoders.EncoderBase.ParamSet):
-
         self.parent: Test = parent
         self.name: str = name
         self.encoder: encoders.EncoderBase = encoder
@@ -153,10 +157,10 @@ class Test:
 
         param_sets = [
             self.encoder.ParamSet(quality_param_type,
-                             quality_param_value,
-                             seek,
-                             frames,
-                             cl_args)
+                                  quality_param_value,
+                                  seek,
+                                  frames,
+                                  cl_args)
             for quality_param_value in quality_param_list
         ]
 

@@ -8,6 +8,7 @@ from typing import Iterable, Union
 from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
 import tester.core.test as test
+from tester.core.log import console_log
 from tester.core.video import VideoFileBase, RawVideoSequence
 from tester.encoders.base import QualityParam, EncoderBase
 
@@ -46,6 +47,14 @@ class EncodingRunMetrics:
     def __contains__(self, item):
         self._read_in()
         return item in self._data
+
+    @property
+    def has_calculated_metrics(self):
+        """
+        Used to determine if the metric object has any calculated metrics such as PSNR, SSIM, or VMAF
+        The two non-calculated and always existing metrics are bitrate and encoding speed
+        """
+        return len(self._data) >= 3
 
     def clear(self):
         self._data = {}
@@ -98,22 +107,91 @@ class SequenceMetrics:
         base_paths = {x: path_prefix /
                          f"{sequence.get_suffixless_name()}_{quality_type.short_name}{x}_{{}}_metrics.json" for x in
                       quality_values}
+        self.__sequence = sequence
+        self.__qp_type = quality_type
+        self._prefix = path_prefix.name
 
         self._data = {x: EncodingQualityRunMetrics(rounds, base_paths[x]) for x in quality_values}
 
     def get_quality_with_bitrates(self, quality_metric: str):
         return [(item["bitrate_avg"], item[f"{quality_metric}_avg"]) for item in self._data.values()]
 
-    def compute_bdbr_to_anchor(self, anchor: SequenceMetrics, quality_metric: str):
+    def _compute_bdbr_to_anchor(self, anchor: SequenceMetrics, quality_metric: str):
         return self._compute_bdbr(anchor.get_quality_with_bitrates(quality_metric),
                                   self.get_quality_with_bitrates(quality_metric))
 
-    def average_speedup(self, anchor: SequenceMetrics):
-        a = [first["encoding_time_avg"] / second["encoding_time_avg"]
-             for first, second
-             in zip(self._data.values(), anchor._data.values())]
-        return sum(a) / len(a)
+    def compare_to_anchor(self, anchor: SequenceMetrics, quality_metric: str):
+        if quality_metric == "encoding_time":
+            return self._average_speedup(anchor)
+        return self._compute_bdbr_to_anchor(anchor, quality_metric)
 
+    def _average_speedup(self, anchor: SequenceMetrics):
+        temp = [item["encoding_time_avg"] for item in self._data.values()]
+        own_average_time = sum(temp) / len(temp)
+        temp = [item["encoding_time_avg"] for item in anchor._data.values()]
+        other_average_time = sum(temp) / len(temp)
+        return other_average_time / own_average_time
+
+    def metric_overlap(self, anchor: SequenceMetrics, metric: str):
+        if anchor == self:
+            return 1
+        if not metric.endswith("_avg"):
+            metric = metric + "_avg"
+        rates = [item[metric] for item in self._data.values()]
+        anchor_rates = [item[metric] for item in anchor._data.values()]
+        start = max(min(rates), min(anchor_rates))
+        stop = min(max(rates), max(anchor_rates))
+        return (stop - start) / (max(anchor_rates) - min(anchor_rates))
+
+    def rd_curve_crossings(self, anchor: SequenceMetrics, quality_metric: str):
+        def linear_equ(first, second):
+            slope = (second[1] - first[1]) / (second[0] - first[0])
+            b = first[1] - slope * first[0]
+            return lambda x: slope * x + b
+
+        if self == anchor:
+            return 0
+
+        own = self.get_quality_with_bitrates(quality_metric)
+        other = anchor.get_quality_with_bitrates(quality_metric)
+
+        first_index = 0
+        second_index = 0
+
+        crossings = 0
+        while True:
+            if first_index == len(own) - 1 or second_index == len(other) - 1:
+                break
+            if own[first_index + 1][0] < other[second_index][0]:
+                first_index += 1
+                continue
+            if own[first_index][0] > other[second_index + 1][0]:
+                second_index += 1
+                continue
+            equ1 = linear_equ(own[first_index], own[first_index + 1])
+            equ2 = linear_equ(other[second_index], other[second_index + 1])
+
+            if own[first_index][0] < other[second_index][0]:
+                start = equ1(other[second_index][0]) - other[second_index][1]
+            else:
+                start = own[first_index][1] - equ2(own[first_index][0])
+
+            if own[first_index + 1][0] > other[second_index + 1][0]:
+                stop = equ1(other[second_index + 1][0]) - other[second_index + 1][1]
+            else:
+                stop = own[first_index + 1][1] - equ2(own[first_index + 1][0])
+
+            if not start or not stop:
+                console_log.warning(f"Potential overlap between {self} and {anchor} that may or may not be recorded.")
+
+            if start * stop < 0:
+                crossings += 1
+
+            if own[first_index + 1][0] < other[second_index + 1][0]:
+                first_index += 1
+            else:
+                second_index += 1
+        return crossings
 
     @staticmethod
     def _compute_bdbr(anchor_values, compared_values):
@@ -129,6 +207,9 @@ class SequenceMetrics:
 
     def __getitem__(self, item):
         return self._data[item]
+
+    def __repr__(self):
+        return f"{self._prefix}/{self.__sequence}/{self.__qp_type.pretty_name}"
 
 
 class TestMetrics:
