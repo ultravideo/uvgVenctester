@@ -58,7 +58,7 @@ def tablefy(context, header_page=None):
           height: 100%;
           top: 40%;
           position: relative;
-          font: 20px times;
+          font: 18px times;
         }
                 
         .complete {

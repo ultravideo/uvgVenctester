@@ -418,7 +418,7 @@ class Tester:
             config = pdfkit.configuration(wkhtmltopdf=Cfg().wkhtmltopdf)
             options = {
                 'page-height': f"{pixels + 50}px",
-                'page-width': "1850",
+                'page-width': "1850px",
                 'margin-top': "25px",
                 'margin-bottom': "25px",
                 'margin-right': "25px",

@@ -4,6 +4,7 @@ import os
 
 from datetime import datetime, timedelta
 import tester.core.git as git
+import tester.core.cfg as cfg
 from tester import QualityParam, Test, Tester, Cfg
 from tester.core.log import console_log
 from tester.encoders import Kvazaar, X265
@@ -16,6 +17,8 @@ Intended to be run using cronjob once a week
 
 
 def main():
+    Cfg().remove_encodings_after_metric_calculation = True
+    Cfg().overwrite_encoding = cfg.ReEncoding.OFF
     reservation_handler = rh.ReservationHandler("10.21.25.26", "30001", "Weeklytester")
     try:
         reservation_handler.reserve_server(time_h=120, time_m=0)
@@ -39,7 +42,6 @@ def main():
             datetime.now() - timedelta(weeks=weeks + 1),
             datetime.now() - timedelta(weeks=weeks),
         )
-    temp = "eeb284050592408ee162cb64e58032a65c543184"
 
     uf_head = Test(
         name="Kvazaar_uf_master",
@@ -47,10 +49,8 @@ def main():
         encoder_revision=current,
         cl_args="--preset=ultrafast --period=256 --rd=1 --pu-depth-intra=2-3,2-3,3-3,3-3,3-3 "
                 "--pu-depth-inter=1-2,1-2,2-2,2-2,2-2 --signhide --me-early-termination=off "
-                "--max-merge=2 --rc-algorithm=lambda --vaq 5 --threads 12",
+                "--max-merge=2 --vaq 5 --threads 12",
         anchor_names=[f"Kvazaar_uf_since_{weeks}_weeks", "x265_uf"],
-        quality_param_type=QualityParam.RES_ROOT_SCALED_BITRATE,
-        quality_param_list=[5e5, 1e6, 2e6, 4e6, 6e6, 8e6, 10e6, 12e6],
         rounds=5
     )
     uf_since = uf_head.clone(
@@ -69,7 +69,7 @@ def main():
 
     vs_head = uf_head.clone(
         name="Kvazaar_vs_master",
-        cl_args="--preset=veryslow --period=256 --rc-algorithm=oba --owf=0 --vaq 5 --threads 12",
+        cl_args="--preset=veryslow --period=256 --owf=0 --vaq 5 --threads 12",
         anchor_names=[f"Kvazaar_vs_since_{weeks}_weeks", "x265_vs"],
         rounds=1
     )
