@@ -135,9 +135,10 @@ class Kvazaar(EncoderBase):
         elif tester.Cfg().system_os_name == "Linux":
 
             # Add defines to configure arguments.
-            cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self._defines])}"
             kvz_configure_args = ["--disable-shared", "--enable-static", ]
-            kvz_configure_args.append(cflags_str.strip())
+            if self._defines:
+                cflags_str = f"CFLAGS={''.join([f'-D{define} ' for define in self._defines])}"
+                kvz_configure_args.append(cflags_str.strip())
 
             # Run autogen.sh, then configure, then make.
             build_cmd = (
