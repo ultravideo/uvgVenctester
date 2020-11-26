@@ -15,7 +15,7 @@ import tester.core.cmake as cmake
 from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs, table, conformance
 from tester.core.cfg import Cfg
 from tester.core.log import console_log, log_exception
-from tester.core.metrics import TestMetrics
+from tester.core.metrics import TestMetrics, SequenceMetrics
 from tester.core.test import Test, EncodingRun
 from tester.core.video import RawVideoSequence
 
@@ -218,7 +218,8 @@ class Tester:
                     (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
                      or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields
                      or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields
-                     or csv.CsvField.PSNR_CURVE_CROSSINGS in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                     or csv.CsvField.PSNR_CURVE_CROSSINGS in Cfg().csv_enabled_fields
+                     or csv.CsvField.PSNR_OVERLAP in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.PSNR_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
@@ -227,7 +228,8 @@ class Tester:
                     (csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields
                      or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields
                      or csv.CsvField.BDBR_SSIM in Cfg().csv_enabled_fields
-                     or csv.CsvField.SSIM_CURVE_CROSSINGS in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                     or csv.CsvField.SSIM_CURVE_CROSSINGS in Cfg().csv_enabled_fields
+                     or csv.CsvField.SSIM_OVERLAP in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.SSIM_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
@@ -236,7 +238,8 @@ class Tester:
                     (csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields
                      or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields
                      or csv.CsvField.BDBR_VMAF in Cfg().csv_enabled_fields
-                     or csv.CsvField.VMAF_CURVE_CROSSINGS in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                     or csv.CsvField.VMAF_CURVE_CROSSINGS in Cfg().csv_enabled_fields
+                     or csv.CsvField.VMAF_OVERLAP in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.VMAF_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
@@ -361,6 +364,8 @@ class Tester:
                          f"'{subtest.name}/{sequence.get_filepath().name}'")
         metric = metrics[test.name][sequence][subtest.param_set.get_quality_param_value()]
         anchor_metric = metrics[anchor.name][sequence][anchor_subtest.param_set.get_quality_param_value()]
+        sequence_metric: SequenceMetrics = metrics[test.name][sequence]
+        anchor_seq: SequenceMetrics = metrics[anchor.name][sequence]
         csvfile.add_entry(
             {
                 csv.CsvField.SEQUENCE_NAME: lambda: sequence.get_filepath().name,
@@ -387,21 +392,19 @@ class Tester:
                 csv.CsvField.SSIM_STDEV: lambda: metric["ssim_stdev"],
                 csv.CsvField.VMAF_AVG: lambda: metric["vmaf_avg"],
                 csv.CsvField.VMAF_STDEV: lambda: metric["vmaf_stdev"],
-                csv.CsvField.BDBR_PSNR: lambda: metrics[test.name][sequence].compute_bdbr_to_anchor(
-                    metrics[anchor.name][sequence], "psnr"),
-                csv.CsvField.BDBR_SSIM: lambda: metrics[test.name][sequence].compute_bdbr_to_anchor(
-                    metrics[anchor.name][sequence], "ssim"),
-                csv.CsvField.BDBR_VMAF: lambda: metrics[test.name][sequence].compute_bdbr_to_anchor(
-                    metrics[anchor.name][sequence], "vmaf"),
+                csv.CsvField.BDBR_PSNR: lambda: sequence_metric.compute_bdbr_to_anchor(anchor_seq, "psnr"),
+                csv.CsvField.BDBR_SSIM: lambda: sequence_metric.compute_bdbr_to_anchor(anchor_seq, "ssim"),
+                csv.CsvField.BDBR_VMAF: lambda: sequence_metric.compute_bdbr_to_anchor(anchor_seq, "vmaf"),
                 csv.CsvField.BITRATE_ERROR: lambda: -1 + metric["bitrate_avg"] / metric[
                     "target_bitrate_avg"] if "target_bitrate_avg" in metric else "-",
                 csv.CsvField.CONFORMANCE: lambda: metric["conforms_avg"],
-                csv.CsvField.PSNR_CURVE_CROSSINGS: lambda: metrics[test.name][sequence].rd_curve_crossings(
-                    metrics[anchor.name][sequence], "psnr"),
-                csv.CsvField.SSIM_CURVE_CROSSINGS: lambda: metrics[test.name][sequence].rd_curve_crossings(
-                    metrics[anchor.name][sequence], "ssim"),
-                csv.CsvField.VMAF_CURVE_CROSSINGS: lambda: metrics[test.name][sequence].rd_curve_crossings(
-                    metrics[anchor.name][sequence], "vmaf"),
+                csv.CsvField.PSNR_CURVE_CROSSINGS: lambda: sequence_metric.rd_curve_crossings(anchor_seq, "psnr"),
+                csv.CsvField.SSIM_CURVE_CROSSINGS: lambda: sequence_metric.rd_curve_crossings(anchor_seq, "ssim"),
+                csv.CsvField.VMAF_CURVE_CROSSINGS: lambda: sequence_metric.rd_curve_crossings(anchor_seq, "vmaf"),
+                csv.CsvField.RATE_OVERLAP: lambda: sequence_metric.metric_overlap(anchor_seq, "bitrate"),
+                csv.CsvField.PSNR_OVERLAP: lambda: sequence_metric.metric_overlap(anchor_seq, "psnr"),
+                csv.CsvField.SSIM_OVERLAP: lambda: sequence_metric.metric_overlap(anchor_seq, "ssim"),
+                csv.CsvField.VMAF_OVERLAP: lambda: sequence_metric.metric_overlap(anchor_seq, "vmaf"),
             }
         )
 

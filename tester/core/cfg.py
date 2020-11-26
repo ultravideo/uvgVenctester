@@ -200,6 +200,10 @@ class Cfg(metaclass=Singleton):
         csv.CsvField.PSNR_CURVE_CROSSINGS: "PSNR curves cross",
         csv.CsvField.SSIM_CURVE_CROSSINGS: "SSIM curves cross",
         csv.CsvField.VMAF_CURVE_CROSSINGS: "VMAF curves cross",
+        csv.CsvField.RATE_OVERLAP: "Rate overlap",
+        csv.CsvField.PSNR_OVERLAP: "PSNR overlap",
+        csv.CsvField.SSIM_OVERLAP: "SSIM overlap",
+        csv.CsvField.VMAF_OVERLAP: "VMAF overlap",
     }
     """Key = CSV field ID, value = CSV field name."""
 
@@ -230,14 +234,15 @@ class Cfg(metaclass=Singleton):
 
     table_column_formats = {
         table.TableColumns.VIDEO: lambda x: x,
-        table.TableColumns.PSNR_BDBR: lambda x: f"{x*100:.1f}%",
-        table.TableColumns.SSIM_BDBR: lambda x: f"{x*100:.1f}%",
-        table.TableColumns.VMAF_BDBR: lambda x: f"{x*100:.1f}%",
+        table.TableColumns.PSNR_BDBR: lambda x: f"{x * 100:.1f}%",
+        table.TableColumns.SSIM_BDBR: lambda x: f"{x * 100:.1f}%",
+        table.TableColumns.VMAF_BDBR: lambda x: f"{x * 100:.1f}%",
         table.TableColumns.SPEEDUP: lambda x: f"{x:.2f}×",
     }
     """How the column values should be formatted"""
 
     _wkhtmltopdf_path = None
+
     @property
     def wkhtmltopdf(self) -> Path:
         """Path to the the wkhtmltopdf executable"""
@@ -246,7 +251,6 @@ class Cfg(metaclass=Singleton):
     @wkhtmltopdf.setter
     def wkhtmltopdf(self, value):
         self._wkhtmltopdf_path = value
-
 
     ##########################################################################
     # General

@@ -48,6 +48,10 @@ class CsvField(Enum):
     PSNR_CURVE_CROSSINGS: int = 28
     SSIM_CURVE_CROSSINGS: int = 29
     VMAF_CURVE_CROSSINGS: int = 30
+    RATE_OVERLAP: int = 31
+    PSNR_OVERLAP: int = 32
+    SSIM_OVERLAP: int = 33
+    VMAF_OVERLAP: int = 34
 
 
 class CsvFile():

@@ -126,6 +126,15 @@ class SequenceMetrics:
              in zip(self._data.values(), anchor._data.values())]
         return sum(a) / len(a)
 
+    def metric_overlap(self, anchor: SequenceMetrics, metric: str):
+        if not metric.endswith("_avg"):
+            metric = metric + "_avg"
+        rates = [item[metric] for item in self._data.values()]
+        anchor_rates = [item[metric] for item in anchor._data.values()]
+        start = max(min(rates), min(anchor_rates))
+        stop = min(max(rates), max(anchor_rates))
+        return (stop - start) / (max(anchor_rates) - min(anchor_rates))
+
     def rd_curve_crossings(self, anchor: SequenceMetrics, quality_metric: str):
         def linear_equ(first, second):
             slope = (second[1] - first[1]) / (second[0] - first[0])
