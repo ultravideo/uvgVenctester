@@ -280,7 +280,7 @@ class Cfg(metaclass=Singleton):
     # HEVC
     ##########################################################################
 
-    _hevc_reference_decoder = None
+    _hevc_reference_decoder = ""
 
     @property
     def hevc_reference_decoder(self) -> Path:

@@ -10,7 +10,7 @@ def validate_conformance():
         subprocess.check_call((str(cfg.Cfg().hevc_reference_decoder), "--help"),
                               stdout=subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL)
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError):
         console_log.warning(f"CONFORMANCE: Can't find HEVC reference_decoder: {cfg.Cfg().hevc_reference_decoder}")
     except subprocess.CalledProcessError:
         pass
