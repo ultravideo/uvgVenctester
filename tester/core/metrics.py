@@ -116,17 +116,25 @@ class SequenceMetrics:
     def get_quality_with_bitrates(self, quality_metric: str):
         return [(item["bitrate_avg"], item[f"{quality_metric}_avg"]) for item in self._data.values()]
 
-    def compute_bdbr_to_anchor(self, anchor: SequenceMetrics, quality_metric: str):
+    def _compute_bdbr_to_anchor(self, anchor: SequenceMetrics, quality_metric: str):
         return self._compute_bdbr(anchor.get_quality_with_bitrates(quality_metric),
                                   self.get_quality_with_bitrates(quality_metric))
 
-    def average_speedup(self, anchor: SequenceMetrics):
-        a = [second["encoding_time_avg"] / first["encoding_time_avg"]
-             for first, second
-             in zip(self._data.values(), anchor._data.values())]
-        return sum(a) / len(a)
+    def compare_to_anchor(self, anchor: SequenceMetrics, quality_metric: str):
+        if quality_metric == "encoding_time":
+            return self._average_speedup(anchor)
+        return self._compute_bdbr_to_anchor(anchor, quality_metric)
+
+    def _average_speedup(self, anchor: SequenceMetrics):
+        temp = [item["encoding_time_avg"] for item in self._data.values()]
+        own_average_time = sum(temp) / len(temp)
+        temp = [item["encoding_time_avg"] for item in anchor._data.values()]
+        other_average_time = sum(temp) / len(temp)
+        return other_average_time / own_average_time
 
     def metric_overlap(self, anchor: SequenceMetrics, metric: str):
+        if anchor == self:
+            return 1
         if not metric.endswith("_avg"):
             metric = metric + "_avg"
         rates = [item[metric] for item in self._data.values()]

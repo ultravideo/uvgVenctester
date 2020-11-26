@@ -3,9 +3,11 @@
 import math
 from enum import Enum
 from pathlib import Path
+from typing import Union
 
 from tester.core import cfg
 from tester.core.log import console_log
+from tester.core.metrics import SequenceMetrics
 
 
 def csv_validate_config():
@@ -13,6 +15,42 @@ def csv_validate_config():
         if not field in cfg.Cfg().csv_field_names.keys():
             console_log.error(f"CSV: Field '{field}' is enabled but does not have a name")
             raise RuntimeError
+
+
+class CsvFieldBaseType(Enum):
+    BITS = 1 << 10
+    PSNR = 1 << 11
+    SSIM = 1 << 12
+    VMAF = 1 << 13
+    TIME = 1 << 14
+
+    def __or__(self, other: Union[Enum, int]):
+        if type(other) is int:
+            return self.value | other
+        return self.value | other.value
+
+    def __str__(self):
+        names = {
+            CsvFieldBaseType.BITS: "bitrate",
+            CsvFieldBaseType.PSNR: "psnr",
+            CsvFieldBaseType.SSIM: "ssim",
+            CsvFieldBaseType.VMAF: "vmaf",
+            CsvFieldBaseType.TIME: "encoding_time"
+        }
+        return names[self]
+
+
+class CsvFiledValueType(Enum):
+    VALUE = 1
+    STDEV = 2
+    COMPARISON = 3
+    CROSSINGS = 4
+    OVERLAP = 5
+
+    def __or__(self, other: Union[Enum, int]):
+        if type(other) is int:
+            return self.value | other
+        return self.value | other.value
 
 
 class CsvField(Enum):
@@ -29,32 +67,42 @@ class CsvField(Enum):
     QUALITY_PARAM_VALUE: int = 9
     CONFIG_NAME: int = 10
     ANCHOR_NAME: int = 11
-    TIME_SECONDS: int = 12
-    TIME_STDEV: int = 13
-    SPEEDUP: int = 14
-    BITRATE: int = 15
-    BITRATE_STDEV: int = 16
-    PSNR_AVG: int = 17
-    PSNR_STDEV: int = 18
-    SSIM_AVG: int = 19
-    SSIM_STDEV: int = 20
-    VMAF_AVG: int = 21
-    VMAF_STDEV: int = 22
-    BDBR_PSNR: int = 23
-    BDBR_SSIM: int = 24
-    BDBR_VMAF: int = 25
-    BITRATE_ERROR: int = 26
-    CONFORMANCE: int = 27
-    PSNR_CURVE_CROSSINGS: int = 28
-    SSIM_CURVE_CROSSINGS: int = 29
-    VMAF_CURVE_CROSSINGS: int = 30
-    RATE_OVERLAP: int = 31
-    PSNR_OVERLAP: int = 32
-    SSIM_OVERLAP: int = 33
-    VMAF_OVERLAP: int = 34
+
+    TIME_SECONDS: int = CsvFieldBaseType.TIME | CsvFiledValueType.VALUE
+    TIME_STDEV: int = CsvFieldBaseType.TIME | CsvFiledValueType.STDEV
+    SPEEDUP: int = CsvFieldBaseType.TIME | CsvFiledValueType.COMPARISON
+
+    BITRATE: int = CsvFieldBaseType.BITS | CsvFiledValueType.VALUE
+    BITRATE_STDEV: int = CsvFieldBaseType.BITS | CsvFiledValueType.STDEV
+    RATE_OVERLAP: int = CsvFieldBaseType.BITS | CsvFiledValueType.OVERLAP
+    BITRATE_ERROR: int = CsvFieldBaseType.BITS | 6
+
+    PSNR_AVG: int = CsvFieldBaseType.PSNR | CsvFiledValueType.VALUE
+    PSNR_STDEV: int = CsvFieldBaseType.PSNR | CsvFiledValueType.STDEV
+    BDBR_PSNR: int = CsvFieldBaseType.PSNR | CsvFiledValueType.COMPARISON
+    PSNR_CURVE_CROSSINGS: int = CsvFieldBaseType.PSNR | CsvFiledValueType.CROSSINGS
+    PSNR_OVERLAP: int = CsvFieldBaseType.PSNR | CsvFiledValueType.OVERLAP
+
+    SSIM_AVG: int = CsvFieldBaseType.SSIM | CsvFiledValueType.VALUE
+    SSIM_STDEV: int = CsvFieldBaseType.SSIM | CsvFiledValueType.STDEV
+    BDBR_SSIM: int = CsvFieldBaseType.SSIM | CsvFiledValueType.COMPARISON
+    SSIM_CURVE_CROSSINGS: int = CsvFieldBaseType.SSIM | CsvFiledValueType.CROSSINGS
+    SSIM_OVERLAP: int = CsvFieldBaseType.SSIM | CsvFiledValueType.OVERLAP
+
+    VMAF_AVG: int = CsvFieldBaseType.VMAF | CsvFiledValueType.VALUE
+    VMAF_STDEV: int = CsvFieldBaseType.VMAF | CsvFiledValueType.STDEV
+    BDBR_VMAF: int = CsvFieldBaseType.VMAF | CsvFiledValueType.COMPARISON
+    VMAF_CURVE_CROSSINGS: int = CsvFieldBaseType.VMAF | CsvFiledValueType.CROSSINGS
+    VMAF_OVERLAP: int = CsvFieldBaseType.VMAF | CsvFiledValueType.OVERLAP
+
+    CONFORMANCE: int = 12
+
+    @classmethod
+    def has_value(cls, value):
+        return value in cls._value2member_map_
 
 
-class CsvFile():
+class CsvFile:
     """Represents the tester output CSV file."""
 
     def __init__(self,
@@ -72,13 +120,68 @@ class CsvFile():
                 header_row += cfg.Cfg().csv_field_delimiter
             file.write(header_row + "\n")
 
-    def add_entry(self,
-                  values_by_field: dict) -> None:
+    def add_entry(self, metrics, test, subtest, anchor, anchor_subtest, sequence) -> None:
 
-        config_name = values_by_field[CsvField.CONFIG_NAME]
-        anchor_name = values_by_field[CsvField.ANCHOR_NAME]
+        metric = metrics[test.name][sequence][subtest.param_set.get_quality_param_value()]
+        # TODO: Two speedup metrics. Piecewise and overall, currently there is only overall
+        anchor_metric = metrics[anchor.name][sequence][anchor_subtest.param_set.get_quality_param_value()]
+        sequence_metric: SequenceMetrics = metrics[test.name][sequence]
+        anchor_seq: SequenceMetrics = metrics[anchor.name][sequence]
 
-        new_row = ""
+        values_by_field = {
+            CsvField.SEQUENCE_NAME: lambda: sequence.get_filepath().name,
+            CsvField.SEQUENCE_CLASS: lambda: sequence.get_sequence_class(),
+            CsvField.SEQUENCE_FRAMECOUNT: lambda: sequence.get_framecount(),
+            CsvField.ENCODER_NAME: lambda: test.encoder.get_pretty_name(),
+            CsvField.ENCODER_REVISION: lambda: test.encoder.get_short_revision(),
+            CsvField.ENCODER_DEFINES: lambda: test.encoder.get_defines(),
+            CsvField.ENCODER_CMDLINE: lambda: subtest.param_set.to_cmdline_str(),
+            CsvField.QUALITY_PARAM_NAME: lambda: subtest.param_set.get_quality_param_type().pretty_name,
+            CsvField.QUALITY_PARAM_VALUE: lambda: subtest.param_set.get_quality_param_value()
+            if "target_bitrate_avg" not in metric
+            else metric["target_bitrate_avg"],
+            CsvField.CONFIG_NAME: lambda: test.name,
+            CsvField.ANCHOR_NAME: lambda: anchor.name,
+
+            CsvField.BITRATE_ERROR: lambda: -1 + metric["bitrate_avg"] / metric[
+                "target_bitrate_avg"] if "target_bitrate_avg" in metric else "-",
+
+            CsvField.CONFORMANCE: lambda: metric["conforms_avg"],
+        }
+
+        # TODO: Find a way to make this cleaner
+        for base_type in CsvFieldBaseType:
+            try:
+                values_by_field[CsvField(base_type | CsvFiledValueType.VALUE)] = \
+                    lambda base_type=base_type: metric[str(base_type) + "_avg"]
+            except ValueError:
+                pass
+
+            try:
+                values_by_field[CsvField(base_type | CsvFiledValueType.STDEV)] = \
+                    lambda base_type=base_type: metric[str(base_type) + "_stdev"]
+            except ValueError:
+                pass
+
+            try:
+                values_by_field[CsvField(base_type | CsvFiledValueType.COMPARISON)] = \
+                    lambda base_type=base_type: sequence_metric.compare_to_anchor(anchor_seq, str(base_type))
+            except ValueError:
+                pass
+
+            try:
+                values_by_field[CsvField(base_type | CsvFiledValueType.CROSSINGS)] = \
+                    lambda base_type=base_type: sequence_metric.rd_curve_crossings(anchor_seq, str(base_type))
+            except ValueError:
+                pass
+
+            try:
+                values_by_field[CsvField(base_type | CsvFiledValueType.OVERLAP)] = \
+                    lambda base_type=base_type: sequence_metric.metric_overlap(anchor_seq, str(base_type))
+            except ValueError:
+                pass
+
+        new_row = []
         for field_id in cfg.Cfg().csv_enabled_fields:
             value = values_by_field[field_id]()
 
@@ -95,10 +198,10 @@ class CsvFile():
             # If the config has no anchor, i.e. the anchor name is the same as the config name,
             # give special treatment to certain fields.
             # TODO: Make values user-configurable?
-            if field_id == CsvField.ANCHOR_NAME and anchor_name == config_name:
+            if field_id == CsvField.ANCHOR_NAME and anchor == test:
                 value = "-"
 
-            new_row += f"{value}{cfg.Cfg().csv_field_delimiter}"
+            new_row.append(value)
 
         with self._filepath.open("a") as file:
-            file.write(new_row + "\n")
+            file.write(cfg.Cfg().csv_field_delimiter.join(new_row) + "\n")

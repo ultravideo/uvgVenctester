@@ -215,31 +215,25 @@ class Tester:
         parallel_calculations = max(parallel_calculations, 1)
         global_psnr = \
             (
-                    (csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields
-                     or csv.CsvField.PSNR_STDEV in Cfg().csv_enabled_fields
-                     or csv.CsvField.BDBR_PSNR in Cfg().csv_enabled_fields
-                     or csv.CsvField.PSNR_CURVE_CROSSINGS in Cfg().csv_enabled_fields
-                     or csv.CsvField.PSNR_OVERLAP in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                    any([csv.CsvField(csv.CsvFieldBaseType.PSNR | value) in Cfg().csv_enabled_fields
+                         for value
+                         in csv.CsvFiledValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.PSNR_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
         global_ssim = \
             (
-                    (csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields
-                     or csv.CsvField.SSIM_STDEV in Cfg().csv_enabled_fields
-                     or csv.CsvField.BDBR_SSIM in Cfg().csv_enabled_fields
-                     or csv.CsvField.SSIM_CURVE_CROSSINGS in Cfg().csv_enabled_fields
-                     or csv.CsvField.SSIM_OVERLAP in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                    any([csv.CsvField(csv.CsvFieldBaseType.SSIM | value) in Cfg().csv_enabled_fields
+                         for value
+                         in csv.CsvFiledValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.SSIM_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
         global_vmaf = \
             (
-                    (csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields
-                     or csv.CsvField.VMAF_STDEV in Cfg().csv_enabled_fields
-                     or csv.CsvField.BDBR_VMAF in Cfg().csv_enabled_fields
-                     or csv.CsvField.VMAF_CURVE_CROSSINGS in Cfg().csv_enabled_fields
-                     or csv.CsvField.VMAF_OVERLAP in Cfg().csv_enabled_fields) and ResultTypes.CSV in result_t
+                    any([csv.CsvField(csv.CsvFieldBaseType.VMAF | value) in Cfg().csv_enabled_fields
+                         for value
+                         in csv.CsvFiledValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.VMAF_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
@@ -345,7 +339,7 @@ class Tester:
                         for subtest, anchor_subtest in zip(test.subtests, anchor.subtests):
 
                             try:
-                                Tester.__add_csv_line(anchor, anchor_subtest, csvfile, sequence, subtest, test, metrics)
+                                csvfile.add_entry(metrics, test, subtest, anchor, anchor_subtest, sequence)
 
                             except Exception as exception:
                                 console_log.error(f"Tester: Failed to add CSV entry for "
@@ -357,56 +351,6 @@ class Tester:
             console_log.error(f"Tester: Failed to generate CSV file '{csv_filepath}'")
             log_exception(exception)
             exit(1)
-
-    @staticmethod
-    def __add_csv_line(anchor, anchor_subtest, csvfile, sequence, subtest, test, metrics):
-        console_log.info(f"Tester: Adding CSV entry for "
-                         f"'{subtest.name}/{sequence.get_filepath().name}'")
-        metric = metrics[test.name][sequence][subtest.param_set.get_quality_param_value()]
-        anchor_metric = metrics[anchor.name][sequence][anchor_subtest.param_set.get_quality_param_value()]
-        sequence_metric: SequenceMetrics = metrics[test.name][sequence]
-        anchor_seq: SequenceMetrics = metrics[anchor.name][sequence]
-        csvfile.add_entry(
-            {
-                csv.CsvField.SEQUENCE_NAME: lambda: sequence.get_filepath().name,
-                csv.CsvField.SEQUENCE_CLASS: lambda: sequence.get_sequence_class(),
-                csv.CsvField.SEQUENCE_FRAMECOUNT: lambda: sequence.get_framecount(),
-                csv.CsvField.ENCODER_NAME: lambda: test.encoder.get_pretty_name(),
-                csv.CsvField.ENCODER_REVISION: lambda: test.encoder.get_short_revision(),
-                csv.CsvField.ENCODER_DEFINES: lambda: test.encoder.get_defines(),
-                csv.CsvField.ENCODER_CMDLINE: lambda: subtest.param_set.to_cmdline_str(),
-                csv.CsvField.QUALITY_PARAM_NAME: lambda: subtest.param_set.get_quality_param_type().pretty_name,
-                csv.CsvField.QUALITY_PARAM_VALUE: lambda: subtest.param_set.get_quality_param_value()
-                if "target_bitrate_avg" not in metric
-                else metric["target_bitrate_avg"],
-                csv.CsvField.CONFIG_NAME: lambda: test.name,
-                csv.CsvField.ANCHOR_NAME: lambda: anchor.name,
-                csv.CsvField.TIME_SECONDS: lambda: metric["encoding_time_avg"],
-                csv.CsvField.TIME_STDEV: lambda: metric["encoding_time_stdev"],
-                csv.CsvField.BITRATE: lambda: metric["bitrate_avg"],
-                csv.CsvField.BITRATE_STDEV: lambda: metric["bitrate_stdev"],
-                csv.CsvField.SPEEDUP: lambda: metric.speedup(anchor_metric),
-                csv.CsvField.PSNR_AVG: lambda: metric["psnr_avg"],
-                csv.CsvField.PSNR_STDEV: lambda: metric["psnr_stdev"],
-                csv.CsvField.SSIM_AVG: lambda: metric["ssim_avg"],
-                csv.CsvField.SSIM_STDEV: lambda: metric["ssim_stdev"],
-                csv.CsvField.VMAF_AVG: lambda: metric["vmaf_avg"],
-                csv.CsvField.VMAF_STDEV: lambda: metric["vmaf_stdev"],
-                csv.CsvField.BDBR_PSNR: lambda: sequence_metric.compute_bdbr_to_anchor(anchor_seq, "psnr"),
-                csv.CsvField.BDBR_SSIM: lambda: sequence_metric.compute_bdbr_to_anchor(anchor_seq, "ssim"),
-                csv.CsvField.BDBR_VMAF: lambda: sequence_metric.compute_bdbr_to_anchor(anchor_seq, "vmaf"),
-                csv.CsvField.BITRATE_ERROR: lambda: -1 + metric["bitrate_avg"] / metric[
-                    "target_bitrate_avg"] if "target_bitrate_avg" in metric else "-",
-                csv.CsvField.CONFORMANCE: lambda: metric["conforms_avg"],
-                csv.CsvField.PSNR_CURVE_CROSSINGS: lambda: sequence_metric.rd_curve_crossings(anchor_seq, "psnr"),
-                csv.CsvField.SSIM_CURVE_CROSSINGS: lambda: sequence_metric.rd_curve_crossings(anchor_seq, "ssim"),
-                csv.CsvField.VMAF_CURVE_CROSSINGS: lambda: sequence_metric.rd_curve_crossings(anchor_seq, "vmaf"),
-                csv.CsvField.RATE_OVERLAP: lambda: sequence_metric.metric_overlap(anchor_seq, "bitrate"),
-                csv.CsvField.PSNR_OVERLAP: lambda: sequence_metric.metric_overlap(anchor_seq, "psnr"),
-                csv.CsvField.SSIM_OVERLAP: lambda: sequence_metric.metric_overlap(anchor_seq, "ssim"),
-                csv.CsvField.VMAF_OVERLAP: lambda: sequence_metric.metric_overlap(anchor_seq, "vmaf"),
-            }
-        )
 
     @staticmethod
     def _do_encoding_run(encoding_run: EncodingRun) -> None:
