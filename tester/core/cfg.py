@@ -312,8 +312,16 @@ class Cfg(metaclass=Singleton):
     """The remote from which x265 will be cloned."""
     x265_build_folder: str = "vc15-x86_64"
     """The windows build folder for x265"""
-    nasm_path: [None, str] = None
-    """Path to the nasm executable, should be set for Windows since it's unlikely to be auto detected"""
+    _nasm_path: str = ""
+
+    @property
+    def nasm_path(self):
+        """Path to the nasm executable, should be set for Windows since it's unlikely to be auto detected"""
+        return self._nasm_path or "nasm"
+
+    @nasm_path.setter
+    def nasm_path(self, value):
+        self._nasm_path = value
 
     ##########################################################################
     # Visual Studio
