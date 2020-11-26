@@ -217,7 +217,7 @@ class Tester:
             (
                     any([csv.CsvField(csv.CsvFieldBaseType.PSNR | value) in Cfg().csv_enabled_fields
                          for value
-                         in csv.CsvFiledValueType]) and ResultTypes.CSV in result_t
+                         in csv.CsvFieldValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.PSNR_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
@@ -225,7 +225,7 @@ class Tester:
             (
                     any([csv.CsvField(csv.CsvFieldBaseType.SSIM | value) in Cfg().csv_enabled_fields
                          for value
-                         in csv.CsvFiledValueType]) and ResultTypes.CSV in result_t
+                         in csv.CsvFieldValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.SSIM_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )
@@ -233,7 +233,7 @@ class Tester:
             (
                     any([csv.CsvField(csv.CsvFieldBaseType.VMAF | value) in Cfg().csv_enabled_fields
                          for value
-                         in csv.CsvFiledValueType]) and ResultTypes.CSV in result_t
+                         in csv.CsvFieldValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.VMAF_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
             )

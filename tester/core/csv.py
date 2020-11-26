@@ -40,7 +40,7 @@ class CsvFieldBaseType(Enum):
         return names[self]
 
 
-class CsvFiledValueType(Enum):
+class CsvFieldValueType(Enum):
     VALUE = 1
     STDEV = 2
     COMPARISON = 3
@@ -68,32 +68,32 @@ class CsvField(Enum):
     CONFIG_NAME: int = 10
     ANCHOR_NAME: int = 11
 
-    TIME_SECONDS: int = CsvFieldBaseType.TIME | CsvFiledValueType.VALUE
-    TIME_STDEV: int = CsvFieldBaseType.TIME | CsvFiledValueType.STDEV
-    SPEEDUP: int = CsvFieldBaseType.TIME | CsvFiledValueType.COMPARISON
+    TIME_SECONDS: int = CsvFieldBaseType.TIME | CsvFieldValueType.VALUE
+    TIME_STDEV: int = CsvFieldBaseType.TIME | CsvFieldValueType.STDEV
+    SPEEDUP: int = CsvFieldBaseType.TIME | CsvFieldValueType.COMPARISON
 
-    BITRATE: int = CsvFieldBaseType.BITS | CsvFiledValueType.VALUE
-    BITRATE_STDEV: int = CsvFieldBaseType.BITS | CsvFiledValueType.STDEV
-    RATE_OVERLAP: int = CsvFieldBaseType.BITS | CsvFiledValueType.OVERLAP
+    BITRATE: int = CsvFieldBaseType.BITS | CsvFieldValueType.VALUE
+    BITRATE_STDEV: int = CsvFieldBaseType.BITS | CsvFieldValueType.STDEV
+    RATE_OVERLAP: int = CsvFieldBaseType.BITS | CsvFieldValueType.OVERLAP
     BITRATE_ERROR: int = CsvFieldBaseType.BITS | 6
 
-    PSNR_AVG: int = CsvFieldBaseType.PSNR | CsvFiledValueType.VALUE
-    PSNR_STDEV: int = CsvFieldBaseType.PSNR | CsvFiledValueType.STDEV
-    BDBR_PSNR: int = CsvFieldBaseType.PSNR | CsvFiledValueType.COMPARISON
-    PSNR_CURVE_CROSSINGS: int = CsvFieldBaseType.PSNR | CsvFiledValueType.CROSSINGS
-    PSNR_OVERLAP: int = CsvFieldBaseType.PSNR | CsvFiledValueType.OVERLAP
+    PSNR_AVG: int = CsvFieldBaseType.PSNR | CsvFieldValueType.VALUE
+    PSNR_STDEV: int = CsvFieldBaseType.PSNR | CsvFieldValueType.STDEV
+    BDBR_PSNR: int = CsvFieldBaseType.PSNR | CsvFieldValueType.COMPARISON
+    PSNR_CURVE_CROSSINGS: int = CsvFieldBaseType.PSNR | CsvFieldValueType.CROSSINGS
+    PSNR_OVERLAP: int = CsvFieldBaseType.PSNR | CsvFieldValueType.OVERLAP
 
-    SSIM_AVG: int = CsvFieldBaseType.SSIM | CsvFiledValueType.VALUE
-    SSIM_STDEV: int = CsvFieldBaseType.SSIM | CsvFiledValueType.STDEV
-    BDBR_SSIM: int = CsvFieldBaseType.SSIM | CsvFiledValueType.COMPARISON
-    SSIM_CURVE_CROSSINGS: int = CsvFieldBaseType.SSIM | CsvFiledValueType.CROSSINGS
-    SSIM_OVERLAP: int = CsvFieldBaseType.SSIM | CsvFiledValueType.OVERLAP
+    SSIM_AVG: int = CsvFieldBaseType.SSIM | CsvFieldValueType.VALUE
+    SSIM_STDEV: int = CsvFieldBaseType.SSIM | CsvFieldValueType.STDEV
+    BDBR_SSIM: int = CsvFieldBaseType.SSIM | CsvFieldValueType.COMPARISON
+    SSIM_CURVE_CROSSINGS: int = CsvFieldBaseType.SSIM | CsvFieldValueType.CROSSINGS
+    SSIM_OVERLAP: int = CsvFieldBaseType.SSIM | CsvFieldValueType.OVERLAP
 
-    VMAF_AVG: int = CsvFieldBaseType.VMAF | CsvFiledValueType.VALUE
-    VMAF_STDEV: int = CsvFieldBaseType.VMAF | CsvFiledValueType.STDEV
-    BDBR_VMAF: int = CsvFieldBaseType.VMAF | CsvFiledValueType.COMPARISON
-    VMAF_CURVE_CROSSINGS: int = CsvFieldBaseType.VMAF | CsvFiledValueType.CROSSINGS
-    VMAF_OVERLAP: int = CsvFieldBaseType.VMAF | CsvFiledValueType.OVERLAP
+    VMAF_AVG: int = CsvFieldBaseType.VMAF | CsvFieldValueType.VALUE
+    VMAF_STDEV: int = CsvFieldBaseType.VMAF | CsvFieldValueType.STDEV
+    BDBR_VMAF: int = CsvFieldBaseType.VMAF | CsvFieldValueType.COMPARISON
+    VMAF_CURVE_CROSSINGS: int = CsvFieldBaseType.VMAF | CsvFieldValueType.CROSSINGS
+    VMAF_OVERLAP: int = CsvFieldBaseType.VMAF | CsvFieldValueType.OVERLAP
 
     CONFORMANCE: int = 12
 
@@ -152,31 +152,31 @@ class CsvFile:
         # TODO: Find a way to make this cleaner
         for base_type in CsvFieldBaseType:
             try:
-                values_by_field[CsvField(base_type | CsvFiledValueType.VALUE)] = \
+                values_by_field[CsvField(base_type | CsvFieldValueType.VALUE)] = \
                     lambda base_type=base_type: metric[str(base_type) + "_avg"]
             except ValueError:
                 pass
 
             try:
-                values_by_field[CsvField(base_type | CsvFiledValueType.STDEV)] = \
+                values_by_field[CsvField(base_type | CsvFieldValueType.STDEV)] = \
                     lambda base_type=base_type: metric[str(base_type) + "_stdev"]
             except ValueError:
                 pass
 
             try:
-                values_by_field[CsvField(base_type | CsvFiledValueType.COMPARISON)] = \
+                values_by_field[CsvField(base_type | CsvFieldValueType.COMPARISON)] = \
                     lambda base_type=base_type: sequence_metric.compare_to_anchor(anchor_seq, str(base_type))
             except ValueError:
                 pass
 
             try:
-                values_by_field[CsvField(base_type | CsvFiledValueType.CROSSINGS)] = \
+                values_by_field[CsvField(base_type | CsvFieldValueType.CROSSINGS)] = \
                     lambda base_type=base_type: sequence_metric.rd_curve_crossings(anchor_seq, str(base_type))
             except ValueError:
                 pass
 
             try:
-                values_by_field[CsvField(base_type | CsvFiledValueType.OVERLAP)] = \
+                values_by_field[CsvField(base_type | CsvFieldValueType.OVERLAP)] = \
                     lambda base_type=base_type: sequence_metric.metric_overlap(anchor_seq, str(base_type))
             except ValueError:
                 pass
