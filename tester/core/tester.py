@@ -417,7 +417,7 @@ class Tester:
             html, pixels, pages = table.tablefy(context)
             config = pdfkit.configuration(wkhtmltopdf=Cfg().wkhtmltopdf)
             options = {
-                'page-height': f"{pixels + 50}px",
+                'page-height': f"{pixels + 50 + (5 if Cfg().system_os_name == 'Linux' else 0)}px",
                 'page-width': "1850px",
                 'margin-top': "25px",
                 'margin-bottom': "25px",
