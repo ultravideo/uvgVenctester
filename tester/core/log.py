@@ -66,7 +66,6 @@ class MyLogger(logging.Logger):
         super(MyLogger, self).warning(msg=msg, *args, **kwargs)
 
     def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
-    def debug(self, *args: Any, **kwargs: Any) -> None:
         self._call_counts["debug"] += 1
         super(MyLogger, self).debug(msg, *args, **kwargs)
 

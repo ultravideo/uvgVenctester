@@ -246,6 +246,10 @@ class Tester:
                     graphs.GraphMetrics.VMAF in Cfg().graph_enabled_metrics and ResultTypes.GRAPH in result_t
             )
         global_conformance = csv.CsvField.CONFORMANCE in Cfg().csv_enabled_fields and ResultTypes.CSV in result_t
+        
+        if global_vmaf:
+            for test in context.get_tests():
+                ffmpeg.copy_vmaf_models(test)
 
         for sequence in context.get_input_sequences():
             for test in context.get_tests():
@@ -277,9 +281,6 @@ class Tester:
                         else:
                             Tester._calculate_metrics_for_one_run(arguments)
 
-        for test in context.get_tests():
-            ffmpeg.copy_vmaf_models(test)
-
         if parallel_calculations > 1:
             with Pool(parallel_calculations) as p:
                 p.map(Tester._calculate_metrics_for_one_run, values)
@@ -287,8 +288,9 @@ class Tester:
         for m in result_types:
             context.add_metrics_calculated_for(m)
 
-        for test in context.get_tests():
-            ffmpeg.remove_vmaf_models(test)
+        if global_vmaf:
+            for test in context.get_tests():
+                ffmpeg.remove_vmaf_models(test)
 
     @staticmethod
     def _calculate_metrics_for_one_run(in_args):
@@ -474,11 +476,11 @@ class Tester:
         assert len(Cfg().colors) >= len(metrics)
 
         enabled_metrics = []
-        if csv.CsvField.PSNR_AVG in Cfg().csv_enabled_fields:
+        if graphs.GraphMetrics.PSNR in Cfg().graph_enabled_metrics:
             enabled_metrics.append("psnr")
-        if csv.CsvField.SSIM_AVG in Cfg().csv_enabled_fields:
+        if graphs.GraphMetrics.SSIM in Cfg().graph_enabled_metrics:
             enabled_metrics.append("ssim")
-        if csv.CsvField.VMAF_AVG in Cfg().csv_enabled_fields:
+        if graphs.GraphMetrics.VMAF in Cfg().graph_enabled_metrics:
             enabled_metrics.append("vmaf")
 
         figures = []
