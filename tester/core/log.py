@@ -65,9 +65,9 @@ class MyLogger(logging.Logger):
         self._warnings.append(msg)
         super(MyLogger, self).warning(msg=msg, *args, **kwargs)
 
-    def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+    def debug(self, *args: Any, **kwargs: Any) -> None:
         self._call_counts["debug"] += 1
-        super(MyLogger, self).debug(msg=msg, *args, **kwargs)
+        super(MyLogger, self).debug(*args, **kwargs)
 
     def __del__(self):
         if not self._warnings:
