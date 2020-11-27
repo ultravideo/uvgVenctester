@@ -170,14 +170,14 @@ def tablefy_one(context, test: Test, anchor: Test):
         '       </table>',
         '   </div>',
         '<div class="info">',
-        f'<p style="margin-bottom: 5px">Anchor: {anchor.name}:'
-        f' {anchor.encoder.get_name()} using {anchor.quality_param_type.name}:'
+        f'<p style="margin-bottom: 5px">Anchor: Test name: {anchor.name} encoder: {anchor.encoder.get_name()}'
+        f' version: {anchor.encoder_revision}</br>Using {anchor.quality_param_type.name}:'
         f' [{", ".join(str(x) for x in test.quality_param_list)}]</p>',
         '<ul style="margin-top: 5px">',
         anchor_params,
         '</ul>',
-        f'<p style="margin-bottom: 5px">{test.name}:'
-        f' {test.encoder.get_name()} using {test.quality_param_type.name}:'
+        f'<p style="margin-bottom: 5px">Test name: {test.name} encoder: {test.encoder.get_name()}'
+        f' version: {test.encoder_revision}</br>Using {test.quality_param_type.name}:'
         f' [{", ".join(str(x) for x in test.quality_param_list)}]</p>',
         '<ul style="margin-top: 5px">',
         test_params,
