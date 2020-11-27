@@ -37,7 +37,7 @@ def main():
     try:
         with open("master_list.txt", "r") as master_f:
             for line in master_f:
-                master_list.append(line)
+                master_list.append(line.strip())
     except FileNotFoundError:
         pass
 
@@ -106,8 +106,9 @@ def main():
         cl_args='--preset veryslow --tune ssim --limit-refs 1 --limit-modes --max-merge 4 --aq-mode 1 --limit-tu 4 --pools 12'
     )
 
-    master_info = kvz_repo.get_commit_info("master")
+    master_info = kvz_repo.get_commit_info(current)
     old_info = kvz_repo.get_commit_info(temp)
+
     new_line = "\n"
     first_page = f'<p> Kvazaar master at {master_info["commit"]} on {master_info["Date"]}.</p>' \
                  f'<p>Commit by {master_info["Author"]} with message:</p>' \
