@@ -7,6 +7,7 @@ from enum import Enum
 
 import tester.core.csv as csv
 import tester.core.table as table
+import tester.core.graphs as graphs
 from .log import console_log
 from .singleton import Singleton
 
@@ -251,6 +252,40 @@ class Cfg(metaclass=Singleton):
     @wkhtmltopdf.setter
     def wkhtmltopdf(self, value):
         self._wkhtmltopdf_path = value
+
+    ##########################################################################
+    # RD Plots
+    ##########################################################################
+
+    colors = [
+        "xkcd:black",
+        "xkcd:red",
+        "xkcd:blue",
+        "xkcd:green",
+        "xkcd:cyan",
+        "xkcd:magenta",
+        "xkcd:yellow",
+        "xkcd:pink",
+        "xkcd:brown",
+        "xkcd:bright purple",
+        "xkcd:indigo",
+        "xkcd:dark teal",
+        "xkcd:crimson",
+        "xkcd:apple green",
+        "xkcd:bluish green",
+    ]
+    """List of colors used for the curves in the RD plots.
+     Order is same as for the order where Tests are passed to create context"""
+
+    include_bitrate_targets = True
+    """When bitrate or derivative is used as quality_param whether they are depicted in the figures"""
+
+    graph_enabled_metrics = [
+        graphs.GraphMetrics.PSNR,
+        graphs.GraphMetrics.SSIM,
+        graphs.GraphMetrics.VMAF,
+    ]
+    """Which subfigures are included"""
 
     ##########################################################################
     # General

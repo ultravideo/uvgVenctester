@@ -4,15 +4,16 @@ import subprocess
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Iterable
-from multiprocessing import Pool
+from typing import Iterable, List
+from multiprocessing import Pool, cpu_count
 from PyPDF4 import PdfFileMerger
 from tempfile import mkstemp
+import matplotlib.pyplot as plt
 
 import tester
 import pdfkit
 import tester.core.cmake as cmake
-from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs, table, conformance
+from tester.core import gcc, ffmpeg, system, vmaf, csv, git, vs, table, conformance, graphs
 from tester.core.cfg import Cfg
 from tester.core.log import console_log, log_exception
 from tester.core.metrics import TestMetrics, SequenceMetrics
@@ -23,6 +24,7 @@ from tester.core.video import RawVideoSequence
 class ResultTypes(Enum):
     CSV = 1
     TABLE = 2
+    GRAPH = 3
 
 
 class TesterContext:
@@ -63,7 +65,7 @@ class TesterContext:
         assert test_name in self._tests_by_name.keys()
         return self._tests_by_name[test_name]
 
-    def get_input_sequences(self) -> list:
+    def get_input_sequences(self) -> List[RawVideoSequence]:
         return self._input_sequences
 
     def add_metrics_calculated_for(self, type_: ResultTypes):
@@ -202,7 +204,7 @@ class Tester:
     @staticmethod
     def compute_metrics(context: TesterContext,
                         parallel_calculations: int = 1,
-                        result_types: Iterable = (ResultTypes.CSV, ResultTypes.TABLE)) -> None:
+                        result_types: Iterable = (ResultTypes.CSV, ResultTypes.TABLE, ResultTypes.GRAPH)) -> None:
         result_t = []
         for r in result_types:
             if r not in context.get_metrics_calculate_for():
@@ -220,6 +222,8 @@ class Tester:
                          in csv.CsvFieldValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.PSNR_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
+            ) or (
+                    graphs.GraphMetrics.PSNR in Cfg().graph_enabled_metrics and ResultTypes.GRAPH in result_t
             )
         global_ssim = \
             (
@@ -228,6 +232,8 @@ class Tester:
                          in csv.CsvFieldValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.SSIM_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
+            ) or (
+                    graphs.GraphMetrics.SSIM in Cfg().graph_enabled_metrics and ResultTypes.GRAPH in result_t
             )
         global_vmaf = \
             (
@@ -236,8 +242,14 @@ class Tester:
                          in csv.CsvFieldValueType]) and ResultTypes.CSV in result_t
             ) or (
                     table.TableColumns.VMAF_BDBR in Cfg().table_enabled_columns and ResultTypes.TABLE in result_t
+            ) or (
+                    graphs.GraphMetrics.VMAF in Cfg().graph_enabled_metrics and ResultTypes.GRAPH in result_t
             )
         global_conformance = csv.CsvField.CONFORMANCE in Cfg().csv_enabled_fields and ResultTypes.CSV in result_t
+        
+        if global_vmaf:
+            for test in context.get_tests():
+                ffmpeg.copy_vmaf_models(test)
 
         for sequence in context.get_input_sequences():
             for test in context.get_tests():
@@ -269,9 +281,6 @@ class Tester:
                         else:
                             Tester._calculate_metrics_for_one_run(arguments)
 
-        for test in context.get_tests():
-            ffmpeg.copy_vmaf_models(test)
-
         if parallel_calculations > 1:
             with Pool(parallel_calculations) as p:
                 p.map(Tester._calculate_metrics_for_one_run, values)
@@ -279,8 +288,9 @@ class Tester:
         for m in result_types:
             context.add_metrics_calculated_for(m)
 
-        for test in context.get_tests():
-            ffmpeg.remove_vmaf_models(test)
+        if global_vmaf:
+            for test in context.get_tests():
+                ffmpeg.remove_vmaf_models(test)
 
     @staticmethod
     def _calculate_metrics_for_one_run(in_args):
@@ -448,3 +458,75 @@ class Tester:
 
         else:
             raise ValueError("Invalid table type")
+
+    @staticmethod
+    def generate_rd_graphs(context: TesterContext,
+                           basedir: Path,
+                           parallel_generations: [int, None] = None,
+                           parallel_calculations: int = 1):
+        Tester.compute_metrics(context, parallel_calculations, (ResultTypes.GRAPH,))
+        if not basedir.exists():
+            basedir.mkdir()
+        if not basedir.is_dir():
+            raise TypeError(f"{str(basedir)} exists but it is not a directory")
+
+        seqs = context.get_input_sequences()
+        metrics = context.get_metrics()
+
+        assert len(Cfg().colors) >= len(metrics)
+
+        enabled_metrics = []
+        if graphs.GraphMetrics.PSNR in Cfg().graph_enabled_metrics:
+            enabled_metrics.append("psnr")
+        if graphs.GraphMetrics.SSIM in Cfg().graph_enabled_metrics:
+            enabled_metrics.append("ssim")
+        if graphs.GraphMetrics.VMAF in Cfg().graph_enabled_metrics:
+            enabled_metrics.append("vmaf")
+
+        figures = []
+        for index, seq in enumerate(seqs):
+            figures.append((basedir, context, enabled_metrics, index, metrics, seq))
+
+        if parallel_generations == 1:
+            for fig in figures:
+                Tester._do_one_figure(fig)
+        else:
+            if parallel_generations is None:
+                parallel_generations = cpu_count()
+            with Pool(parallel_generations) as p:
+                p.map(Tester._do_one_figure, figures)
+
+    @staticmethod
+    def _do_one_figure(args):
+        basedir, context, enabled_metrics, index, metrics, seq = args
+        console_log.info(f"Generating RD-graph for {seq.get_suffixless_name()}")
+        plt.figure(index, [30, 35])
+        video_name = seq.get_filepath().name
+        plt.suptitle(video_name, size=50)
+        for plot_index, metric in enumerate(enabled_metrics):
+            plt.subplot(100 * len(enabled_metrics) + 10 + plot_index + 1)
+            plt.title(metric.upper(), size=26)
+            temp = []
+
+            for test, color in zip(metrics, Cfg().colors):
+                video_data = [metrics[test][seq][subtest.param_set.get_quality_param_value()] for subtest in
+                              context.get_test(test).subtests]
+                rates = [data["bitrate_avg"] / 1000 for data in video_data]
+                a = plt.plot(
+                    rates,
+                    [data[f"{metric}_avg"] for data in video_data],
+                    marker="o",
+                    color=color
+                )
+                temp.append(a[0])
+                if "target_bitrate_avg" in video_data[0] and Cfg().include_bitrate_targets:
+                    for target in video_data:
+                        plt.axvline(x=target["target_bitrate_avg"] / 1000)
+
+            plt.legend(temp, metrics, fontsize=18)
+            te = plt.gca()
+            te.xaxis.set_tick_params(labelsize=16)
+            te.yaxis.set_tick_params(labelsize=16)
+            plt.xlim(left=0)
+        plt.savefig((basedir / video_name).with_suffix(".png"))
+        plt.close()
