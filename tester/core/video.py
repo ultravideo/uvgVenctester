@@ -225,10 +225,22 @@ class RawVideoSequence:
 
     @staticmethod
     def guess_sequence_class(filepath: Path) -> str:
-        regex_pattern = re.compile("(hevc-[a-z])", re.IGNORECASE)
-        match = regex_pattern.search(str(filepath))
-        if match:
-            return match[1]
+        hevc_pattern = re.compile("(hevc-[a-z])", re.IGNORECASE)
+        vvc_pattern = re.compile("(vvc-[a-z])", re.IGNORECASE)
+        file_string = str(filepath)
+        hevc_match = hevc_pattern.search(file_string)
+        vvc_match = vvc_pattern.search(file_string)
+        file_string = file_string.lower()
+        if hevc_match:
+            return hevc_match[1]
+        elif vvc_match:
+            return vvc_match[1]
+        elif "xiph-fullhd" in file_string:
+            return "xiph-fullhd"
+        elif "xiph-720p" in file_string:
+            return "xiph-720p"
+        elif "uvg" in file_string or "ultravideo" in file_string:
+            return "UVG"
         else:
             return "Unknown"
 

@@ -141,11 +141,11 @@ def tablefy_one(context, test: Test, anchor: Test):
     collect_data(all_data, test, anchor, class_averages, context, total_averages)
     pixels = 23 * len(class_averages) + 21 * sum(len(x) for x in all_data.values()) + 72
 
-    for cls in sorted(class_averages.keys()):
+    for cls in sorted(class_averages.keys(), key=lambda x: x.lower()):
         html.append(
             row_from_data(class_averages[cls], "hevc")
         )
-        for seq, data in all_data[cls].items():
+        for seq, data in sorted(all_data[cls].items(),key=lambda x: x[0].lower()):
             html.append(
                 row_from_data(data)
             )
