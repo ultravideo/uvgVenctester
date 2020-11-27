@@ -110,7 +110,6 @@ class GitRepository(object):
             )
             return cmd_as_str, output, None
         except subprocess.CalledProcessError as exception:
-            print("failed", exception)
             return cmd_as_str, None, exception
 
     def rev_parse(self,
