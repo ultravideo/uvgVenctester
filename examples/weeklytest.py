@@ -33,15 +33,33 @@ def main():
         kvz_repo.clone(Cfg().kvazaar_remote_url)
 
     kvz_repo.fetch_all()
+    master_list = []
+    try:
+        with open("master_list.txt", "r") as master_f:
+            for line in master_f:
+                master_list.append(line)
+    except FileNotFoundError:
+        pass
+
     current = kvz_repo.rev_parse("origin/master")[1].decode().strip()
-    temp = current
-    weeks = 0
-    while not temp or temp == current:
-        weeks += 1
-        temp = kvz_repo.get_latest_commit_between(
-            datetime.now() - timedelta(weeks=weeks + 1),
-            datetime.now() - timedelta(weeks=weeks),
-        )
+    if not master_list:
+        temp = current
+        weeks = 0
+        while not temp or temp == current:
+            weeks += 1
+            temp = kvz_repo.get_latest_commit_between(
+                datetime.now() - timedelta(weeks=weeks + 1),
+                datetime.now() - timedelta(weeks=weeks),
+            )
+        with open("master_list.txt", "a") as master_f:
+            master_f.write(f"{temp}\n{current}\n")
+    else:
+        if current == master_list[-1]:
+            temp = master_list[-2]
+        else:
+            temp = master_list[-1]
+            with open("master_list.txt", "a") as master_f:
+                master_f.write(f"{current}\n")
 
     uf_head = Test(
         name="Kvazaar_uf_master",
@@ -50,12 +68,12 @@ def main():
         cl_args="--preset=ultrafast --period=256 --rd=1 --pu-depth-intra=2-3,2-3,3-3,3-3,3-3 "
                 "--pu-depth-inter=1-2,1-2,2-2,2-2,2-2 --signhide --me-early-termination=off "
                 "--max-merge=2 --vaq 5 --threads 12",
-        anchor_names=[f"Kvazaar_uf_since_{weeks}_weeks", "x265_uf"],
+        anchor_names=[f"old_Kvazaar_uf", "x265_uf"],
         rounds=5
     )
     uf_since = uf_head.clone(
         encoder_revision=temp,
-        name=f"Kvazaar_uf_since_{weeks}_weeks",
+        name=f"old_Kvazaar_uf",
         anchor_names=[],
         rounds=5
     )
@@ -70,13 +88,13 @@ def main():
     vs_head = uf_head.clone(
         name="Kvazaar_vs_master",
         cl_args="--preset=veryslow --period=256 --owf=0 --vaq 5 --threads 12",
-        anchor_names=[f"Kvazaar_vs_since_{weeks}_weeks", "x265_vs"],
+        anchor_names=[f"old_Kvazaar_vs", "x265_vs"],
         rounds=1
     )
 
     vs_since = vs_head.clone(
         encoder_revision=temp,
-        name=f"Kvazaar_vs_since_{weeks}_weeks",
+        name=f"old_Kvazaar_vs",
         anchor_names=[],
         rounds=1
     )
