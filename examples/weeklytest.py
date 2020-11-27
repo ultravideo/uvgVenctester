@@ -87,7 +87,7 @@ def main():
 
     vs_head = uf_head.clone(
         name="Kvazaar_vs_master",
-        cl_args="--preset=veryslow --period=256 --owf=0 --vaq 5 --threads 12",
+        cl_args="--preset=veryslow --period=256 --vaq 5 --threads 12",
         anchor_names=[f"old_Kvazaar_vs", "x265_vs"],
         rounds=1
     )
