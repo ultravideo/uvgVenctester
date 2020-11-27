@@ -198,14 +198,14 @@ def collect_data(all_data, test, anchor, class_averages, context, total_averages
     for sequence in sequences:
         c = sequence.get_sequence_class()
         actions = {
-            TableColumns.PSNR_BDBR: lambda: metrics[test.name][sequence].compute_bdbr_to_anchor(
+            TableColumns.PSNR_BDBR: lambda: metrics[test.name][sequence].compare_to_anchor(
                 metrics[anchor.name][sequence], "psnr"),
-            TableColumns.SSIM_BDBR: lambda: metrics[test.name][sequence].compute_bdbr_to_anchor(
+            TableColumns.SSIM_BDBR: lambda: metrics[test.name][sequence].compare_to_anchor(
                 metrics[anchor.name][sequence], "ssim"),
-            TableColumns.VMAF_BDBR: lambda: metrics[test.name][sequence].compute_bdbr_to_anchor(
+            TableColumns.VMAF_BDBR: lambda: metrics[test.name][sequence].compare_to_anchor(
                 metrics[anchor.name][sequence], "vmaf"),
-            TableColumns.SPEEDUP: lambda: metrics[test.name][sequence].average_speedup(
-                metrics[anchor.name][sequence]),
+            TableColumns.SPEEDUP: lambda: metrics[test.name][sequence].compare_to_anchor(
+                metrics[anchor.name][sequence], "encoding_time"),
             TableColumns.VIDEO: lambda: sequence.get_suffixless_name()
         }
         for m in cfg.Cfg().table_enabled_columns:
