@@ -22,7 +22,7 @@ def main():
     reservation_handler = rh.ReservationHandler("10.21.25.26", "30001", "Weeklytester")
     try:
         reservation_handler.reserve_server(time_h=120, time_m=0)
-    except rh.ReservationHandler:
+    except rh.ReservationException:
         return
     globs = [
         "hevc-B/*.yuv",
