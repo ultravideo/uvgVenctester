@@ -149,3 +149,27 @@ class GitRepository(object):
 
         except subprocess.CalledProcessError as e:
             raise e
+
+    def get_commit_info(self, commit: str):
+        cmd = (
+            "git",
+            "--work-tree", str(self._local_repo_path),
+            "--git-dir", str(self._git_dir_path),
+            "log",
+            "-1",
+            "--format=%aI%n%an%n%H%n%s%n%b",
+            commit
+        )
+        try:
+            data = {}
+            output = subprocess.check_output(subprocess.list2cmdline(cmd),
+                                             shell=True,
+                                             stderr=subprocess.STDOUT).decode().split("\n")
+            data["Date"] = datetime.fromisoformat(output[0])
+            data["Author"] = output[1]
+            data["commit"] = output[2]
+            data["Message"] = "\n".join(output[3:])
+            return data
+
+        except subprocess.CalledProcessError:
+            return {}

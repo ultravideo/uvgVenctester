@@ -12,7 +12,8 @@ class ReservationException(Exception):
 
 class ReservationHandler(metaclass=Singleton):
 
-    def __init__(self, reservation_ip, port, name="Venctester", to_reserve_ip=None):
+    def __init__(self, reservation_ip, port, name="Venctester", to_reserve_ip=None, auto_free=True):
+        self.auto_free = auto_free
         self.RESERVATION_SERVER_IP = reservation_ip
         self.RESERVATION_SERVER_PORT = port
         self.RESERVATION_SERVER_URL = f'http://{self.RESERVATION_SERVER_IP}:{self.RESERVATION_SERVER_PORT}'
@@ -97,3 +98,7 @@ class ReservationHandler(metaclass=Singleton):
             'time': time,
         }
         requests.post(self.RESERVATION_SERVER_URL, headers=header, data=data)
+    
+    def __del__(self):
+        if self.auto_free:
+            self.free_server()

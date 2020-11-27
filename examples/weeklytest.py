@@ -88,13 +88,25 @@ def main():
         cl_args='--preset veryslow --tune ssim --limit-refs 1 --limit-modes --max-merge 4 --aq-mode 1 --limit-tu 4 --pools 12'
     )
 
+    master_info = kvz_repo.get_commit_info("master")
+    old_info = kvz_repo.get_commit_info(temp)
+    new_line = "\n"
+    first_page = f'<p> Kvazaar master at {master_info["commit"]} on {master_info["Date"]}.</p>' \
+                 f'<p>Commit by {master_info["Author"]} with message:</p>' \
+                 f'<p>{master_info["Message"].replace(new_line, "</br>")}</p>'
+
+    first_page += f'<p> Older Kvazaar at {old_info["commit"]} on {old_info["Date"]}.</p>' \
+                  f'<p>Commit by {old_info["Author"]} with message:</p>' \
+                  f'<p>{old_info["Message"].replace(new_line, "</br>")}</p>'
+
     table = f"/home/weeklytester/weekly_plots/weekly_plots/weekly_table_{datetime.now().strftime('%Y-%m-%d')}.pdf"
 
     context = Tester.create_context((uf_head, uf_since, uf_x265, vs_head, vs_since, vs_x265), globs)
     Tester.run_tests(context, parallel_runs=4)
     Tester.create_tables(context,
                          table,
-                         parallel_calculations=4)
+                         parallel_calculations=4,
+                         first_page=first_page)
 
     latest_weekly_table_pdf = "/home/weeklytester/weekly_plots/weekly_plots/latest-weekly-table.pdf"
     try:
