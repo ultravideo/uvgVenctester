@@ -76,7 +76,7 @@ class VideoFileBase:
 
 
 class RawVideoSequence:
-    """Represents a YUV file (or part of it if seek, framecount and/or step have been defined)."""
+    """Represents a YUV file."""
 
     def __init__(self,
                  filepath: Path,
@@ -108,7 +108,8 @@ class RawVideoSequence:
             stats["total_frames"] = self.guess_total_framecount(filepath, **stats)
 
         for key, value in stats.items():
-            setattr(self, "_" + key, value)
+            if value:
+                setattr(self, "_" + key, value)
 
         assert self._width and self._height
         assert self._fps
@@ -199,8 +200,8 @@ class RawVideoSequence:
     @staticmethod
     def guess_values(filepath: Path):
         file = filepath.parts[-1]
-        first_pattern = re.compile(".+_(\d+)x(\d+)_(\d+)_?(\d+)?.yuv")
-        second_pattern = re.compile(".+_(\d+)x(\d+)_(\d+)fps_(\d+)bit_(\d+).yuv")
+        first_pattern = re.compile(r".+_(\d+)x(\d+)_(\d+)_?(\d+)?.yuv")
+        second_pattern = re.compile(r".+_(\d+)x(\d+)_(\d+)fps_(\d+)bit_(\d+).yuv")
 
         match = first_pattern.match(file)
         if match:
@@ -250,14 +251,6 @@ class RawVideoSequence:
                                height: int,
                                chroma: int,
                                bit_depth: int, **kwargs) -> int:
-        # There is no reason to have the frame count in the file name because it can be computed.
-        """
-        framecount_pattern = re.compile("[0-9]+x[0-9]+_[0-9]+fps_([0-9]+)")
-        match = framecount_pattern.search(filepath.name)
-        if match:
-            return int(match[1])
-        else:
-        """
         assert filepath.exists()
         file_size_bytes = filepath.stat().st_size
         bytes_per_pixel = 1 if bit_depth == 8 else 2

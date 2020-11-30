@@ -2,6 +2,7 @@ import subprocess
 from enum import Enum
 from collections import defaultdict
 from typing import List, Dict
+from math import isnan
 
 import tester.core.metrics as met
 from tester.core.log import console_log
@@ -37,6 +38,9 @@ class TableColumns(Enum):
 
 
 def tablefy(context, header_page=None):
+    # The CSS is statically in the HTML because it is much easier than having
+    # it in a file and since the pdf generation is very peculiar about the
+    # height of the elements
     a = [
         '',
         '<!DOCTYPE html>',
@@ -124,6 +128,7 @@ def tablefy(context, header_page=None):
 
     a.append('</body>')
     a.append('</html>')
+    # For some reason the pdf generation requires some extra padding...
     pixels += 5 if pixels % 2 else 4
     return "\n".join(a), pixels, page_count
 
@@ -139,13 +144,14 @@ def tablefy_one(context, test: Test, anchor: Test):
     total_averages = defaultdict(list)
     all_data = defaultdict(lambda: defaultdict(dict))
     collect_data(all_data, test, anchor, class_averages, context, total_averages)
+    # calculate the height of the table based on the number of elements
     pixels = 23 * len(class_averages) + 21 * sum(len(x) for x in all_data.values()) + 72
 
     for cls in sorted(class_averages.keys(), key=lambda x: x.lower()):
         html.append(
             row_from_data(class_averages[cls], "hevc")
         )
-        for seq, data in sorted(all_data[cls].items(),key=lambda x: x[0].lower()):
+        for seq, data in sorted(all_data[cls].items(), key=lambda x: x[0].lower()):
             html.append(
                 row_from_data(data)
             )
@@ -220,13 +226,15 @@ def collect_data(all_data, test, anchor, class_averages, context, total_averages
         for m in cfg.Cfg().table_enabled_columns:
             if m == TableColumns.VIDEO:
                 continue
-            class_averages[cls][m] = sum(class_averages[cls][m]) / len(class_averages[cls][m])
+            non_nan_values = [x for x in class_averages[cls][m] if not isnan(x)]
+            class_averages[cls][m] = sum(non_nan_values) / len(non_nan_values)
         class_averages[cls][TableColumns.VIDEO] = cls
 
     for m in cfg.Cfg().table_enabled_columns:
         if m == TableColumns.VIDEO:
             continue
-        total_averages[m] = sum(total_averages[m]) / len(total_averages[m])
+        non_nan_values = [x for x in total_averages[m] if not isnan(x)]
+        total_averages[m] = sum(non_nan_values) / len(non_nan_values)
     total_averages[TableColumns.VIDEO] = "Averages"
 
 
@@ -247,7 +255,8 @@ def row_from_data(row_data, row_class: [str, None] = None):
     out = [
               f'''<tr{"" if not row_class else f' class="{row_class}"'}>''',
           ] + [
-              f'      <td> <div> {cfg.Cfg().table_column_formats[x](row_data[x])} </div> </td>'
+              f'      <td> <div{""" style:"color: red";""" if isnan(row_data[x]) else ""}> ' +
+              f'{cfg.Cfg().table_column_formats[x](row_data[x])} </div> </td>'
               for x
               in cfg.Cfg().table_enabled_columns
           ] + [

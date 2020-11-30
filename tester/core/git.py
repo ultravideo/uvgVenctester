@@ -43,6 +43,8 @@ class GitRepository(object):
 
     def clone(self,
               remote_url: str) -> (str, bytes, subprocess.CalledProcessError):
+        if self._git_dir_path.exists():
+            return None, None, None
         clone_cmd: tuple = (
             "git",
             "clone", remote_url, str(self._local_repo_path),
@@ -77,12 +79,12 @@ class GitRepository(object):
         except subprocess.CalledProcessError as exception:
             return cmd_as_str, None, exception
 
-    def pull_origin_master(self) -> (str, bytes, subprocess.CalledProcessError):
+    def pull(self, remote: str = "origin", branch: str = "master") -> (str, bytes, subprocess.CalledProcessError):
         pull_cmd: tuple = (
             "git",
             "--work-tree", str(self._local_repo_path),
             "--git-dir", str(self._git_dir_path),
-            "pull", "origin", "master",
+            "pull", remote, branch
         )
         cmd_as_str: str = subprocess.list2cmdline(pull_cmd)
         try:

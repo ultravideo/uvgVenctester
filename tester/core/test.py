@@ -61,7 +61,7 @@ class EncodingRun:
 
         self.metrics = met.EncodingRunMetrics(self.metrics_path)
 
-        self.decoded_output_file_path: Path = None
+        self.decoded_output_file_path: [Path, None] = None
         if type(encoder) == encoders.Vtm:
             self.decoded_output_file_path: Path = self.output_dir_path / f"{self.base_filename}_decoded.yuv"
 
@@ -142,10 +142,7 @@ class Test:
         self.rounds: int = rounds
         self.use_prebuilt = use_prebuilt
 
-        self.subtests: list = None
-
-        # HM and VTM only encode every nth frame if --TemporalSubsampleRatio is specified
-        # (in the config file).
+        self.subtests: list = []
 
         # Order quality parameters in ascending order by resulting bitrate,
         # since that is the order in which the results have to be when BD-BR is computed.
@@ -164,7 +161,6 @@ class Test:
             for quality_param_value in quality_param_list
         ]
 
-        self.subtests = []
         for param_set in param_sets:
             subtest = SubTest(
                 self,
@@ -175,6 +171,7 @@ class Test:
             self.subtests.append(subtest)
 
     def clone(self,
+              name: str,
               **kwargs) -> Test:
         """Clones a Test object. Kwargs may contain parameter overrides for the constructor call."""
 
@@ -182,6 +179,7 @@ class Test:
             attribute_name: getattr(self, attribute_name) for attribute_name in self.__dict__
         }
 
+        defaults["name"] = name
         for attribute_name, attribute_value in kwargs.items():
             defaults[attribute_name] = attribute_value
 
@@ -189,8 +187,8 @@ class Test:
 
     def __eq__(self,
                other: Test):
-        for i, subtest in enumerate(self.subtests):
-            if other.subtests[i] != subtest:
+        for own, other_ in zip(self.subtests, other.subtests):
+            if other_ != own:
                 return False
         return self.encoder == other.encoder
 

@@ -71,9 +71,13 @@ class CsvField(Enum):
     TIME_SECONDS: int = CsvFieldBaseType.TIME | CsvFieldValueType.VALUE
     TIME_STDEV: int = CsvFieldBaseType.TIME | CsvFieldValueType.STDEV
     SPEEDUP: int = CsvFieldBaseType.TIME | CsvFieldValueType.COMPARISON
+    # Crossings
+    # Overlap
 
     BITRATE: int = CsvFieldBaseType.BITS | CsvFieldValueType.VALUE
     BITRATE_STDEV: int = CsvFieldBaseType.BITS | CsvFieldValueType.STDEV
+    # Comparison
+    # Crossings
     RATE_OVERLAP: int = CsvFieldBaseType.BITS | CsvFieldValueType.OVERLAP
     BITRATE_ERROR: int = CsvFieldBaseType.BITS | 6
 

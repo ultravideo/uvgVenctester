@@ -28,7 +28,7 @@ class ReservationHandler(metaclass=Singleton):
 
             self.RESERVER_NAME = name
 
-            self.SERVER_NAME, self.SERVER_ROW = self.__getSelfNameAndRow()
+            self.SERVER_NAME, self.SERVER_ROW = self.__get_self_name_and_row()
             console_log.info('Reservation handler:')
             console_log.info(' Reservation server URL: ' + self.RESERVATION_SERVER_URL)
             console_log.info(' Self IP: ' + str(self.SELF_IP))
@@ -45,16 +45,16 @@ class ReservationHandler(metaclass=Singleton):
         console_log.info('Reserving {} for {} hours and {} minutes...'.format(self.SERVER_NAME, time_h, time_m))
 
         if 'status off' in self.SERVER_ROW:
-            reserver = self.__grabHtmlContent(self.SERVER_ROW, '<td class="resby">', '</td>')
+            reserver = self.__grab_html_content(self.SERVER_ROW, '<td class="resby">', '</td>')
             if reserver == self.RESERVER_NAME:
                 return
-            timestamp = self.__grabHtmlContent(self.SERVER_ROW, '<td class="resun">', '</td>')
+            timestamp = self.__grab_html_content(self.SERVER_ROW, '<td class="resun">', '</td>')
             raise ReservationException('Server is reserved by "{reserver}" until "{time}"'.format(
                 reserver=reserver,
                 time=timestamp)
             )
 
-        self.__serverReservation(time_h=time_h, time_m=time_m)
+        self.__server_reservation(time_h=time_h, time_m=time_m)
 
     def free_server(self):
         if self.SERVER_NAME is None:
@@ -62,9 +62,9 @@ class ReservationHandler(metaclass=Singleton):
 
         console_log.info('Freeing {}.'.format(self.SERVER_NAME))
 
-        self.__serverReservation(time_h=0, time_m=0)
+        self.__server_reservation(time_h=0, time_m=0)
 
-    def __getSelfNameAndRow(self):
+    def __get_self_name_and_row(self):
         r = requests.get(self.RESERVATION_SERVER_URL)
 
         ip_tag = '<a href="rdp://{ip}/">'.format(ip=self.SELF_IP)
@@ -77,16 +77,16 @@ class ReservationHandler(metaclass=Singleton):
         end = r.text[begin:].find('</tr>')
         row = r.text[begin:begin + end + len('</tr>')]
 
-        name = self.__grabHtmlContent(row, '<td class="server">', '</td>')
+        name = self.__grab_html_content(row, '<td class="server">', '</td>')
 
         return name, row
 
-    def __grabHtmlContent(self, line, s_tag, e_tag):
+    def __grab_html_content(self, line, s_tag, e_tag):
         begin = line.find(s_tag) + len(s_tag)
         end = line[begin:].find(e_tag)
         return line[begin:begin + end]
 
-    def __serverReservation(self, *, time_h=0, time_m=0):
+    def __server_reservation(self, *, time_h=0, time_m=0):
         header = {
             'Content-Type': 'application/x-www-form-urlencoded'
         }

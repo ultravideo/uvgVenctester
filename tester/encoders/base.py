@@ -20,13 +20,13 @@ class QualityParam(Enum):
     """An enumeration to identify the supported quality parameter types."""
 
     QP: int = 1
+    CRF: int = 2
     # The types using bitrate should be together so that bitrate can be
     # easily scaled with temporal subsampling
-    BITRATE: int = 2
-    BPP: int = 3
-    RES_SCALED_BITRATE: int = 4
-    RES_ROOT_SCALED_BITRATE: int = 5
-    CRF: int = 6
+    BITRATE: int = 3
+    BPP: int = 4
+    RES_SCALED_BITRATE: int = 5
+    RES_ROOT_SCALED_BITRATE: int = 6
 
     @property
     def pretty_name(self):

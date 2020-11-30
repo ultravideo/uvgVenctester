@@ -14,6 +14,10 @@ from tester.encoders.base import QualityParam, EncoderBase
 
 
 class EncodingRunMetrics:
+    """
+    Represents the data for a single encoding run
+    This is essentially stateless itself, since it always reads and writes from file
+    """
 
     def __init__(self,
                  file_path: Path):
@@ -62,11 +66,16 @@ class EncodingRunMetrics:
 
 
 class EncodingQualityRunMetrics:
+    """
+    Has all of the data for a single quality metric
+    """
+
     def __init__(self, rounds: int, base_path: Path):
         self._rounds = [EncodingRunMetrics(Path(str(base_path).format(x + 1))) for x in range(rounds)]
 
     def __getitem__(self, item: Union[str, int]):
         if isinstance(item, str):
+            # Calculates either the avg or stdev of selected metric
             assert (item.endswith("_avg") or item.endswith("_stdev"))
 
             value, type_ = self.__split_suffix(item, ["_avg", "_stdev"])
@@ -84,6 +93,8 @@ class EncodingQualityRunMetrics:
 
     def __contains__(self, item):
         if isinstance(item, str):
+            assert (item.endswith("_avg") or item.endswith("_stdev"))
+
             value, _ = self.__split_suffix(item, ["_avg", "_stdev"])
             return all(value in x for x in self._rounds)
 
@@ -105,8 +116,8 @@ class SequenceMetrics:
                  quality_values: Iterable,
                  rounds: int):
         base_paths = {x: path_prefix /
-                         f"{sequence.get_suffixless_name()}_{quality_type.short_name}{x}_{{}}_metrics.json" for x in
-                      quality_values}
+                         f"{sequence.get_suffixless_name()}_{quality_type.short_name}{x}_{{}}_metrics.json"
+                      for x in quality_values}
         self.__sequence = sequence
         self.__qp_type = quality_type
         self._prefix = path_prefix.name
@@ -200,6 +211,9 @@ class SequenceMetrics:
                 sorted(anchor_values, key=lambda x: x[0]),
                 sorted(compared_values, key=lambda x: x[0]),
             )
+            # no overlap
+            if bdbr == -10000:
+                bdbr = float("NaN")
         except AssertionError:
             bdbr = float("NaN")
 

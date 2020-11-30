@@ -298,7 +298,7 @@ class Tester:
         try:
             console_log.info(f"Tester: Computing metrics for '{encoding_run.name}'")
 
-            if encoding_run.qp_name != tester.QualityParam.QP:
+            if encoding_run.qp_name not in [tester.QualityParam.QP, tester.QualityParam.CRF]:
                 metrics["target_bitrate"] = encoding_run.qp_value
 
             if "bitrate" not in metrics:
@@ -427,6 +427,7 @@ class Tester:
             html, pixels, pages = table.tablefy(context)
             config = pdfkit.configuration(wkhtmltopdf=Cfg().wkhtmltopdf)
             options = {
+                # Again something weird with the PDF generation and margins...
                 'page-height': f"{pixels + 50 + (5 if Cfg().system_os_name == 'Linux' else 0)}px",
                 'page-width': "1850px",
                 'margin-top': "25px",

@@ -13,6 +13,7 @@ def validate_conformance():
     except (FileNotFoundError, PermissionError):
         console_log.warning(f"CONFORMANCE: Can't find HEVC reference_decoder: {cfg.Cfg().hevc_reference_decoder}")
     except subprocess.CalledProcessError:
+        # HM return non-zero return code when checking help...
         pass
 
 
@@ -37,8 +38,10 @@ def check_hevc_conformance(encoding_run: test.EncodingRun):
                     break
                 line = line.decode()
                 log.write(line.strip() + "\n")
+                # TODO: this returns False in case there is no hashes in the bitstream
                 if line.startswith("POC") and "(OK)" not in line:
                     conforming = False
         except subprocess.CalledProcessError:
+            # TODO: is it ok to return same thing for hash-missmatch and invalid bitstream?
             return False
         return conforming
