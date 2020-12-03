@@ -474,7 +474,7 @@ class Tester:
         seqs = context.get_input_sequences()
         metrics = context.get_metrics()
 
-        assert len(Cfg().colors) >= len(metrics)
+        assert len(Cfg().graph_colors) >= len(metrics)
 
         enabled_metrics = []
         if graphs.GraphMetrics.PSNR in Cfg().graph_enabled_metrics:
@@ -509,7 +509,7 @@ class Tester:
             plt.title(metric.upper(), size=26)
             temp = []
 
-            for test, color in zip(metrics, Cfg().colors):
+            for test, color in zip(metrics, Cfg().graph_colors):
                 video_data = [metrics[test][seq][subtest.param_set.get_quality_param_value()] for subtest in
                               context.get_test(test).subtests]
                 rates = [data["bitrate_avg"] / 1000 for data in video_data]
@@ -520,7 +520,7 @@ class Tester:
                     color=color
                 )
                 temp.append(a[0])
-                if "target_bitrate_avg" in video_data[0] and Cfg().include_bitrate_targets:
+                if "target_bitrate_avg" in video_data[0] and Cfg().graph_include_bitrate_targets:
                     for target in video_data:
                         plt.axvline(x=target["target_bitrate_avg"] / 1000)
 
