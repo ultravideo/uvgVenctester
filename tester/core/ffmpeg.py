@@ -179,7 +179,15 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
         results = {}
         for metric in metrics:
             if metric == "vmaf":
-                results[metric] = json.load(logs[metric].open("r"))["VMAF score"]
+                x = json.load(logs[metric].open("r"))
+                try:
+                    r = x["VMAF score"]
+                except KeyError:
+                    r = 0
+                    for frame in x["frames"]:
+                        r += frame["metrics"]["vmaf"]
+                    r /= len(x["frames"])
+                results[metric] = r
                 continue
 
             frame_results = []
