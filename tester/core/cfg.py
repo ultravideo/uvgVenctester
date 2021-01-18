@@ -43,6 +43,12 @@ class Cfg(metaclass=Singleton):
     def __init__(self):
         self.logging_level = self._logging_level
 
+    def __setattr__(self, key, value):
+        if key not in dir(self):
+            raise KeyError(f"Not found: {key}")
+
+        super().__setattr__(key, value)
+
     @property
     def system_os_name(self) -> str:
         """The return value of platform.system()."""
