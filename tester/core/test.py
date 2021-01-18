@@ -59,6 +59,9 @@ class EncodingRun:
             duration_seconds=input_sequence.get_duration_seconds()
         )
 
+        if not output_file_path.parent.exists():
+            output_file_path.parent.mkdir(parents=True)
+
         self.metrics = met.EncodingRunMetrics(self.metrics_path)
 
         self.decoded_output_file_path: [Path, None] = None

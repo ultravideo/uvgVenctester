@@ -326,9 +326,6 @@ class EncoderBase:
             # Don't encode unnecessarily.
             return False
 
-        if not encoding_run.output_file.get_filepath().parent.exists():
-            encoding_run.output_file.get_filepath().parent.mkdir(parents=True)
-
         # Do encode.
         return True
 
