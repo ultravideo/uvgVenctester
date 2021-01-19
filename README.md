@@ -23,12 +23,15 @@
 - [wkhtmltopdf](https://wkhtmltopdf.org/)
   - Only needed for the PDF generation otherwise optional
 - [Python interpreter (3.8+)](https://python.org/)
+- [vmaf](https://github.com/Netflix/vmaf)
+  - The VMAF release v2.0.0 changed how the models worked, and it is very likely that your version of FFmpeg does not support using those models. If this is the case, checkout v1.4.7 of the VMAF repository.
 - Python libraries
   - [requirements.txt](requirements.txt) has a list of needed libraris
   - [vmaf](https://github.com/Netflix/vmaf) is not currently on pypi and needs to be installed manually
     1. Clone the repository
     2. Go to vmaf/python
     3. Run `python setup.py install`
+- Generally any prerequisite of each encoder is required to build said encoders
 
 Windows 10 only:
 - [Visual Studio 2019](https://visualstudio.microsoft.com/)

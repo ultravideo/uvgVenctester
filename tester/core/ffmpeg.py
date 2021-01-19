@@ -28,6 +28,9 @@ _PATTERNS = {
 }
 
 
+__vmaf_version = "pkl"
+
+
 def ffmpeg_validate_config():
     try:
         output = subprocess.check_output("ffmpeg -version", shell=True)
@@ -46,17 +49,25 @@ def ffmpeg_validate_config():
 
 def copy_vmaf_models(test: tester.Test):
     temp = test.encoder.get_output_dir(test.subtests[0].param_set)
-    vmaf_model_src_path1 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
-    vmaf_model_src_path2 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
-    vmaf_model_dest_path1 = temp / "vmaf_v0.6.1.pkl"
-    vmaf_model_dest_path2 = temp / "vmaf_v0.6.1.pkl.model"
-    shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
-    shutil.copy(str(vmaf_model_src_path2), str(vmaf_model_dest_path2))
+    if (cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.json").exists():
+        shutil.copy(
+            cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.json",
+            temp / "vmaf_v0.6.1.json"
+        )
+        global __vmaf_version
+        __vmaf_version = "json"
+    else:
+        vmaf_model_src_path1 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
+        vmaf_model_src_path2 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
+        vmaf_model_dest_path1 = temp / "vmaf_v0.6.1.pkl"
+        vmaf_model_dest_path2 = temp / "vmaf_v0.6.1.pkl.model"
+        shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
+        shutil.copy(str(vmaf_model_src_path2), str(vmaf_model_dest_path2))
 
 
 def remove_vmaf_models(test: tester.Test):
     temp = test.encoder.get_output_dir(test.subtests[0].param_set)
-    vmaf_model_dest_path1 = temp / "vmaf_v0.6.1.pkl"
+    vmaf_model_dest_path1 = temp / f"vmaf_v0.6.1.{__vmaf_version}"
     vmaf_model_dest_path2 = temp / "vmaf_v0.6.1.pkl.model"
     try:
         os.remove(vmaf_model_dest_path1)
@@ -73,7 +84,7 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
 
     logs = {x: encoding_run.get_log_path(x) for x in metrics}
 
-    vmaf_model = "vmaf_v0.6.1.pkl"
+    vmaf_model = f"vmaf_v0.6.1.{__vmaf_version}"
     # Build the filter based on which metrics are to be computed:
     no_of_metrics = len(metrics)
 
