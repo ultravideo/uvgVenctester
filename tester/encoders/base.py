@@ -357,6 +357,8 @@ class EncoderBase:
 
             with encoding_run.get_log_path('encoding').open("w") as encoding_log:
 
+                print(f"> {subprocess.list2cmdline(encode_cmd)}", file=encoding_log)
+
                 subprocess.check_call(
                     subprocess.list2cmdline(encode_cmd),
                     shell=True,
