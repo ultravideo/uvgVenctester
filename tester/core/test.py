@@ -67,7 +67,7 @@ class EncodingRun:
         self.metrics = met.EncodingRunMetrics(self.metrics_path)
 
         self.decoded_output_file_path: [Path, None] = None
-        if type(encoder) == encoders.Vtm:
+        if type(encoder) in [encoders.Vtm, encoders.Vvenc]:
             self.decoded_output_file_path: Path = self.output_dir_path / f"{self.base_filename}_decoded.yuv"
 
     @property

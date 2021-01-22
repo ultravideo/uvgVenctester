@@ -426,3 +426,9 @@ class Cfg(metaclass=Singleton):
 
     _vtm_cfg_file_path: Union[str, Path] = None
     """The path of the VTM configuration file. Must be set by the user."""
+
+    ##########################################################################
+    # VVenc
+    ##########################################################################
+
+    vvenc_remote_url: str = "https://github.com/fraunhoferhhi/vvenc.git"
