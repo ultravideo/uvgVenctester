@@ -67,7 +67,7 @@ class EncodingRun:
         self.metrics = met.EncodingRunMetrics(self.metrics_path)
 
         self.decoded_output_file_path: [Path, None] = None
-        if type(encoder) in [encoders.Vtm, encoders.Vvenc]:
+        if encoder.file_suffix == "vvc":
             self.decoded_output_file_path: Path = self.output_dir_path / f"{self.base_filename}_decoded.yuv"
 
     @property
@@ -77,7 +77,8 @@ class EncodingRun:
         elif cfg.Cfg().overwrite_encoding == cfg.ReEncoding.SOFT:
             return not self.output_file.get_filepath().exists() or "encoding_time" not in self.metrics
         elif cfg.Cfg().overwrite_encoding == cfg.ReEncoding.OFF:
-            return not self.output_file.get_filepath().exists() and not self.metrics.has_calculated_metrics
+            return (not self.output_file.get_filepath().exists() and not self.metrics.has_calculated_metrics) \
+                   or "encoding_time" not in self.metrics
 
     def get_log_path(self, type_: str):
         return self.output_dir_path / f"{self.base_filename}_{type_}_log.txt"

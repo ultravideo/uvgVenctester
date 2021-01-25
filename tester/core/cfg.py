@@ -428,6 +428,20 @@ class Cfg(metaclass=Singleton):
     """The path of the VTM configuration file. Must be set by the user."""
 
     ##########################################################################
+    # VVC
+    ##########################################################################
+
+    _vvc_reference_decoder = ""
+
+    @property
+    def vvc_reference_decoder(self) -> Path:
+        return Path(self._vvc_reference_decoder)
+
+    @vvc_reference_decoder.setter
+    def vvc_reference_decoder(self, value):
+        self._vvc_reference_decoder = value
+
+    ##########################################################################
     # VVenc
     ##########################################################################
 

@@ -42,10 +42,10 @@ class Vvenc(EncoderBase):
                 else:
                     raise ValueError(
                         f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
-            if include_seek and self._seek:
+            if self._seek:
                 raise AssertionError("vvenc does not support seeking")
                 args += f" -fs {self._seek}"
-            if include_frames and self._frames:
+            if self._frames:
                 raise AssertionError("vvenc does not support setting frame_count")
                 args += f" -f {self._frames}"
 
@@ -75,10 +75,9 @@ class Vvenc(EncoderBase):
         if tester.Cfg().system_os_name == "Windows":
             self._exe_src_path = self._git_local_path / "bin" / "release-static" / "vvencapp.exe"
         elif tester.Cfg().system_os_name == "Linux":
-            raise NotImplementedError
-            self._exe_src_path = self._git_local_path / "src" / "kvazaar"
+            self._exe_src_path = self._git_local_path / "bin" / "release-static" / "vvencapp"
 
-        self._decoder_exe_path: Path = cfg.Cfg().tester_binaries_dir_path / f"DecoderApp.exe"
+        self._decoder_exe_path: Path = cfg.Cfg().vvc_reference_decoder
 
     def build(self) -> None:
         if not self.build_start():
@@ -138,10 +137,21 @@ class Vvenc(EncoderBase):
                 str(self._exe_path),
                 "-i", os.devnull,
                 "-s", RESOLUTION_PLACEHOLDER,
+                "--FrameRate=30",
                 "-o", os.devnull,
             ) + param_set.to_cmdline_tuple()
 
         return self.dummy_run_finish(dummy_cmd, param_set)
+
+    @staticmethod
+    def validate_config(test_config: test.Test):
+        # Using the public property raises an exception, so access the private attribute instead.
+        if not git.git_remote_exists(tester.Cfg().vvenc_remote_url):
+            console_log.error(f"VVenC: Remote '{tester.Cfg().vvenc_remote_url}' is not available")
+            raise RuntimeError
+
+        if not cfg.Cfg().vvc_reference_decoder.exists():
+            raise RuntimeError("VVenC: VVC reference decoder is needed for decoding VVC currently")
 
     def encode(self,
                encoding_run: test.EncodingRun) -> None:
@@ -165,7 +175,7 @@ class Vvenc(EncoderBase):
                 str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
                 "-s",
                 f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
-                "-r", str(encoding_run.input_sequence.get_framerate()),
+                f"--FrameRate={encoding_run.input_sequence.get_framerate()}",
                 "-o", str(encoding_run.output_file.get_filepath()),
                 "--frames", str(encoding_run.frames),
             ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
@@ -192,3 +202,93 @@ class Vvenc(EncoderBase):
             console_log.error(f"{type(self.__name__)}: Failed to decode file "
                               f"'{encoding_run.output_file.get_filepath()}'")
             raise
+
+
+class Vvencff(Vvenc):
+    def __init__(self,
+                 user_given_revision: str,
+                 defines: Iterable,
+                 use_prebuilt: bool):
+        super(Vvenc, self).__init__(
+            name="vvencff",
+            user_given_revision=user_given_revision,
+            defines=defines,
+            git_local_path=tester.Cfg().tester_sources_dir_path / "vvenc",
+            git_remote_url=tester.Cfg().vvenc_remote_url,
+            use_prebuilt=use_prebuilt,
+        )
+        if tester.Cfg().system_os_name == "Windows":
+            self._exe_src_path = self._git_local_path / "bin" / "release-static" / "vvencFFapp.exe"
+        elif tester.Cfg().system_os_name == "Linux":
+            self._exe_src_path = self._git_local_path / "bin" / "release-static" / "vvencFFapp"
+
+        self._decoder_exe_path: Path = cfg.Cfg().vvc_reference_decoder
+
+    def encode(self,
+               encoding_run: test.EncodingRun) -> None:
+        if not self.encode_start(encoding_run):
+            return
+
+        if encoding_run.qp_name == tester.QualityParam.QP:
+            quality = ("-q", str(encoding_run.qp_value))
+        elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
+                                      tester.QualityParam.RES_SCALED_BITRATE,
+                                      tester.QualityParam.BPP,
+                                      tester.QualityParam.RES_ROOT_SCALED_BITRATE):
+            quality = (f"--TargetBitrate={encoding_run.qp_value}", "--RateControl=2")
+        else:
+            assert 0, "Invalid quality parameter"
+
+        encode_cmd = \
+            (
+                str(self._exe_path),
+            ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
+                                                        include_frames=False) + (
+                "-i",
+                str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
+                "-s",
+                f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+                f"--FrameRate={encoding_run.input_sequence.get_framerate()}",
+                "-b", str(encoding_run.output_file.get_filepath()),
+                "-f", str(encoding_run.frames),
+                "-o", os.devnull,
+            ) + quality
+        self.encode_finish(encode_cmd, encoding_run)
+
+    class ParamSet(EncoderBase.ParamSet):
+
+        def _to_unordered_args_list(self,
+                                    include_quality_param: bool = True,
+                                    include_seek: bool = True,
+                                    include_frames: bool = True,
+                                    include_directory_data: bool = False) -> list:
+            args = self._cl_args
+
+            if include_quality_param:
+                if self._quality_param_type == tester.QualityParam.QP:
+                    args += f" -q {self._quality_param_value}"
+                elif self._quality_param_type in [tester.QualityParam.BITRATE,
+                                                  tester.QualityParam.BPP,
+                                                  tester.QualityParam.RES_SCALED_BITRATE,
+                                                  tester.QualityParam.RES_SCALED_BITRATE,
+                                                  tester.QualityParam.RES_ROOT_SCALED_BITRATE]:
+                    args += f" --TargetBitrate={self._quality_param_value} --RateControl=2"
+                else:
+                    raise ValueError(
+                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+
+            if include_seek and self._seek:
+                args += f" -fs {self._seek}"
+            if include_frames and self._frames:
+                args += f" -f {self._frames}"
+
+            if include_directory_data:
+                if tester.Cfg().frame_step_size != 1:
+                    args += f" --TemporalSubsampleRatio={tester.Cfg().frame_step_size}"
+                args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
+
+            return args.split()
+
+        @staticmethod
+        def _get_arg_order() -> list:
+            return ["-c"]
