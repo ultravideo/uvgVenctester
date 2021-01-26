@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 from typing import Iterable
 
@@ -107,7 +108,7 @@ class Kvazaar(EncoderBase):
             git_remote_url=tester.Cfg().kvazaar_remote_url,
             use_prebuilt=use_prebuilt,
         )
-
+        self._solution = "kvazaar_VS2015.sln"
         self._exe_src_path: Path = None
         if tester.Cfg().system_os_name == "Windows":
             self._exe_src_path = self._git_local_path / "bin" / "x64-Release" / "kvazaar.exe"
@@ -129,7 +130,7 @@ class Kvazaar(EncoderBase):
             # Run VsDevCmd.bat, then msbuild.
             build_cmd = (
                             "call", str(vs.get_vsdevcmd_bat_path()),
-                            "&&", "msbuild", str(self._git_local_path / "build" / "kvazaar_VS2015.sln")
+                            "&&", "msbuild", str(self._git_local_path / "build" / self._solution)
                         ) + tuple(msbuild_args)
 
         elif tester.Cfg().system_os_name == "Linux":
@@ -214,7 +215,55 @@ class Kvazaar(EncoderBase):
 
     @staticmethod
     def validate_config(test_config: test.Test):
-        pass
-        # if not git.git_remote_exists(tester.Cfg().kvazaar_remote_url):
-        #     console_log.error(f"Kvazaar: Remote '{tester.Cfg().kvazaar_remote_url}' is unavailable")
-        #     raise RuntimeError
+        if not git.git_remote_exists(tester.Cfg().kvazaar_remote_url):
+            console_log.error(f"Kvazaar: Remote '{tester.Cfg().kvazaar_remote_url}' is unavailable")
+            raise RuntimeError
+
+
+class Uvg266(Kvazaar):
+    file_suffix = "vvc"
+
+    def __init__(self,
+                 user_given_revision: str,
+                 defines: Iterable,
+                 use_prebuilt: bool):
+        super(Kvazaar, self).__init__(
+            name="UVG266",
+            user_given_revision=user_given_revision,
+            defines=defines,
+            git_local_path=tester.Cfg().tester_sources_dir_path / "uvg266",
+            git_remote_url=tester.Cfg().uvg266_remote_url,
+            use_prebuilt=use_prebuilt,
+        )
+
+        self._solution = "kvazaar_VS2017.sln"
+        self._exe_src_path: Path = None
+        if tester.Cfg().system_os_name == "Windows":
+            self._exe_src_path = self._git_local_path / "bin" / "x64-Release" / "kvazaar.exe"
+        elif tester.Cfg().system_os_name == "Linux":
+            self._exe_src_path = self._git_local_path / "src" / "kvazaar"
+
+        self._decoder_exe_path: Path = tester.Cfg().vvc_reference_decoder
+
+    def _decode(self,
+                encoding_run: test.EncodingRun):
+
+        decode_cmd = (
+            str(self._decoder_exe_path),
+            "-b", str(encoding_run.output_file.get_filepath()),
+            "-o", str(encoding_run.decoded_output_file_path),
+            "-d", str(encoding_run.input_sequence.get_bit_depth())
+        )
+
+        try:
+            with open(encoding_run.get_log_path("decode"), "w") as decode_log:
+                subprocess.run(
+                    subprocess.list2cmdline(decode_cmd),
+                    shell=True,
+                    stderr=decode_log,
+                    stdout=decode_log
+                )
+        except Exception:
+            console_log.error(f"{type(self.__name__)}: Failed to decode file "
+                              f"'{encoding_run.output_file.get_filepath()}'")
+            raise

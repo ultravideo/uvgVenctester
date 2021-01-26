@@ -368,6 +368,12 @@ class Cfg(metaclass=Singleton):
     # Visual Studio
     ##########################################################################
 
+    uvg266_remote_url: str = "https://gitlab.tuni.fi/cs/ultravideo/vvc/uvg266.git"
+
+    ##########################################################################
+    # Visual Studio
+    ##########################################################################
+
     _vs_install_path: Union[str, Path] = Path("C:/") / "Program Files (x86)" / "Microsoft Visual Studio"
     """The Visual Studio base installation directory."""
 
