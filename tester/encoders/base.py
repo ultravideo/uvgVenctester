@@ -279,8 +279,7 @@ class EncoderBase:
             console_log.error(exception.output.decode())
             raise
 
-    def dummy_run(self,
-                  param_set: EncoderBase.ParamSet) -> bool:
+    def dummy_run(self, param_set: EncoderBase.ParamSet, env) -> bool:
         """Performs a dummy run to validate the set of parameters before any actual encoding runs."""
         raise NotImplementedError
 
@@ -292,13 +291,15 @@ class EncoderBase:
 
     def dummy_run_finish(self,
                          dummy_cmd: tuple,
-                         param_set: EncoderBase.ParamSet) -> bool:
+                         param_set: EncoderBase.ParamSet,
+                         env) -> bool:
         """Meant to be called as the last thing from the dummy_run() method of derived classes."""
         try:
             subprocess.check_output(
                 subprocess.list2cmdline(dummy_cmd),
                 shell=True,
-                stderr=subprocess.STDOUT
+                stderr=subprocess.STDOUT,
+                env=env,
             )
         except subprocess.CalledProcessError as exception:
             console_log.error(f"{self._name}: Invalid arguments: "
@@ -364,7 +365,8 @@ class EncoderBase:
                     shell=True,
                     stderr=encoding_log,
                     stdout=encoding_log,
-                    stdin=ffmpeg_pipe.stdout if ffmpeg_pipe else None
+                    stdin=ffmpeg_pipe.stdout if ffmpeg_pipe else None,
+                    env=encoding_run.env
                 )
 
         except subprocess.CalledProcessError as exception:
@@ -378,8 +380,10 @@ class EncoderBase:
     def validate_config(test_config: test.Test):
         return True
 
-    def get_output_dir(self, paramset: EncoderBase.ParamSet):
+    def get_output_dir(self, paramset: EncoderBase.ParamSet, env):
         params = paramset.to_cmdline_str(False, include_directory_data=True)
+        if env is not None:
+            params += str(hash(env))
         if not self._use_prebuilt:
             base = tester.Cfg().tester_output_dir_path \
                    / f"{self.get_name().lower()}_{self.get_short_revision()}_" \

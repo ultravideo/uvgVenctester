@@ -105,7 +105,7 @@ class TesterContext:
         have been built."""
         for test in self._tests:
             for subtest in test.subtests:
-                if not subtest.encoder.dummy_run(subtest.param_set):
+                if not subtest.encoder.dummy_run(subtest.param_set, None):
                     console_log.error(f"Tester: Test '{test.name}' "
                                       f"is invalid")
                     raise RuntimeError

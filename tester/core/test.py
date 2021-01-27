@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from hashlib import md5
 from math import sqrt
 from pathlib import Path
@@ -22,8 +23,9 @@ class EncodingRun:
                  round_number: int = None,
                  encoder: encoders.EncoderBase = None,
                  param_set: encoders.EncoderBase.ParamSet = None,
-                 input_sequence: RawVideoSequence = None):
+                 input_sequence: RawVideoSequence = None,):
 
+        self.env = parent.parent.env
         self.parent: SubTest = parent
         self.name: str = name
         self.round_number: int = round_number
@@ -45,7 +47,7 @@ class EncodingRun:
 
         self.base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
                              f"{qp_name}{self.param_set.get_quality_param_value()}_{round_number}"
-        self.output_dir_path = encoder.get_output_dir(param_set)
+        self.output_dir_path = encoder.get_output_dir(param_set, self.env)
 
         self.metrics_path: Path = self.output_dir_path / f"{self.base_filename}_metrics.json"
 
@@ -127,6 +129,7 @@ class Test:
                  frames: int = None,
                  rounds: int = 1,
                  use_prebuilt=False,
+                 env=None,
                  **kwargs):
         # Kwargs are ignored, they are here just to enable easy cloning.
 
@@ -144,6 +147,12 @@ class Test:
         self.frames: int = frames
         self.rounds: int = rounds
         self.use_prebuilt = use_prebuilt
+        if env is None:
+            self.env = None
+        else:
+            temp = dict(os.environ)
+            temp.update(env)
+            self.env = temp
 
         self.subtests: list = []
 

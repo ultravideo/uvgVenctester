@@ -104,8 +104,7 @@ class Hm(EncoderBase):
 
         self.clean_finish(clean_cmd)
 
-    def dummy_run(self,
-                  param_set: EncoderBase.ParamSet) -> bool:
+    def dummy_run(self, param_set: EncoderBase.ParamSet, env) -> bool:
 
         self.dummy_run_start(param_set)
 
@@ -128,7 +127,7 @@ class Hm(EncoderBase):
                 "-o", os.devnull,
             )
 
-        return self.dummy_run_finish(dummy_cmd, param_set)
+        return self.dummy_run_finish(dummy_cmd, param_set, env)
 
     def encode(self,
                encoding_run: tester.EncodingRun) -> None:

@@ -229,7 +229,7 @@ class SequenceMetrics:
 class TestMetrics:
     def __init__(self, test_instance: "Test", sequences):
         encoder: EncoderBase = test_instance.encoder
-        base_path = encoder.get_output_dir(test_instance.subtests[0].param_set)
+        base_path = encoder.get_output_dir(test_instance.subtests[0].param_set, test_instance.env)
 
         self.seq_data = {
             seq: SequenceMetrics(base_path,

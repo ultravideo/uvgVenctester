@@ -134,6 +134,7 @@ test1 = Test(
     anchor_names=["test1"],
     rounds=3,
     use_prebuilt=False,
+    env=None,
 )
 
 test2 = Test(
@@ -195,6 +196,8 @@ Optional parameters for `Test()`:
     - All configurations must have the same `frames`
 - `rounds` An integer specifying how many times a test is repeated
     - Default: 1
+- `env` Dictionary of environmental variables passed for the encoder
+    - Default: None
 
 `Test.clone()` accepts the same parameters as `Test()`.
 

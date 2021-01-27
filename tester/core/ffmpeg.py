@@ -48,7 +48,7 @@ def ffmpeg_validate_config():
 
 
 def copy_vmaf_models(test: tester.Test):
-    temp = test.encoder.get_output_dir(test.subtests[0].param_set)
+    temp = test.encoder.get_output_dir(test.subtests[0].param_set, test.env)
     if (cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.json").exists():
         shutil.copy(
             cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.json",
@@ -66,7 +66,7 @@ def copy_vmaf_models(test: tester.Test):
 
 
 def remove_vmaf_models(test: tester.Test):
-    temp = test.encoder.get_output_dir(test.subtests[0].param_set)
+    temp = test.encoder.get_output_dir(test.subtests[0].param_set, env=test.env)
     vmaf_model_dest_path1 = temp / f"vmaf_v0.6.1.{__vmaf_version}"
     vmaf_model_dest_path2 = temp / "vmaf_v0.6.1.pkl.model"
     try:

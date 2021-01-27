@@ -193,8 +193,7 @@ class Vtm(EncoderBase):
             console_log.error(exception.output.decode())
             raise
 
-    def dummy_run(self,
-                  param_set: EncoderBase.ParamSet) -> bool:
+    def dummy_run(self, param_set: EncoderBase.ParamSet, env) -> bool:
 
         self.dummy_run_start(param_set)
 
@@ -219,7 +218,7 @@ class Vtm(EncoderBase):
                 "-o", os.devnull,
             )
 
-        return_value = self.dummy_run_finish(dummy_cmd, param_set)
+        return_value = self.dummy_run_finish(dummy_cmd, param_set, env)
 
         os.remove(str(dummy_sequence_path))
 
