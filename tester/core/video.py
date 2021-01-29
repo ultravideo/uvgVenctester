@@ -102,7 +102,11 @@ class RawVideoSequence:
             "total_frames": self._total_frames,
         }
 
-        stats.update(self.guess_values(filepath))
+        try:
+            stats.update(self.guess_values(filepath))
+        except TypeError:
+            console_log.error(f"Video: Failed to guess width and height for sequence {str(filepath)}")
+            raise
 
         if stats["total_frames"] is None:
             stats["total_frames"] = self.guess_total_framecount(filepath, **stats)
