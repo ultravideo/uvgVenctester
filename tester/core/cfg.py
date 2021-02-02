@@ -336,7 +336,7 @@ class Cfg(metaclass=Singleton):
     # Kvazaar
     ##########################################################################
 
-    kvazaar_remote_url: str = "git@gitlab.tut.fi:TIE/ultravideo/kvazaar.git"
+    kvazaar_remote_url: str = "git@gitlab.tuni.fi:cs/ultravideo/kvazaar.git"
     """The remote from which Kvazaar will be cloned."""
 
     ##########################################################################
