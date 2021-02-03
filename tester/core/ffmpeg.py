@@ -17,7 +17,7 @@ import tester.core.cfg as cfg
 from tester.core.log import console_log
 
 # Compile Regex patterns only once for better performance.
-_PSNR_PATTERN: re.Pattern = re.compile(r".*psnr_avg:([0-9]+.[0-9]+).*", re.DOTALL)
+_PSNR_PATTERN: re.Pattern = re.compile(r".*psnr_avg:([0-9]+.[0-9]+|inf\s).*", re.DOTALL)
 _SSIM_PATTERN: re.Pattern = re.compile(r".*All:([0-9]+.[0-9]+).*", re.DOTALL)
 _VMAF_PATTERN: re.Pattern = re.compile(r".*\"VMAF score\":([0-9]+.[0-9]+).*", re.DOTALL)
 
@@ -27,6 +27,11 @@ _PATTERNS = {
     "vmaf": _VMAF_PATTERN
 }
 
+_MAX_VALUES = {
+    "psnr": 999.99,
+    "ssim": 1.0,
+    "vmaf": 100.0,
+}
 
 __vmaf_version = "pkl"
 
@@ -206,6 +211,9 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
                 lines = log.readlines()
                 for line in lines:
                     for item in _PATTERNS[metric].fullmatch(line).groups():
+                        if item == "inf":
+                            item = _MAX_VALUES[metric]
+                            console_log.warning(f"results: Infinite value for metric {metric} in {encoding_run}")
                         frame_results.append(float(item))
                 results[metric] = sum(frame_results) / len(frame_results)
 

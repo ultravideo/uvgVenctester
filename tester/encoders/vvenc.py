@@ -95,7 +95,7 @@ class Vvenc(EncoderBase):
                             "&&", "cmake", "..",
                             "-G", cmake.get_cmake_build_system_generator(),
                             "-A", cmake.get_cmake_architecture(),
-                            "&&", "call", vs.get_vsdevcmd_bat_path(),
+                            "&&", "call", str(vs.get_vsdevcmd_bat_path()),
                             "&&", "msbuild", "vvenc.sln",
                         ) + tuple(msbuild_args)
 
@@ -127,7 +127,7 @@ class Vvenc(EncoderBase):
         self.clean_finish(clean_cmd)
 
     def dummy_run(self,
-                  param_set: EncoderBase.ParamSet) -> bool:
+                  param_set: EncoderBase.ParamSet, env) -> bool:
         self.dummy_run_start(param_set)
 
         RESOLUTION_PLACEHOLDER = "128x128"
@@ -141,7 +141,7 @@ class Vvenc(EncoderBase):
                 "-o", os.devnull,
             ) + param_set.to_cmdline_tuple()
 
-        return self.dummy_run_finish(dummy_cmd, param_set)
+        return self.dummy_run_finish(dummy_cmd, param_set, env)
 
     @staticmethod
     def validate_config(test_config: test.Test):
@@ -171,13 +171,11 @@ class Vvenc(EncoderBase):
         encode_cmd = \
             (
                 str(self._exe_path),
-                "-i",
-                str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
-                "-s",
-                f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+                "-i", str(encoding_run.input_sequence.get_filepath()),
+                "-s", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                 f"--FrameRate={encoding_run.input_sequence.get_framerate()}",
                 "-o", str(encoding_run.output_file.get_filepath()),
-                "--frames", str(encoding_run.frames),
+                "--frames", str(encoding_run.frames * tester.Cfg().frame_step_size),
             ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
                                                         include_frames=False) + quality
         self.encode_finish(encode_cmd, encoding_run)
@@ -244,13 +242,11 @@ class Vvencff(Vvenc):
                 str(self._exe_path),
             ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
                                                         include_frames=False) + (
-                "-i",
-                str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
-                "-s",
-                f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+                "-i", str(encoding_run.input_sequence.get_filepath()),
+                "-s", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                 f"--FrameRate={encoding_run.input_sequence.get_framerate()}",
                 "-b", str(encoding_run.output_file.get_filepath()),
-                "-f", str(encoding_run.frames),
+                "-f", str(encoding_run.frames * tester.Cfg().frame_step_size),
                 "-o", os.devnull,
             ) + quality
         self.encode_finish(encode_cmd, encoding_run)
@@ -283,7 +279,7 @@ class Vvencff(Vvenc):
                 args += f" -f {self._frames}"
 
             if include_directory_data:
-                if tester.Cfg().frame_step_size != 1:
+                if tester.Cfg().frame_step_size != 1 and "TemporalSubsampleRatio" not in args:
                     args += f" --TemporalSubsampleRatio={tester.Cfg().frame_step_size}"
                 args = args.replace("/", "-").replace("\\", "-").replace(":", "-")
 

@@ -380,10 +380,10 @@ class EncoderBase:
     def validate_config(test_config: test.Test):
         return True
 
-    def get_output_dir(self, paramset: EncoderBase.ParamSet, env):
+    def get_output_dir(self, paramset: EncoderBase.ParamSet, env: dict):
         params = paramset.to_cmdline_str(False, include_directory_data=True)
         if env is not None:
-            params += str(hash(env))
+            params += " env= " + "".join(f"{x}: {y}"for x, y in env.items())
         if not self._use_prebuilt:
             base = tester.Cfg().tester_output_dir_path \
                    / f"{self.get_name().lower()}_{self.get_short_revision()}_" \
@@ -406,7 +406,7 @@ class EncoderBase:
             if not hash_in_file:
                 md5map_file.parent.mkdir(parents=True, exist_ok=True)
                 with open(md5map_file, "a") as md5_f:
-                    md5_f.write(f"{md5_params}:{params}")
+                    md5_f.write(f"{md5_params}:{params}\n")
 
             return base / md5_params
         return base / params

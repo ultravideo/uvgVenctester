@@ -25,7 +25,7 @@ class EncodingRun:
                  param_set: encoders.EncoderBase.ParamSet = None,
                  input_sequence: RawVideoSequence = None,):
 
-        self.env = parent.parent.env
+        self.env = parent.parent.new_env
         self.parent: SubTest = parent
         self.name: str = name
         self.round_number: int = round_number
@@ -47,7 +47,7 @@ class EncodingRun:
 
         self.base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
                              f"{qp_name}{self.param_set.get_quality_param_value()}_{round_number}"
-        self.output_dir_path = encoder.get_output_dir(param_set, self.env)
+        self.output_dir_path = encoder.get_output_dir(param_set, parent.parent.env)
 
         self.metrics_path: Path = self.output_dir_path / f"{self.base_filename}_metrics.json"
 
@@ -149,11 +149,13 @@ class Test:
         self.rounds: int = rounds
         self.use_prebuilt = use_prebuilt
         if env is None:
+            self.new_env = None
             self.env = None
         else:
             temp = dict(os.environ)
             temp.update(env)
-            self.env = temp
+            self.new_env = temp
+            self.env = env.copy()
 
         self.subtests: list = []
 
@@ -203,7 +205,7 @@ class Test:
         for own, other_ in zip(self.subtests, other.subtests):
             if other_ != own:
                 return False
-        return self.encoder == other.encoder
+        return self.encoder == other.encoder and self.env == other.env
 
     def __hash__(self):
         return sum(hash(subtest) for subtest in self.subtests)
