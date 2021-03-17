@@ -119,11 +119,12 @@ class X265(EncoderBase):
             (
                 str(self._exe_path),
                 "--input",
-                str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
+                str(encoding_run.input_sequence.get_encode_path()) if tester.Cfg().frame_step_size == 1 else "-",
                 "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                 "--fps", str(encoding_run.input_sequence.get_framerate()),
                 "--output", str(encoding_run.output_file.get_filepath()),
                 "--frames", str(encoding_run.frames),
+                "--input-csp", f"i{encoding_run.input_sequence.get_chroma()}"
             ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
                                                         include_frames=False) + quality
 
@@ -132,7 +133,7 @@ class X265(EncoderBase):
     @staticmethod
     def validate_config(test_config: test.Test):
         if not git.git_remote_exists(tester.Cfg().x265_remote_url):
-            console_log.error(f"Kvazaar: Remote '{tester.Cfg().kvazaar_remote_url}' is unavailable")
+            console_log.error(f"x265: Remote '{tester.Cfg().x265_remote_url}' is unavailable")
             raise RuntimeError
 
         try:

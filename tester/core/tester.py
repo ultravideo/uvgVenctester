@@ -33,7 +33,8 @@ class TesterContext:
 
     def __init__(self,
                  tests: Iterable,
-                 input_sequence_globs: list):
+                 input_sequence_globs: list,
+                 convert_color_format=None):
 
         self._tests: list = list(tests)
 
@@ -48,7 +49,7 @@ class TesterContext:
             for filepath in paths:
                 self._input_sequences.append(
                     RawVideoSequence(
-                        filepath=filepath.resolve(),
+                        filepath=filepath.resolve(), convert_to=convert_color_format
                     )
                 )
         self._metrics: dict = {test.name: TestMetrics(test, self._input_sequences) for test in self._tests}
@@ -110,18 +111,24 @@ class TesterContext:
                                       f"is invalid")
                     raise RuntimeError
 
+    def __del__(self):
+        for seq in self._input_sequences:
+            if seq._converted_path:
+                seq._converted_path.unlink()
+
 
 class Tester:
     """Represents the tester. The end user primarily interacts with this class."""
 
     @staticmethod
     def create_context(tests: Iterable,
-                       input_sequence_globs: list) -> TesterContext:
+                       input_sequence_globs: list,
+                       convert_color_format=None) -> TesterContext:
 
         console_log.info("Tester: Creating context")
 
         try:
-            context = TesterContext(tests, input_sequence_globs)
+            context = TesterContext(tests, input_sequence_globs,convert_color_format)
         except Exception as exception:
             console_log.error("Tester: Failed to create context")
             log_exception(exception)

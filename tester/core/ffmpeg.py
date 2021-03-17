@@ -131,7 +131,7 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
             "-r", f"{cfg.Cfg().frame_step_size}",  # multiply framerate by step
             "-ss", f"{encoding_run.param_set.get_seek()}",
             "-t", f"{encoding_run.frames * cfg.Cfg().frame_step_size}",
-            "-i", f"{encoding_run.input_sequence.get_filepath()}",
+            "-i", f"{encoding_run.input_sequence.get_encode_path()}",
 
             # YUV output decoded from VVC output
             "-s:v", f"{encoding_run.output_file.get_width()}x{encoding_run.output_file.get_height()}",
@@ -159,7 +159,7 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
             "-r", f"{cfg.Cfg().frame_step_size}",
             "-ss", f"{encoding_run.param_set.get_seek()}",
             "-t", f"{encoding_run.frames * cfg.Cfg().frame_step_size}",
-            "-i", f"{encoding_run.input_sequence.get_filepath()}",
+            "-i", f"{encoding_run.input_sequence.get_encode_path()}",
 
             # HEVC output
             "-r", "1",

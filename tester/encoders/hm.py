@@ -150,11 +150,12 @@ class Hm(EncoderBase):
                 str(self._exe_path),
             ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
                                                         include_frames=False) + (
-                "-i", str(encoding_run.input_sequence.get_filepath()),
+                "-i", str(encoding_run.input_sequence.get_encode_path()),
                 "-fr", str(encoding_run.input_sequence.get_framerate()),
                 "-wdt", str(encoding_run.input_sequence.get_width()),
                 "-hgt", str(encoding_run.input_sequence.get_height()),
                 "-b", str(encoding_run.output_file.get_filepath()),
+                f"--InputChromaFormat={encoding_run.input_sequence.get_chroma()}",
                 "-f", str(encoding_run.frames * tester.Cfg().frame_step_size),
                 "-o", os.devnull,
             ) + quality

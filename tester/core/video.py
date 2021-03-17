@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import math
+import os
 import re
+import tempfile
 from pathlib import Path
+from typing import Tuple
+from subprocess import check_call, DEVNULL
 
 import tester.core.cfg as cfg
 from tester.core.log import console_log
@@ -77,6 +81,13 @@ class VideoFileBase:
 
 class RawVideoSequence:
     """Represents a YUV file."""
+    PIXEL_FORMATS: dict = {
+        # (chroma, bit depth) : pixel format (ffmpeg)
+        (400, 8): "gray",
+        (400, 10): "gray16le",
+        (420, 8): "yuv420p",
+        (420, 10): "yuv420p10le",
+    }
 
     def __init__(self,
                  filepath: Path,
@@ -84,7 +95,8 @@ class RawVideoSequence:
                  height: int = None,
                  framerate: int = 25,
                  chroma: int = 420,
-                 bit_depth: int = 8):
+                 bit_depth: int = 8,
+                 convert_to: [Tuple[int, int], None] = None):
 
         self._width: [int, None] = None
         self._height: [int, None] = None
@@ -125,9 +137,20 @@ class RawVideoSequence:
         assert self._total_frames
 
         sequence_class = RawVideoSequence.guess_sequence_class(filepath)
+        print(f"CONVERTING {self}")
 
         self._filepath = filepath
         self._sequence_class: str = sequence_class
+
+        self._converted_path: [None, Path] = None \
+            if convert_to and (self._chroma, bit_depth,) == convert_to \
+            else tempfile.mkstemp(".yuv")
+
+        if self._converted_path:
+            os.close(self._converted_path[0])
+            self._converted_path = Path(self._converted_path[1])
+            self._convert_pixel_fmt(convert_to)
+            self._chroma, self._bit_depth = convert_to
 
         # For bitrate calculation.
         self._bytes_per_pixel: int = 1 if self._bit_depth == 8 else 2
@@ -140,6 +163,23 @@ class RawVideoSequence:
         for attribute_name in sorted(self.__dict__):
             console_log.debug(f"{type(self).__name__}: "
                               f"{attribute_name} = {getattr(self, attribute_name)}")
+
+    def _convert_pixel_fmt(self, to_format):
+        cmd = (
+            "ffmpeg",
+            "-s:v", f"{self._width}x{self._height}",
+            "-f", "rawvideo",
+            "-pix_fmt", self.get_pixel_format(),
+            "-i", self._filepath,
+            "-pix_fmt", self.PIXEL_FORMATS[to_format],
+            str(self._converted_path),
+            "-y"
+        )
+        check_call(
+            cmd,
+            stdout=DEVNULL,
+            stderr=DEVNULL,
+        )
 
     def __hash__(self):
         path = str(self._filepath).lower() if cfg.Cfg().system_os_name == "Windows" else str(self._filepath)
@@ -162,20 +202,16 @@ class RawVideoSequence:
         return self._bit_depth
 
     def get_pixel_format(self) -> str:
-        PIXEL_FORMATS: dict = {
-            # (chroma, bit depth) : pixel format (ffmpeg)
-            (400, 8): "gray",
-            (400, 10): "gray16le",
-            (420, 8): "yuv420p",
-            (420, 10): "yuv420p10le",
-        }
-        return PIXEL_FORMATS[(self._chroma, self._bit_depth)]
+        return self.PIXEL_FORMATS[(self._chroma, self._bit_depth)]
 
     def get_sequence_class(self) -> str:
         return self._sequence_class
 
     def get_filepath(self) -> Path:
         return self._filepath
+
+    def get_encode_path(self) -> Path:
+        return self._converted_path or self._filepath
 
     def get_width(self) -> int:
         return self._width
