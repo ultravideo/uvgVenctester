@@ -79,9 +79,9 @@ class Vvenc(EncoderBase):
 
         self._decoder_exe_path: Path = cfg.Cfg().vvc_reference_decoder
 
-    def build(self) -> None:
+    def build(self) -> bool:
         if not self.build_start():
-            return
+            return False
 
         if not (self._git_local_path / "build").exists():
             (self._git_local_path / "build").mkdir()

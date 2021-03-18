@@ -173,9 +173,8 @@ class Tester:
             context.validate_initial()
             for test in context.get_tests():
                 console_log.info(f"Tester: Building encoder for test '{test.name}'")
-                test.encoder.build()
-                # TODO: Don't clean if the encoder wasn't built.
-                if not test.encoder._use_prebuilt:
+
+                if test.encoder.build() and not test.encoder._use_prebuilt:
                     test.encoder.clean()
             context.validate_final()
 

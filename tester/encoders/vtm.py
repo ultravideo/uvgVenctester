@@ -56,10 +56,10 @@ class Vtm(EncoderBase):
         elif cfg.Cfg().system_os_name == "Linux":
             self._decoder_exe_src_path = self._exe_src_path.with_name("DecoderAppStatic")
 
-    def build(self) -> None:
+    def build(self) -> bool:
 
         if not self.build_start():
-            return
+            return False
 
         build_cmd = ()
         if not (self._git_local_path / "build").exists():

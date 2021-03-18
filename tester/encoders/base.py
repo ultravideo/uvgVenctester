@@ -182,7 +182,7 @@ class EncoderBase:
         console_log.info(f"{self._name}: Revision '{self._user_given_revision}' "
                          f"maps to commit hash '{self._commit_hash}'")
 
-    def build(self) -> None:
+    def build(self) -> bool:
         """Builds the executable."""
         raise NotImplementedError
 

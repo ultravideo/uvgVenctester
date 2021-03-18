@@ -38,9 +38,9 @@ class X265(EncoderBase):
         elif tester.Cfg().system_os_name == "Linux":
             self._exe_src_path = self._git_local_path / "build" / "linux" / "x265"
 
-    def build(self) -> None:
+    def build(self) -> bool:
         if not self.build_start():
-            return
+            return False
 
         build_cmd = tuple()
 

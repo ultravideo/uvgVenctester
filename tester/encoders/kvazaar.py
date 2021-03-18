@@ -115,10 +115,10 @@ class Kvazaar(EncoderBase):
         elif tester.Cfg().system_os_name == "Linux":
             self._exe_src_path = self._git_local_path / "src" / "kvazaar"
 
-    def build(self) -> None:
+    def build(self) -> bool:
 
         if not self.build_start():
-            return
+            return False
 
         build_cmd = ()
 
