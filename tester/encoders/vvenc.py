@@ -242,7 +242,7 @@ class Vvencff(Vvenc):
                 str(self._exe_path),
             ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
                                                         include_frames=False) + (
-                "-i", str(encoding_run.input_sequence.get_filepath()),
+                "-i", str(encoding_run.input_sequence.get_encode_path()),
                 "-s", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                 f"--FrameRate={encoding_run.input_sequence.get_framerate()}",
                 "-b", str(encoding_run.output_file.get_filepath()),

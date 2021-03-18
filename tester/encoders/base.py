@@ -343,6 +343,8 @@ class EncoderBase:
             )
             subprocess.check_call(
                 cache_seq_cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
 
         # Do encode.
@@ -364,11 +366,12 @@ class EncoderBase:
                     "-ss", f"{encoding_run.param_set.get_seek()}",
                     "-t", f"{encoding_run.frames * tester.Cfg().frame_step_size}",
                     "-f", "rawvideo",
-                    "-i", f"{encoding_run.input_sequence.get_encode_path()}",
                     "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
+                    "-i", f"{encoding_run.input_sequence.get_encode_path()}",
                     "-filter_complex", f"[0:v]select=not(mod(n\\, {tester.Cfg().frame_step_size}))",
                     "-t", f"{encoding_run.frames}",
                     "-f", "rawvideo",
+                    "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                     "-r", "1",
                     "-",
                 )

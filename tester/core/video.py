@@ -137,7 +137,6 @@ class RawVideoSequence:
         assert self._total_frames
 
         sequence_class = RawVideoSequence.guess_sequence_class(filepath)
-        print(f"CONVERTING {self}")
 
         self._filepath = filepath
         self._sequence_class: str = sequence_class
@@ -169,11 +168,14 @@ class RawVideoSequence:
             "ffmpeg",
             "-s:v", f"{self._width}x{self._height}",
             "-f", "rawvideo",
+            "-r", "1",
             "-pix_fmt", self.get_pixel_format(),
-            "-i", self._filepath,
+            "-i", str(self._filepath),
             "-pix_fmt", self.PIXEL_FORMATS[to_format],
+            "-r", "1",
+            "-t", str(self._total_frames),
             str(self._converted_path),
-            "-y"
+            "-y",
         )
         check_call(
             cmd,
