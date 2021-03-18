@@ -317,6 +317,11 @@ class Cfg(metaclass=Singleton):
     Heavily recommended to call `Tester.calculate_metrics()` explicitly if this is True
     """
 
+    warmup: bool = True
+    """
+    The framework tries to force the operating system to cache the sequence and encoder binary.
+    """
+
     ##########################################################################
     # HEVC
     ##########################################################################

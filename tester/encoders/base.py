@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import shutil
 import subprocess
 from enum import Enum
@@ -327,6 +328,23 @@ class EncoderBase:
             # Don't encode unnecessarily.
             return False
 
+        if tester.Cfg().warmup:
+            self.dummy_run(encoding_run.param_set, encoding_run.env)
+            cache_seq_cmd = (
+                "ffmpeg",
+                "-f", "rawvideo",
+                "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+                "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
+                "-i", f"{encoding_run.input_sequence.get_encode_path()}",
+                "-c:v", "copy",
+                "-f", "rawvideo",
+                os.devnull,
+                "-y"
+            )
+            subprocess.check_call(
+                cache_seq_cmd,
+            )
+
         # Do encode.
         return True
 
@@ -346,7 +364,8 @@ class EncoderBase:
                     "-ss", f"{encoding_run.param_set.get_seek()}",
                     "-t", f"{encoding_run.frames * tester.Cfg().frame_step_size}",
                     "-f", "rawvideo",
-                    "-i", f"{encoding_run.input_sequence.get_filepath()}",
+                    "-i", f"{encoding_run.input_sequence.get_encode_path()}",
+                    "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                     "-filter_complex", f"[0:v]select=not(mod(n\\, {tester.Cfg().frame_step_size}))",
                     "-t", f"{encoding_run.frames}",
                     "-f", "rawvideo",

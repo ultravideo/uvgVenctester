@@ -143,7 +143,7 @@ class RawVideoSequence:
         self._sequence_class: str = sequence_class
 
         self._converted_path: [None, Path] = None \
-            if convert_to and (self._chroma, bit_depth,) == convert_to \
+            if not convert_to or (self._chroma, bit_depth,) == convert_to \
             else tempfile.mkstemp(".yuv")
 
         if self._converted_path:

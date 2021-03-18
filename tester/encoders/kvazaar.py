@@ -272,8 +272,8 @@ class Uvg266(Kvazaar):
     def validate_config(test_config: test.Test):
         # Using the public property raises an exception, so access the private attribute instead.
         if not git.git_remote_exists(tester.Cfg().uvg266_remote_url):
-            console_log.error(f"VVenC: Remote '{tester.Cfg().uvg266_remote_url}' is not available")
+            console_log.error(f"UVG266: Remote '{tester.Cfg().uvg266_remote_url}' is not available")
             raise RuntimeError
 
         if not tester.Cfg().vvc_reference_decoder.exists():
-            raise RuntimeError("VVenC: VVC reference decoder is needed for decoding VVC currently")
+            raise RuntimeError("UVG266: VVC reference decoder is needed for decoding VVC currently")
