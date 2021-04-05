@@ -242,32 +242,27 @@ class RawVideoSequence:
     @staticmethod
     def guess_values(filepath: Path):
         file = filepath.parts[-1]
-        first_pattern = re.compile(r".+_(\d+)x(\d+)_(\d+)_?(\d+)?.yuv")
-        second_pattern = re.compile(r".+_(\d+)x(\d+)_(\d+)fps_(\d+)bit_(\d+).yuv")
 
-        match = first_pattern.match(file)
-        if match:
-            result = {
-                "width": int(match[1]),
-                "height": int(match[2]),
-                "fps": int(match[3]),
-            }
-            if match.lastindex == 4:
-                result["total_frames"] = int(match[4])
-
-            return result
-        match = second_pattern.match(file)
-        if match:
-            return {
-                "width": int(match[1]),
-                "height": int(match[2]),
-                "fps": int(match[3]),
-                "bit_depth": int(match[4]),
-                "chroma": int(match[5])
-            }
+        for pattern in cfg.Cfg().sequence_formats:
+            temp = re.compile(pattern)
+            match = temp.match(file)
+            if match:
+                result = {
+                    "width": int(match.group("width")),
+                    "height": int(match.group("height")),
+                }
+                for value in ("fps", "bit_depth", "chroma", "total_frames"):
+                    try:
+                        result[value] = int(match.group(value))
+                    except (IndexError, TypeError):
+                        pass
+                return result
 
     @staticmethod
     def guess_sequence_class(filepath: Path) -> str:
+        if filepath.parent == cfg.Cfg().tester_sequences_dir_path:
+            return "Unknown"
+
         hevc_pattern = re.compile("(hevc-[a-z])", re.IGNORECASE)
         vvc_pattern = re.compile("(vvc-[a-z])", re.IGNORECASE)
         file_string = str(filepath)
@@ -285,7 +280,7 @@ class RawVideoSequence:
         elif "uvg" in file_string or "ultravideo" in file_string:
             return "UVG"
         else:
-            return "Unknown"
+            return filepath.parent.name
 
     @staticmethod
     def guess_total_framecount(filepath: Path,

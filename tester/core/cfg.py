@@ -138,6 +138,15 @@ class Cfg(metaclass=Singleton):
     tester_define_hash_len: int = 6
     """How many characters of the define hash are included in file names."""
 
+    sequence_formats: list = [
+        r".+_(?P<width>\d+)x(?P<height>\d+)_?(?P<fps>\d+)?_?(?P<total_frames>\d+)?.yuv",
+        r".+_(?P<width>\d+)x(?P<height>\d+)_(?P<fps>\d+)fps_(?P<bit_depth>\d+)bit_(?P<chroma>\d+).yuv",
+        r".+_(?P<width>\d+)x(?P<height>\d+)_(?P<fps>\d+)fps_(?P<chroma>\d+)_(?P<bit_depth>\d+)bit_YUV.yuv"
+    ]
+    """List of regexes that are used for determining values from the sequence names.
+    Must use named parameters for the values. `width` and `height` are mandatory and `fps`, `chroma`, `bit_depth` 
+    and `total_frames` are optional."""
+
     ##########################################################################
     # CSV
     ##########################################################################
