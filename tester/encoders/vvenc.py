@@ -83,11 +83,16 @@ class Vvenc(EncoderBase):
         if not self.build_start():
             return False
 
+        env = None
         if not (self._git_local_path / "build").exists():
             (self._git_local_path / "build").mkdir()
 
         if tester.Cfg().system_os_name == "Windows":
-            msbuild_args = vs.get_msbuild_args(add_defines=self._defines)
+            if self.get_defines():
+                env = os.environ
+                temp = " ".join([f"/D{x}".replace("=", "#") for x in self.get_defines()])
+                env["CL"] = temp
+            msbuild_args = vs.get_msbuild_args()
 
             build_cmd = (
                             "cd", str(self._git_local_path),
@@ -110,7 +115,7 @@ class Vvenc(EncoderBase):
         else:
             raise RuntimeError("Invalid operating system")
 
-        self.build_finish(build_cmd)
+        return self.build_finish(build_cmd, env)
 
     def clean(self) -> None:
 

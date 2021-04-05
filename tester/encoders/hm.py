@@ -50,13 +50,18 @@ class Hm(EncoderBase):
             return False
 
         build_cmd = ()
+        env = None
         if not (self._git_local_path / "build").exists():
             (self._git_local_path / "build").mkdir()
 
         if tester.Cfg().system_os_name == "Windows":
 
             # Add defines to msbuild arguments.
-            msbuild_args = vs.get_msbuild_args(add_defines=self._defines)
+            msbuild_args = vs.get_msbuild_args()
+            if self.get_defines():
+                env = os.environ
+                temp = " ".join([f"/D{x}".replace("=", "#") for x in self.get_defines()])
+                env["CL"] = temp
 
             # Configure CMake, run VsDevCmd.bat, then MSBuild.
             build_cmd = (
@@ -79,7 +84,7 @@ class Hm(EncoderBase):
                 "&&", "make", "TAppEncoder-r", cflags_str
             )
 
-        self.build_finish(build_cmd)
+        return self.build_finish(build_cmd, env)
 
     def clean(self) -> None:
 

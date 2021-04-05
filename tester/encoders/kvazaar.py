@@ -121,11 +121,16 @@ class Kvazaar(EncoderBase):
             return False
 
         build_cmd = ()
+        env = None
 
         if tester.Cfg().system_os_name == "Windows":
 
             # Add defines to msbuild arguments.
-            msbuild_args = vs.get_msbuild_args(add_defines=self._defines)
+            msbuild_args = vs.get_msbuild_args()
+            if self.get_defines():
+                env = os.environ
+                temp = " ".join([f"/D{x}".replace("=", "#") for x in self.get_defines()])
+                env["CL"] = temp
 
             # Run VsDevCmd.bat, then msbuild.
             build_cmd = (
@@ -149,7 +154,7 @@ class Kvazaar(EncoderBase):
                             "&&", "make",
                         )
 
-        self.build_finish(build_cmd)
+        return self.build_finish(build_cmd, env)
 
     def clean(self) -> None:
 
@@ -162,6 +167,13 @@ class Kvazaar(EncoderBase):
                 "cd", str(self._git_local_path),
                 "&&", "make", "clean",
             )
+
+        elif tester.Cfg().system_os_name == "Windows":
+            msbuild_args = vs.get_msbuild_args(target="Clean")
+            clean_cmd = (
+                            "call", str(vs.get_vsdevcmd_bat_path()),
+                            "&&", "msbuild", str(self._git_local_path / "build" / self._solution)
+                        ) + tuple(msbuild_args)
 
         self.clean_finish(clean_cmd)
 

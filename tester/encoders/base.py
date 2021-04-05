@@ -221,10 +221,10 @@ class EncoderBase:
         return True
 
     def build_finish(self,
-                     build_cmd: tuple) -> None:
+                     build_cmd: tuple, env=None) -> bool:
         """Meant to be called as the last thing from the build() method of derived classes."""
         if self._use_prebuilt:
-            return
+            return False
 
         assert self._exe_src_path
 
@@ -234,7 +234,8 @@ class EncoderBase:
             output = subprocess.check_output(
                 subprocess.list2cmdline(build_cmd),
                 shell=True,
-                stderr=subprocess.STDOUT
+                stderr=subprocess.STDOUT,
+                env=env
             )
             from tester.core.cfg import Cfg
             if Cfg().system_os_name == "Windows":
@@ -259,6 +260,7 @@ class EncoderBase:
             console_log.error(str(exception))
             self._build_log.error(str(exception))
             raise
+        return True
 
     def clean(self) -> None:
         """Runs make clean or similar."""

@@ -76,7 +76,7 @@ def get_vsdevcmd_bat_path() -> Path:
            / "VsDevCmd.bat"
 
 
-def get_msbuild_args(add_defines: Iterable = None) -> list:
+def get_msbuild_args(add_defines: Iterable = None, target=None) -> list:
     base_args = [
         f"/p:Configuration=Release",
         f"/p:Platform=x64",
@@ -89,5 +89,8 @@ def get_msbuild_args(add_defines: Iterable = None) -> list:
         # https://docs.microsoft.com/en-us/visualstudio/msbuild/how-to-escape-special-characters-in-msbuild
         # https://docs.microsoft.com/en-us/visualstudio/msbuild/msbuild-special-characters
         base_args.append(f"/p:DefineConstants={'%3B'.join(add_defines)}")
+
+    if target:
+        base_args.append(f"-t:{target}")
 
     return base_args

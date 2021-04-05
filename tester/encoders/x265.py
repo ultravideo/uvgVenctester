@@ -42,10 +42,15 @@ class X265(EncoderBase):
         if not self.build_start():
             return False
 
+        env = None
         build_cmd = tuple()
 
         if tester.Cfg().system_os_name == "Windows":
             build_dir = self._git_local_path / "build" / tester.Cfg().x265_build_folder
+            if self.get_defines():
+                env = os.environ
+                temp = " ".join([f"/D{x}".replace("=", "#") for x in self.get_defines()])
+                env["CL"] = temp
             build_cmd = \
                 (
                     "cd", build_dir,
@@ -63,12 +68,20 @@ class X265(EncoderBase):
                 (
                     "cd", str(self._git_local_path / "build" / "linux"),
                     "&&", "cmake", "../../source", "-DENABLE_SHARED=OFF",
-                ) + (
-                    (f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}",) if tester.Cfg().nasm_path else tuple()
-                ) + (
+                )
+            if tester.Cfg().nasm_path:
+                build_cmd += (
+                    f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}",
+                )
+            if self.get_defines():
+                build_cmd += (
+                    "-DCMAKE_CXX_FLAGS " + " ".join([f"-D{x}" for x in self.get_defines()])
+                )
+
+            build_cmd += (
                     "&&", "make",
                 )
-        self.build_finish(build_cmd)
+        return self.build_finish(build_cmd, env)
 
     def clean(self) -> None:
         self.clean_start()
