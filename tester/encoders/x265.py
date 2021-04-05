@@ -123,17 +123,7 @@ class X265(EncoderBase):
         if not self.encode_start(encoding_run):
             return
 
-        if encoding_run.qp_name == tester.QualityParam.QP:
-            quality = ("--qp", str(encoding_run.qp_value))
-        elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
-                                      tester.QualityParam.RES_SCALED_BITRATE,
-                                      tester.QualityParam.BPP,
-                                      tester.QualityParam.RES_ROOT_SCALED_BITRATE):
-            quality = ("--bitrate", str(int(encoding_run.qp_value / 1000)))
-        elif encoding_run.qp_name == tester.QualityParam.CRF:
-            quality = ("--crf", str(encoding_run.qp_value))
-        else:
-            assert 0, "Invalid quality parameter"
+        quality = encoding_run.param_set.get_quality_value(encoding_run.qp_value)
 
         encode_cmd = \
             (
@@ -179,6 +169,11 @@ class X265(EncoderBase):
                 cl_args
             )
 
+            self._quality_formats[tester.QualityParam.QP] = "--qp "
+            self._quality_formats[tester.QualityParam.CRF] = "--crf "
+            for t in range(tester.QualityParam.BITRATE.value, len(tester.QualityParam) + 1):
+                self._quality_formats[tester.QualityParam(t)] = "--bitrate "
+                self._quality_scales[tester.QualityParam(t)] = 1000
             # This checks the integrity of the parameters.
             self.to_cmdline_tuple(include_quality_param=False)
 
@@ -195,21 +190,7 @@ class X265(EncoderBase):
             args = self._cl_args
 
             if include_quality_param:
-                if self._quality_param_type == tester.QualityParam.QP:
-                    args += f" --qp {self._quality_param_value}"
-                elif self._quality_param_type == tester.QualityParam.BITRATE:
-                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
-                elif self.get_quality_param_type() == tester.QualityParam.BPP:
-                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
-                elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
-                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
-                elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
-                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
-                elif self.get_quality_param_type() == tester.QualityParam.CRF:
-                    args += f" --crf {self._quality_param_value}"
-                else:
-                    raise ValueError(
-                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+                args += " " + " ".join(self.get_quality_value(self.get_quality_param_value()))
 
             if include_seek and self._seek:
                 args += f" --seek {self._seek}"

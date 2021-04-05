@@ -20,14 +20,14 @@ import tester.core.test as test
 class QualityParam(Enum):
     """An enumeration to identify the supported quality parameter types."""
 
-    QP: int = 1
-    CRF: int = 2
+    QP = 1
+    CRF = 2
     # The types using bitrate should be together so that bitrate can be
     # easily scaled with temporal subsampling
-    BITRATE: int = 3
-    BPP: int = 4
-    RES_SCALED_BITRATE: int = 5
-    RES_ROOT_SCALED_BITRATE: int = 6
+    BITRATE = 3
+    BPP = 4
+    RES_SCALED_BITRATE = 5
+    RES_ROOT_SCALED_BITRATE = 6
 
     @property
     def pretty_name(self):
@@ -87,6 +87,7 @@ class EncoderBase:
         self._commit_hash_short: [str, None] = None
         self._build_log_name: [str, None] = None
         self._build_log_path: [Path, None] = None
+
         # Initializes the above.
         if not self._use_prebuilt:
             self.prepare_sources()
@@ -454,6 +455,10 @@ class EncoderBase:
             self._frames: int = frames // tester.Cfg().frame_step_size if frames else frames
             self._cl_args: str = cl_args
 
+            self._quality_formats: dict = dict()
+            """The values defined in this dict MUST include any trailing whitespace or equality operator"""
+            self._quality_scales: dict = {x: 1 for x in QualityParam}
+
         def __eq__(self,
                    other: EncoderBase.ParamSet):
             return self.to_cmdline_str(include_quality_param=False) == other.to_cmdline_str(include_quality_param=False)
@@ -483,6 +488,13 @@ class EncoderBase:
         @staticmethod
         def _is_value(candidate: str):
             return not EncoderBase.ParamSet._is_option(candidate)
+
+        def get_quality_value(self, value: int):
+            try:
+                return tuple((f"{self._quality_formats[self._quality_param_type]}"
+                              f"{int(value/self._quality_scales[self._quality_param_type])}").split())
+            except KeyError:
+                raise ValueError(f"Unsupported quality parameter type {self._quality_param_value}")
 
         def _to_unordered_args_list(self,
                                     include_quality_param: bool = True,

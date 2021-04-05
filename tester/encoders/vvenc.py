@@ -20,6 +20,24 @@ class Vvenc(EncoderBase):
     file_suffix = "vvc"
 
     class ParamSet(EncoderBase.ParamSet):
+        def __init__(self,
+                     quality_param_type: tester.QualityParam,
+                     quality_param_value: int,
+                     seek: int,
+                     frames: int,
+                     cl_args: str):
+
+            super().__init__(
+                quality_param_type,
+                quality_param_value,
+                seek,
+                frames,
+                cl_args
+            )
+
+            self._quality_formats[tester.QualityParam.QP] = "-qp "
+            for t in range(tester.QualityParam.BITRATE.value, len(tester.QualityParam) + 1):
+                self._quality_formats[tester.QualityParam(t)] = "--bitrate"
 
         def _to_unordered_args_list(self,
                                     include_quality_param: bool = True,
@@ -29,25 +47,12 @@ class Vvenc(EncoderBase):
             args = self._cl_args
 
             if include_quality_param:
-                if self._quality_param_type == tester.QualityParam.QP:
-                    args += f" --qp {self._quality_param_value}"
-                elif self._quality_param_type == tester.QualityParam.BITRATE:
-                    args += f" --bitrate {self._quality_param_value}"
-                elif self.get_quality_param_type() == tester.QualityParam.BPP:
-                    args += f" --bitrate {self._quality_param_value}"
-                elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
-                    args += f" --bitrate {self._quality_param_value}"
-                elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
-                    args += f" --bitrate {self._quality_param_value}"
-                else:
-                    raise ValueError(
-                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+                args += " " + " ".join(self.get_quality_value(self.get_quality_param_value()))
+
             if self._seek:
                 raise AssertionError("vvenc does not support seeking")
-                args += f" -fs {self._seek}"
             if self._frames:
                 raise AssertionError("vvenc does not support setting frame_count")
-                args += f" -f {self._frames}"
 
             if include_directory_data:
                 if tester.Cfg().frame_step_size != 1:
@@ -170,15 +175,7 @@ class Vvenc(EncoderBase):
         if not self.encode_start(encoding_run):
             return
 
-        if encoding_run.qp_name == tester.QualityParam.QP:
-            quality = ("--qp", str(encoding_run.qp_value))
-        elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
-                                      tester.QualityParam.RES_SCALED_BITRATE,
-                                      tester.QualityParam.BPP,
-                                      tester.QualityParam.RES_ROOT_SCALED_BITRATE):
-            quality = ("--bitrate", str(encoding_run.qp_value))
-        else:
-            assert 0, "Invalid quality parameter"
+        quality = encoding_run.param_set.get_quality_value(encoding_run.qp_value)
 
         encode_cmd = \
             (
@@ -239,15 +236,7 @@ class Vvencff(Vvenc):
         if not self.encode_start(encoding_run):
             return
 
-        if encoding_run.qp_name == tester.QualityParam.QP:
-            quality = ("-q", str(encoding_run.qp_value))
-        elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
-                                      tester.QualityParam.RES_SCALED_BITRATE,
-                                      tester.QualityParam.BPP,
-                                      tester.QualityParam.RES_ROOT_SCALED_BITRATE):
-            quality = (f"--TargetBitrate={encoding_run.qp_value}", "--RateControl=2")
-        else:
-            assert 0, "Invalid quality parameter"
+        quality = encoding_run.param_set.get_quality_value(encoding_run.qp_value)
 
         encode_cmd = \
             (
@@ -264,6 +253,24 @@ class Vvencff(Vvenc):
         self.encode_finish(encode_cmd, encoding_run)
 
     class ParamSet(EncoderBase.ParamSet):
+        def __init__(self,
+                     quality_param_type: tester.QualityParam,
+                     quality_param_value: int,
+                     seek: int,
+                     frames: int,
+                     cl_args: str):
+
+            super().__init__(
+                quality_param_type,
+                quality_param_value,
+                seek,
+                frames,
+                cl_args
+            )
+
+            self._quality_formats[tester.QualityParam.QP] = "-q "
+            for t in range(tester.QualityParam.BITRATE.value, len(tester.QualityParam) + 1):
+                self._quality_formats[tester.QualityParam(t)] = "--RateControl=2 --TargetBitrate="
 
         def _to_unordered_args_list(self,
                                     include_quality_param: bool = True,
@@ -273,17 +280,7 @@ class Vvencff(Vvenc):
             args = self._cl_args
 
             if include_quality_param:
-                if self._quality_param_type == tester.QualityParam.QP:
-                    args += f" -q {self._quality_param_value}"
-                elif self._quality_param_type in [tester.QualityParam.BITRATE,
-                                                  tester.QualityParam.BPP,
-                                                  tester.QualityParam.RES_SCALED_BITRATE,
-                                                  tester.QualityParam.RES_SCALED_BITRATE,
-                                                  tester.QualityParam.RES_ROOT_SCALED_BITRATE]:
-                    args += f" --TargetBitrate={self._quality_param_value} --RateControl=2"
-                else:
-                    raise ValueError(
-                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+                args += " ".join(self.get_quality_value(self.get_quality_param_value()))
 
             if include_seek and self._seek:
                 args += f" -fs {self._seek}"
