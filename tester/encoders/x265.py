@@ -94,6 +94,13 @@ class X265(EncoderBase):
                 "&&", "make", "clean",
             )
 
+        elif tester.Cfg().system_os_name == "Windows":
+            msbuild_args = vs.get_msbuild_args(target="Clean")
+            clean_cmd = (
+                            "call", str(vs.get_vsdevcmd_bat_path()),
+                            "&&", "msbuild", str(self._git_local_path / "build" / tester.Cfg().x265_build_folder)
+                        ) + tuple(msbuild_args)
+
         self.clean_finish(clean_cmd)
 
     def dummy_run(self, param_set: EncoderBase.ParamSet, env) -> bool:
