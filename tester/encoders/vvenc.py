@@ -167,7 +167,9 @@ class Vvenc(EncoderBase):
             console_log.error(f"VVenC: Remote '{tester.Cfg().vvenc_remote_url}' is not available")
             raise RuntimeError
 
-        if not cfg.Cfg().vvc_reference_decoder.exists():
+        try:
+            subprocess.call((cfg.Cfg().vvc_reference_decoder, ), )
+        except FileNotFoundError:
             raise RuntimeError("VVenC: VVC reference decoder is needed for decoding VVC currently")
 
     def encode(self,
@@ -183,6 +185,8 @@ class Vvenc(EncoderBase):
                 "-i", str(encoding_run.input_sequence.get_filepath()),
                 "-s", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                 f"--FrameRate={encoding_run.input_sequence.get_framerate()}",
+                f"--InputBitDepth={encoding_run.input_sequence.get_bit_depth()}",
+                f"--InputChromaFormat={encoding_run.input_sequence.get_chroma()}",
                 "-o", str(encoding_run.output_file.get_filepath()),
                 "--frames", str(encoding_run.frames * tester.Cfg().frame_step_size),
             ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
@@ -206,7 +210,7 @@ class Vvenc(EncoderBase):
                 stderr=subprocess.STDOUT
             )
         except:
-            console_log.error(f"{type(self.__name__)}: Failed to decode file "
+            console_log.error(f"VVenc: Failed to decode file "
                               f"'{encoding_run.output_file.get_filepath()}'")
             raise
 
@@ -246,6 +250,8 @@ class Vvencff(Vvenc):
                 "-i", str(encoding_run.input_sequence.get_encode_path()),
                 "-s", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                 f"--FrameRate={encoding_run.input_sequence.get_framerate()}",
+                f"--InputBitDepth={encoding_run.input_sequence.get_bit_depth()}",
+                f"--InputChromaFormat={encoding_run.input_sequence.get_chroma()}",
                 "-b", str(encoding_run.output_file.get_filepath()),
                 "-f", str(encoding_run.frames * tester.Cfg().frame_step_size),
                 "-o", os.devnull,
@@ -280,7 +286,7 @@ class Vvencff(Vvenc):
             args = self._cl_args
 
             if include_quality_param:
-                args += " ".join(self.get_quality_value(self.get_quality_param_value()))
+                args += " " + " ".join(self.get_quality_value(self.get_quality_param_value()))
 
             if include_seek and self._seek:
                 args += f" -fs {self._seek}"

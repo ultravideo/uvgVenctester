@@ -249,6 +249,7 @@ class Vtm(EncoderBase):
                 "-hgt", str(encoding_run.input_sequence.get_height()),
                 "-b", str(encoding_run.output_file.get_filepath()),
                 f"--InputChromaFormat={encoding_run.input_sequence.get_chroma()}",
+                f"--InputBitDepth={encoding_run.input_sequence.get_bit_depth()}",
                 "-f", str(encoding_run.frames * cfg.Cfg().frame_step_size),
                 "-o", os.devnull,
             ) + quality
