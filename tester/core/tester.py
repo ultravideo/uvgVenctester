@@ -124,6 +124,9 @@ class TesterContext:
                                       f"is invalid")
                     raise RuntimeError
 
+    def need_build_support(self):
+        return any(not test.use_prebuilt for test in self._tests)
+
     def __del__(self):
         for seq in self._input_sequences:
             if seq._converted_path:
@@ -141,7 +144,7 @@ class Tester:
         console_log.info("Tester: Creating context")
 
         try:
-            context = TesterContext(tests, input_sequence_globs,convert_color_format)
+            context = TesterContext(tests, input_sequence_globs, convert_color_format)
         except Exception as exception:
             console_log.error("Tester: Failed to create context")
             log_exception(exception)
@@ -153,12 +156,15 @@ class Tester:
             # Test the validity of external tools first because the validation of internal
             # stuff might depend on these (for example Git remote existence checking).
             system.system_validate_config()
-            git.git_validate_config()
-            cmake.cmake_validate_config()
-            gcc.gcc_validate_config()
+
+            if context.need_build_support():
+                git.git_validate_config()
+                cmake.cmake_validate_config()
+                gcc.gcc_validate_config()
+                vs.vs_validate_config()
+
             ffmpeg.ffmpeg_validate_config()
             vmaf.vmaf_validate_config()
-            vs.vs_validate_config()
             table.table_validate_config()
             conformance.validate_conformance()
 
@@ -187,7 +193,7 @@ class Tester:
             for test in context.get_tests():
                 console_log.info(f"Tester: Building encoder for test '{test.name}'")
 
-                if test.encoder.build() and not test.encoder._use_prebuilt:
+                if not test.encoder._use_prebuilt and test.encoder.build():
                     test.encoder.clean()
             context.validate_final()
 
