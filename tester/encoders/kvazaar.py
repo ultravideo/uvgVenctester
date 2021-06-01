@@ -212,7 +212,7 @@ class Kvazaar(EncoderBase):
 
     @staticmethod
     def validate_config(test_config: test.Test):
-        if not git.git_remote_exists(tester.Cfg().kvazaar_remote_url):
+        if not test_config.use_prebuilt and not git.git_remote_exists(tester.Cfg().kvazaar_remote_url):
             console_log.error(f"Kvazaar: Remote '{tester.Cfg().kvazaar_remote_url}' is unavailable")
             raise RuntimeError
 

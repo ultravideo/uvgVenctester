@@ -279,7 +279,7 @@ class Vtm(EncoderBase):
 
     @staticmethod
     def validate_config(test_config: test.Test):
-        if not git.git_remote_exists(cfg.Cfg().vtm_remote_url):
+        if not test_config.use_prebuilt and not git.git_remote_exists(cfg.Cfg().vtm_remote_url):
             console_log.error(f"VTM: Remote '{cfg.Cfg().vtm_remote_url}' is not available")
             raise RuntimeError
 

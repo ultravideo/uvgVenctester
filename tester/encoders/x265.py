@@ -142,7 +142,7 @@ class X265(EncoderBase):
 
     @staticmethod
     def validate_config(test_config: test.Test):
-        if not git.git_remote_exists(tester.Cfg().x265_remote_url):
+        if not test_config.use_prebuilt and not git.git_remote_exists(tester.Cfg().x265_remote_url):
             console_log.error(f"x265: Remote '{tester.Cfg().x265_remote_url}' is unavailable")
             raise RuntimeError
 

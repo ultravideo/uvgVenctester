@@ -163,7 +163,7 @@ class Vvenc(EncoderBase):
     @staticmethod
     def validate_config(test_config: test.Test):
         # Using the public property raises an exception, so access the private attribute instead.
-        if not git.git_remote_exists(tester.Cfg().vvenc_remote_url):
+        if not test_config.use_prebuilt and not git.git_remote_exists(tester.Cfg().vvenc_remote_url):
             console_log.error(f"VVenC: Remote '{tester.Cfg().vvenc_remote_url}' is not available")
             raise RuntimeError
 
