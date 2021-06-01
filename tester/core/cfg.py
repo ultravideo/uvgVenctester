@@ -468,7 +468,13 @@ class Cfg(metaclass=Singleton):
     vvenc_remote_url: str = "https://github.com/fraunhoferhhi/vvenc.git"
 
     ##########################################################################
-    # VVenc
+    # VP9
     ##########################################################################
 
     svt_vp9_remote_url = "https://github.com/OpenVisualCloud/SVT-VP9.git"
+
+    ##########################################################################
+    # AV1
+    ##########################################################################
+
+    svt_av1_remote_url = "https://github.com/AOMediaCodec/SVT-AV1.git"

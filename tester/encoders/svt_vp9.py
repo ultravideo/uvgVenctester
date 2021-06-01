@@ -7,7 +7,7 @@ from typing import Iterable
 
 import tester
 import tester.core.test as test
-from tester.core import vs
+from tester.core import vs, ffmpeg
 from tester.core.log import console_log
 from . import EncoderBase
 
@@ -78,6 +78,8 @@ class SvtVp9(EncoderBase):
         )
 
         self._exe_src_path: Path = None
+        self._dll_name: str = "SvtVp9Enc.dll"
+        self.sln = "svt-vp9.sln"
         if tester.Cfg().system_os_name == "Windows":
             self._exe_src_path = self._git_local_path / "Bin" / "Release" / "SvtVp9EncApp.exe"
         elif tester.Cfg().system_os_name == "Linux":
@@ -105,8 +107,8 @@ class SvtVp9(EncoderBase):
 
         finish = self.build_finish(build_cmd, env)
         if finish:
-            shutil.copy(self._exe_src_path / ".." / "SvtVp9Enc.dll",
-                        self._exe_path / ".." / "SvtVp9Enc.dll")
+            shutil.copy(self._exe_src_path / ".." / self._dll_name,
+                        self._exe_path / ".." / self._dll_name)
         return finish
 
     def clean(self) -> None:
@@ -121,7 +123,7 @@ class SvtVp9(EncoderBase):
             msbuild_args = vs.get_msbuild_args(target="Clean")
             clean_cmd = (
                             "call", str(vs.get_vsdevcmd_bat_path()),
-                            "&&", "msbuild", str(self._git_local_path / "build" / "windows" / "svt-vp9.sln")
+                            "&&", "msbuild", str(self._git_local_path / "build" / "windows" / self.sln)
                         ) + tuple(msbuild_args)
 
         self.clean_finish(clean_cmd)
@@ -141,8 +143,6 @@ class SvtVp9(EncoderBase):
                 "-b", os.devnull,
                 "-n", "1"
             ) + param_set.to_cmdline_tuple()
-
-        print(" ".join(dummy_cmd))
 
         return self.dummy_run_finish(dummy_cmd, param_set, env)
 
@@ -166,3 +166,51 @@ class SvtVp9(EncoderBase):
                                                         include_frames=False) + quality
 
         self.encode_finish(encode_cmd, encoding_run)
+
+
+class SvtAv1(SvtVp9):
+    file_suffix = "av1"
+
+    def __init__(self,
+                 user_given_revision: str,
+                 defines: Iterable,
+                 use_prebuilt: bool):
+        super(SvtVp9, self).__init__(
+            name="svt_av1",
+            user_given_revision=user_given_revision,
+            defines=defines,
+            git_local_path=tester.Cfg().tester_sources_dir_path / "svt_av1",
+            git_remote_url=tester.Cfg().svt_av1_remote_url,
+            use_prebuilt=use_prebuilt,
+        )
+
+        self._exe_src_path: Path = None
+        self._dll_name: str = "SvtAv1Enc.dll"
+        if tester.Cfg().system_os_name == "Windows":
+            self._exe_src_path = self._git_local_path / "Bin" / "Release" / "SvtAv1EncApp.exe"
+        elif tester.Cfg().system_os_name == "Linux":
+            self._exe_src_path = self._git_local_path / "Bin" / "Release" / "SvtAv1EncApp"
+
+    def dummy_run(self, param_set: EncoderBase.ParamSet, env) -> bool:
+
+        self.dummy_run_start(param_set)
+
+        RESOLUTION_PLACEHOLDER = "64"
+        dummy_sequence_path = ffmpeg.generate_dummy_sequence()
+
+        dummy_cmd = \
+            (
+                str(self._exe_path),
+                "-i", dummy_sequence_path,
+                "-w", RESOLUTION_PLACEHOLDER,
+                "-h", RESOLUTION_PLACEHOLDER,
+                "-b", os.devnull,
+                "-n", "1"
+            ) + param_set.to_cmdline_tuple()
+
+        finish = self.dummy_run_finish(dummy_cmd, param_set, env)
+        os.remove(str(dummy_sequence_path))
+        return finish
+
+    class ParamSet(SvtVp9.ParamSet):
+        pass

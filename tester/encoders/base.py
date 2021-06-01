@@ -180,6 +180,7 @@ class EncoderBase:
                          (self._name + f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}")
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
         self._build_log_path = tester.Cfg().tester_binaries_dir_path / self._exe_directory / self._build_log_name
+        (self._build_log_path / "..").mkdir(parents=True, exist_ok=True)
 
         console_log.info(f"{self._name}: Revision '{self._user_given_revision}' "
                          f"maps to commit hash '{self._commit_hash}'")
@@ -256,7 +257,6 @@ class EncoderBase:
         self._build_log.debug(f"{self._name}: Copying file '{self._exe_src_path}' "
                               f"to '{self._exe_path}'")
         try:
-            (self._exe_path / "..").mkdir(parents=True, exist_ok=True)
             shutil.copy(str(self._exe_src_path), str(self._exe_path))
 
         except FileNotFoundError as exception:
