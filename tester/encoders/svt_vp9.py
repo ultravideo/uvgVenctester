@@ -97,7 +97,7 @@ class SvtVp9(EncoderBase):
 
             build_cmd = (
                 "cd", str(self._git_local_path / "Build" / "windows"),
-                "&&", r".\build.bat"
+                "&&", r".\build.bat", "release"
             )
 
         elif tester.Cfg().system_os_name == "Linux":
@@ -105,8 +105,8 @@ class SvtVp9(EncoderBase):
 
         finish = self.build_finish(build_cmd, env)
         if finish:
-            shutil.copy(self._exe_src_path[:-1] / "SvtVp9Enc.dll",
-                        tester.Cfg().tester_binaries_dir_path / "SvtVp9Enc.dll")
+            shutil.copy(self._exe_src_path / ".." / "SvtVp9Enc.dll",
+                        self._exe_path / ".." / "SvtVp9Enc.dll")
         return finish
 
     def clean(self) -> None:

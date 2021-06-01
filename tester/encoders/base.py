@@ -81,7 +81,7 @@ class EncoderBase:
 
         self._use_prebuilt = use_prebuilt
 
-        self._exe_name: [str, None] = None
+        self._exe_directory: [str, None] = None
         self._exe_path: [Path, None] = None
         self._commit_hash: [str, None] = None
         self._commit_hash_short: [str, None] = None
@@ -92,9 +92,9 @@ class EncoderBase:
         if not self._use_prebuilt:
             self.prepare_sources()
         else:
-            self._exe_name = f"{self._name}_{self._user_given_revision}" + \
-                             f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}"
-            self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_name
+            self._exe_directory = f"{self._name}_{self._user_given_revision}"
+            self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_directory / (name + \
+                f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}")
             self._commit_hash = self._user_given_revision
 
         # This must be set in the constructor of derived classes.
@@ -174,11 +174,12 @@ class EncoderBase:
 
         # These can now be evaluated because the repo exists for certain.
         self._commit_hash_short = self._commit_hash[:tester.Cfg().tester_commit_hash_len]
-        self._exe_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}" \
-                         f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}"
-        self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_name
+        self._exe_directory = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}"
+        self._exe_path = tester.Cfg().tester_binaries_dir_path / \
+                         self._exe_directory / \
+                         (self._name + f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}")
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
-        self._build_log_path = tester.Cfg().tester_binaries_dir_path / self._build_log_name
+        self._build_log_path = tester.Cfg().tester_binaries_dir_path / self._exe_directory / self._build_log_name
 
         console_log.info(f"{self._name}: Revision '{self._user_given_revision}' "
                          f"maps to commit hash '{self._commit_hash}'")
@@ -191,16 +192,16 @@ class EncoderBase:
         """Meant to be called as the first thing from the build() method of derived classes."""
         assert tester.Cfg().tester_binaries_dir_path.exists()
         if self._use_prebuilt:
-            console_log.info(f"{self._name}: Using prebuilt encoder '{self._exe_name}'")
+            console_log.info(f"{self._name}: Using prebuilt encoder '{self._exe_directory}'")
             if not self._exe_path.exists():
-                raise FileNotFoundError(f"Missing prebuilt encoder '{self._exe_name}'")
+                raise FileNotFoundError(f"Missing prebuilt encoder '{self._exe_directory}'")
             return True
 
-        console_log.info(f"{self._name}: Building executable '{self._exe_name}'")
+        console_log.info(f"{self._name}: Building executable '{self._exe_directory}'")
         console_log.info(f"{self._name}: Log: '{self._build_log_name}'")
 
         if self._exe_path.exists():
-            console_log.info(f"{self._name}: Executable '{self._exe_name}' already exists")
+            console_log.info(f"{self._name}: Executable '{self._exe_directory}' already exists")
             # Don't build unnecessarily.
             return False
 
@@ -255,6 +256,7 @@ class EncoderBase:
         self._build_log.debug(f"{self._name}: Copying file '{self._exe_src_path}' "
                               f"to '{self._exe_path}'")
         try:
+            (self._exe_path / "..").mkdir(parents=True, exist_ok=True)
             shutil.copy(str(self._exe_src_path), str(self._exe_path))
 
         except FileNotFoundError as exception:
