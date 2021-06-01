@@ -1,4 +1,5 @@
 """This module defines functionality related to testing."""
+import contextlib
 import os
 import subprocess
 import time
@@ -25,6 +26,18 @@ class ResultTypes(Enum):
     CSV = 1
     TABLE = 2
     GRAPH = 3
+
+
+@contextlib.contextmanager
+def _process_pool(threads=None):
+
+    pool = Pool(threads)
+
+    yield pool
+
+    pool.close()
+    pool.join()
+    pool = None
 
 
 class TesterContext:
@@ -196,8 +209,8 @@ class Tester:
                                                  f" already exists")
 
             if parallel_runs > 1:
-                with Pool(parallel_runs) as p:
-                    p.map(Tester._do_encoding_run, encoding_runs)
+                with _process_pool(parallel_runs) as p:
+                    p.imap_unordered(Tester._do_encoding_run, encoding_runs)
             else:
                 for encoding_run in encoding_runs:
                     Tester._do_encoding_run(encoding_run)
@@ -288,8 +301,8 @@ class Tester:
                             Tester._calculate_metrics_for_one_run(arguments)
 
         if parallel_calculations > 1:
-            with Pool(parallel_calculations) as p:
-                p.map(Tester._calculate_metrics_for_one_run, values)
+            with _process_pool(parallel_calculations) as p:
+                p.imap_unordered(Tester._calculate_metrics_for_one_run, values)
 
         for m in result_types:
             context.add_metrics_calculated_for(m)
@@ -500,8 +513,8 @@ class Tester:
         else:
             if parallel_generations is None:
                 parallel_generations = cpu_count()
-            with Pool(parallel_generations) as p:
-                p.map(Tester._do_one_figure, figures)
+            with _process_pool(parallel_generations) as p:
+                p.imap_unordered(Tester._do_one_figure, figures)
 
     @staticmethod
     def _do_one_figure(args):
@@ -512,7 +525,7 @@ class Tester:
         plt.suptitle(video_name, size=50)
         for plot_index, metric in enumerate(enabled_metrics):
             plt.subplot(100 * len(enabled_metrics) + 10 + plot_index + 1)
-            plt.title(metric.upper(), size=26)
+            plt.rcParams["font.size"] = "100"
             temp = []
 
             for test, color in zip(metrics, Cfg().graph_colors):
@@ -526,14 +539,20 @@ class Tester:
                     color=color
                 )
                 temp.append(a[0])
-                if "target_bitrate_avg" in video_data[0] and Cfg().graph_include_bitrate_targets:
-                    for target in video_data:
-                        plt.axvline(x=target["target_bitrate_avg"] / 1000)
+                a[0].axes.set_ylabel(metric.upper(), fontsize=24)
+                a[0].axes.set_xlabel("Bitrate (kbps)", fontsize=24)
 
-            plt.legend(temp, metrics, fontsize=18)
+            ta = list(metrics.keys())
+            if "target_bitrate_avg" in video_data[0] and Cfg().graph_include_bitrate_targets:
+                for target in video_data:
+                    t = plt.axvline(x=target["target_bitrate_avg"] / 1000)
+                    temp.append(t)
+                ta.append("Bitrate Target")
+
+            plt.legend(temp, ta, fontsize=18)
             te = plt.gca()
-            te.xaxis.set_tick_params(labelsize=16)
-            te.yaxis.set_tick_params(labelsize=16)
+            te.xaxis.set_tick_params(labelsize=20)
+            te.yaxis.set_tick_params(labelsize=20)
             plt.xlim(left=0)
-        plt.savefig((basedir / video_name).with_suffix(".png"))
+        plt.savefig((basedir / video_name).with_suffix(".svg"))
         plt.close()

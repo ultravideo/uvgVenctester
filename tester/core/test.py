@@ -45,7 +45,7 @@ class EncodingRun:
 
         qp_name = self.qp_name.short_name
 
-        self.base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
+        self.base_filename = f"{input_sequence.get_constructed_name()}_" \
                              f"{qp_name}{self.param_set.get_quality_param_value()}_{round_number}"
         self.output_dir_path = encoder.get_output_dir(param_set, parent.parent.env)
 

@@ -116,7 +116,7 @@ class SequenceMetrics:
                  quality_values: Iterable,
                  rounds: int):
         base_paths = {x: path_prefix /
-                         f"{sequence.get_suffixless_name()}_{quality_type.short_name}{x}_{{}}_metrics.json"
+                         f"{sequence.get_constructed_name()}_{quality_type.short_name}{x}_{{}}_metrics.json"
                       for x in quality_values}
         self.__sequence = sequence
         self.__qp_type = quality_type

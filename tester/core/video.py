@@ -75,6 +75,9 @@ class VideoFileBase:
     def get_suffixless_name(self):
         return self._filepath.parts[-1].replace(self._filepath.suffix, "")
 
+    def get_constructed_name(self):
+        return f"{self._base_name}_{self._width}x{self._height}_{self._fps}fps_{self._bit_depth}bit_{self._chroma}"
+
     def __str__(self):
         return f"{self._filepath.parts[-1]}"
 
@@ -98,6 +101,7 @@ class RawVideoSequence:
                  bit_depth: int = 8,
                  convert_to: [Tuple[int, int], None] = None):
 
+        self._base_name: [str, None] = None
         self._width: [int, None] = None
         self._height: [int, None] = None
         self._fps: [int, None] = None
@@ -239,6 +243,9 @@ class RawVideoSequence:
     def get_suffixless_name(self):
         return self._filepath.parts[-1].replace(self._filepath.suffix, "")
 
+    def get_constructed_name(self):
+        return f"{self._base_name}_{self._width}x{self._height}_{self._fps}fps_{self._bit_depth}bit_{self._chroma}"
+
     @staticmethod
     def guess_values(filepath: Path):
         file = filepath.parts[-1]
@@ -250,6 +257,7 @@ class RawVideoSequence:
                 result = {
                     "width": int(match.group("width")),
                     "height": int(match.group("height")),
+                    "base_name": match.group("name"),
                 }
                 for value in ("fps", "bit_depth", "chroma", "total_frames"):
                     try:
