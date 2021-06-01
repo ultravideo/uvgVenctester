@@ -313,7 +313,7 @@ class EncodedVideoFile(VideoFileBase):
                  framerate: int,
                  frames: int,
                  duration_seconds: float):
-        assert filepath.suffix in (".hevc", ".vvc")
+        assert filepath.suffix in (".hevc", ".vvc", ".vp9")
 
         super().__init__(
             filepath,

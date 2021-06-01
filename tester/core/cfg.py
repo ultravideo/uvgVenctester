@@ -379,7 +379,7 @@ class Cfg(metaclass=Singleton):
         self._nasm_path = value
 
     ##########################################################################
-    # Visual Studio
+    # UVG266
     ##########################################################################
 
     uvg266_remote_url: str = "https://gitlab.tuni.fi/cs/ultravideo/vvc/uvg266.git"
@@ -466,3 +466,9 @@ class Cfg(metaclass=Singleton):
     ##########################################################################
 
     vvenc_remote_url: str = "https://github.com/fraunhoferhhi/vvenc.git"
+
+    ##########################################################################
+    # VVenc
+    ##########################################################################
+
+    svt_vp9_remote_url = "https://github.com/OpenVisualCloud/SVT-VP9.git"
