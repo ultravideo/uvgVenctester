@@ -1,4 +1,5 @@
 """This module defines functionality related to testing."""
+import contextlib
 import os
 import subprocess
 import time
@@ -27,13 +28,26 @@ class ResultTypes(Enum):
     GRAPH = 3
 
 
+@contextlib.contextmanager
+def _process_pool(threads=None):
+
+    pool = Pool(threads)
+
+    yield pool
+
+    pool.close()
+    pool.join()
+    pool = None
+
+
 class TesterContext:
     """Contains the state of the tester. The intention is to make the Tester class itself
     stateless for flexibility."""
 
     def __init__(self,
                  tests: Iterable,
-                 input_sequence_globs: list):
+                 input_sequence_globs: list,
+                 convert_color_format=None):
 
         self._tests: list = list(tests)
 
@@ -48,7 +62,7 @@ class TesterContext:
             for filepath in paths:
                 self._input_sequences.append(
                     RawVideoSequence(
-                        filepath=filepath.resolve(),
+                        filepath=filepath.resolve(), convert_to=convert_color_format
                     )
                 )
         self._metrics: dict = {test.name: TestMetrics(test, self._input_sequences) for test in self._tests}
@@ -105,10 +119,18 @@ class TesterContext:
         have been built."""
         for test in self._tests:
             for subtest in test.subtests:
-                if not subtest.encoder.dummy_run(subtest.param_set):
+                if not subtest.encoder.dummy_run(subtest.param_set, test.new_env):
                     console_log.error(f"Tester: Test '{test.name}' "
                                       f"is invalid")
                     raise RuntimeError
+
+    def need_build_support(self):
+        return any(not test.use_prebuilt for test in self._tests)
+
+    def __del__(self):
+        for seq in self._input_sequences:
+            if seq._converted_path:
+                seq._converted_path.unlink()
 
 
 class Tester:
@@ -116,12 +138,13 @@ class Tester:
 
     @staticmethod
     def create_context(tests: Iterable,
-                       input_sequence_globs: list) -> TesterContext:
+                       input_sequence_globs: list,
+                       convert_color_format=None) -> TesterContext:
 
         console_log.info("Tester: Creating context")
 
         try:
-            context = TesterContext(tests, input_sequence_globs)
+            context = TesterContext(tests, input_sequence_globs, convert_color_format)
         except Exception as exception:
             console_log.error("Tester: Failed to create context")
             log_exception(exception)
@@ -133,12 +156,15 @@ class Tester:
             # Test the validity of external tools first because the validation of internal
             # stuff might depend on these (for example Git remote existence checking).
             system.system_validate_config()
-            git.git_validate_config()
-            cmake.cmake_validate_config()
-            gcc.gcc_validate_config()
+
+            if context.need_build_support():
+                git.git_validate_config()
+                cmake.cmake_validate_config()
+                gcc.gcc_validate_config()
+                vs.vs_validate_config()
+
             ffmpeg.ffmpeg_validate_config()
             vmaf.vmaf_validate_config()
-            vs.vs_validate_config()
             table.table_validate_config()
             conformance.validate_conformance()
 
@@ -166,9 +192,8 @@ class Tester:
             context.validate_initial()
             for test in context.get_tests():
                 console_log.info(f"Tester: Building encoder for test '{test.name}'")
-                test.encoder.build()
-                # TODO: Don't clean if the encoder wasn't built.
-                if not test.encoder._use_prebuilt:
+
+                if not test.encoder._use_prebuilt and test.encoder.build():
                     test.encoder.clean()
             context.validate_final()
 
@@ -190,8 +215,8 @@ class Tester:
                                                  f" already exists")
 
             if parallel_runs > 1:
-                with Pool(parallel_runs) as p:
-                    p.map(Tester._do_encoding_run, encoding_runs)
+                with _process_pool(parallel_runs) as p:
+                    p.imap_unordered(Tester._do_encoding_run, encoding_runs)
             else:
                 for encoding_run in encoding_runs:
                     Tester._do_encoding_run(encoding_run)
@@ -282,8 +307,8 @@ class Tester:
                             Tester._calculate_metrics_for_one_run(arguments)
 
         if parallel_calculations > 1:
-            with Pool(parallel_calculations) as p:
-                p.map(Tester._calculate_metrics_for_one_run, values)
+            with _process_pool(parallel_calculations) as p:
+                p.imap_unordered(Tester._calculate_metrics_for_one_run, values)
 
         for m in result_types:
             context.add_metrics_calculated_for(m)
@@ -494,8 +519,8 @@ class Tester:
         else:
             if parallel_generations is None:
                 parallel_generations = cpu_count()
-            with Pool(parallel_generations) as p:
-                p.map(Tester._do_one_figure, figures)
+            with _process_pool(parallel_generations) as p:
+                p.imap_unordered(Tester._do_one_figure, figures)
 
     @staticmethod
     def _do_one_figure(args):
@@ -506,7 +531,7 @@ class Tester:
         plt.suptitle(video_name, size=50)
         for plot_index, metric in enumerate(enabled_metrics):
             plt.subplot(100 * len(enabled_metrics) + 10 + plot_index + 1)
-            plt.title(metric.upper(), size=26)
+            plt.rcParams["font.size"] = "100"
             temp = []
 
             for test, color in zip(metrics, Cfg().graph_colors):
@@ -520,14 +545,20 @@ class Tester:
                     color=color
                 )
                 temp.append(a[0])
-                if "target_bitrate_avg" in video_data[0] and Cfg().graph_include_bitrate_targets:
-                    for target in video_data:
-                        plt.axvline(x=target["target_bitrate_avg"] / 1000)
+                a[0].axes.set_ylabel(metric.upper(), fontsize=24)
+                a[0].axes.set_xlabel("Bitrate (kbps)", fontsize=24)
 
-            plt.legend(temp, metrics, fontsize=18)
+            ta = list(metrics.keys())
+            if "target_bitrate_avg" in video_data[0] and Cfg().graph_include_bitrate_targets:
+                for target in video_data:
+                    t = plt.axvline(x=target["target_bitrate_avg"] / 1000)
+                    temp.append(t)
+                ta.append("Bitrate Target")
+
+            plt.legend(temp, ta, fontsize=18)
             te = plt.gca()
-            te.xaxis.set_tick_params(labelsize=16)
-            te.yaxis.set_tick_params(labelsize=16)
+            te.xaxis.set_tick_params(labelsize=20)
+            te.yaxis.set_tick_params(labelsize=20)
             plt.xlim(left=0)
-        plt.savefig((basedir / video_name).with_suffix(".png"))
+        plt.savefig((basedir / video_name).with_suffix(".svg"))
         plt.close()

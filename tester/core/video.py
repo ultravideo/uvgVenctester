@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import math
+import os
 import re
+import tempfile
 from pathlib import Path
+from typing import Tuple
+from subprocess import check_call, DEVNULL
 
 import tester.core.cfg as cfg
 from tester.core.log import console_log
@@ -71,12 +75,22 @@ class VideoFileBase:
     def get_suffixless_name(self):
         return self._filepath.parts[-1].replace(self._filepath.suffix, "")
 
+    def get_constructed_name(self):
+        return f"{self._base_name}_{self._width}x{self._height}_{self._fps}fps_{self._bit_depth}bit_{self._chroma}"
+
     def __str__(self):
         return f"{self._filepath.parts[-1]}"
 
 
 class RawVideoSequence:
     """Represents a YUV file."""
+    PIXEL_FORMATS: dict = {
+        # (chroma, bit depth) : pixel format (ffmpeg)
+        (400, 8): "gray",
+        (400, 10): "gray16le",
+        (420, 8): "yuv420p",
+        (420, 10): "yuv420p10le",
+    }
 
     def __init__(self,
                  filepath: Path,
@@ -84,8 +98,10 @@ class RawVideoSequence:
                  height: int = None,
                  framerate: int = 25,
                  chroma: int = 420,
-                 bit_depth: int = 8):
+                 bit_depth: int = 8,
+                 convert_to: [Tuple[int, int], None] = None):
 
+        self._base_name: [str, None] = None
         self._width: [int, None] = None
         self._height: [int, None] = None
         self._fps: [int, None] = None
@@ -102,7 +118,11 @@ class RawVideoSequence:
             "total_frames": self._total_frames,
         }
 
-        stats.update(self.guess_values(filepath))
+        try:
+            stats.update(self.guess_values(filepath))
+        except TypeError:
+            console_log.error(f"Video: Failed to guess width and height for sequence {str(filepath)}")
+            raise
 
         if stats["total_frames"] is None:
             stats["total_frames"] = self.guess_total_framecount(filepath, **stats)
@@ -125,6 +145,16 @@ class RawVideoSequence:
         self._filepath = filepath
         self._sequence_class: str = sequence_class
 
+        self._converted_path: [None, Path] = None \
+            if not convert_to or (self._chroma, bit_depth,) == convert_to \
+            else tempfile.mkstemp(".yuv")
+
+        if self._converted_path:
+            os.close(self._converted_path[0])
+            self._converted_path = Path(self._converted_path[1])
+            self._convert_pixel_fmt(convert_to)
+            self._chroma, self._bit_depth = convert_to
+
         # For bitrate calculation.
         self._bytes_per_pixel: int = 1 if self._bit_depth == 8 else 2
         self._pixels_per_frame: int = self._width * self._height \
@@ -136,6 +166,26 @@ class RawVideoSequence:
         for attribute_name in sorted(self.__dict__):
             console_log.debug(f"{type(self).__name__}: "
                               f"{attribute_name} = {getattr(self, attribute_name)}")
+
+    def _convert_pixel_fmt(self, to_format):
+        cmd = (
+            "ffmpeg",
+            "-s:v", f"{self._width}x{self._height}",
+            "-f", "rawvideo",
+            "-r", "1",
+            "-pix_fmt", self.get_pixel_format(),
+            "-i", str(self._filepath),
+            "-pix_fmt", self.PIXEL_FORMATS[to_format],
+            "-r", "1",
+            "-t", str(self._total_frames),
+            str(self._converted_path),
+            "-y",
+        )
+        check_call(
+            cmd,
+            stdout=DEVNULL,
+            stderr=DEVNULL,
+        )
 
     def __hash__(self):
         path = str(self._filepath).lower() if cfg.Cfg().system_os_name == "Windows" else str(self._filepath)
@@ -158,20 +208,16 @@ class RawVideoSequence:
         return self._bit_depth
 
     def get_pixel_format(self) -> str:
-        PIXEL_FORMATS: dict = {
-            # (chroma, bit depth) : pixel format (ffmpeg)
-            (400, 8): "gray",
-            (400, 10): "gray16le",
-            (420, 8): "yuv420p",
-            (420, 10): "yuv420p10le",
-        }
-        return PIXEL_FORMATS[(self._chroma, self._bit_depth)]
+        return self.PIXEL_FORMATS[(self._chroma, self._bit_depth)]
 
     def get_sequence_class(self) -> str:
         return self._sequence_class
 
     def get_filepath(self) -> Path:
         return self._filepath
+
+    def get_encode_path(self) -> Path:
+        return self._converted_path or self._filepath
 
     def get_width(self) -> int:
         return self._width
@@ -197,35 +243,34 @@ class RawVideoSequence:
     def get_suffixless_name(self):
         return self._filepath.parts[-1].replace(self._filepath.suffix, "")
 
+    def get_constructed_name(self):
+        return f"{self._base_name}_{self._width}x{self._height}_{self._fps}fps_{self._bit_depth}bit_{self._chroma}"
+
     @staticmethod
     def guess_values(filepath: Path):
         file = filepath.parts[-1]
-        first_pattern = re.compile(r".+_(\d+)x(\d+)_(\d+)_?(\d+)?.yuv")
-        second_pattern = re.compile(r".+_(\d+)x(\d+)_(\d+)fps_(\d+)bit_(\d+).yuv")
 
-        match = first_pattern.match(file)
-        if match:
-            result = {
-                "width": int(match[1]),
-                "height": int(match[2]),
-                "fps": int(match[3]),
-            }
-            if match.lastindex == 4:
-                result["total_frames"] = int(match[4])
-
-            return result
-        match = second_pattern.match(file)
-        if match:
-            return {
-                "width": int(match[1]),
-                "height": int(match[2]),
-                "fps": int(match[3]),
-                "bit_depth": int(match[4]),
-                "chroma": int(match[5])
-            }
+        for pattern in cfg.Cfg().sequence_formats:
+            temp = re.compile(pattern)
+            match = temp.match(file)
+            if match:
+                result = {
+                    "width": int(match.group("width")),
+                    "height": int(match.group("height")),
+                    "base_name": match.group("name"),
+                }
+                for value in ("fps", "bit_depth", "chroma", "total_frames"):
+                    try:
+                        result[value] = int(match.group(value))
+                    except (IndexError, TypeError):
+                        pass
+                return result
 
     @staticmethod
     def guess_sequence_class(filepath: Path) -> str:
+        if filepath.parent == cfg.Cfg().tester_sequences_dir_path:
+            return "Unknown"
+
         hevc_pattern = re.compile("(hevc-[a-z])", re.IGNORECASE)
         vvc_pattern = re.compile("(vvc-[a-z])", re.IGNORECASE)
         file_string = str(filepath)
@@ -243,7 +288,7 @@ class RawVideoSequence:
         elif "uvg" in file_string or "ultravideo" in file_string:
             return "UVG"
         else:
-            return "Unknown"
+            return filepath.parent.name
 
     @staticmethod
     def guess_total_framecount(filepath: Path,
@@ -268,7 +313,7 @@ class EncodedVideoFile(VideoFileBase):
                  framerate: int,
                  frames: int,
                  duration_seconds: float):
-        assert filepath.suffix in (".hevc", ".vvc")
+        assert filepath.suffix in (".hevc", ".vvc", ".vp9", ".av1")
 
         super().__init__(
             filepath,

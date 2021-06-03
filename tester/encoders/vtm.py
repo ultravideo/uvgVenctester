@@ -56,19 +56,24 @@ class Vtm(EncoderBase):
         elif cfg.Cfg().system_os_name == "Linux":
             self._decoder_exe_src_path = self._exe_src_path.with_name("DecoderAppStatic")
 
-    def build(self) -> None:
+    def build(self) -> bool:
 
         if not self.build_start():
-            return
+            return False
 
         build_cmd = ()
+        env = None
         if not (self._git_local_path / "build").exists():
             (self._git_local_path / "build").mkdir()
 
         if cfg.Cfg().system_os_name == "Windows":
 
             # Add defines to msbuild arguments.
-            msbuild_args = vs.get_msbuild_args(add_defines=self._defines)
+            msbuild_args = vs.get_msbuild_args()
+            if self.get_defines():
+                env = os.environ
+                temp = " ".join([f"/D{x}".replace("=", "#") for x in self.get_defines()])
+                env["CL"] = temp
 
             # Configure CMake, run VsDevCmd.bat, then MSBuild.
             build_cmd = (
@@ -91,9 +96,10 @@ class Vtm(EncoderBase):
                 "&&", "make", "EncoderApp-r", cflags_str
             )
 
-        self.build_finish(build_cmd)
+        temp = self.build_finish(build_cmd, env)
 
         self._build_decoder()
+        return temp
 
     def _build_decoder(self):
 
@@ -193,8 +199,7 @@ class Vtm(EncoderBase):
             console_log.error(exception.output.decode())
             raise
 
-    def dummy_run(self,
-                  param_set: EncoderBase.ParamSet) -> bool:
+    def dummy_run(self, param_set: EncoderBase.ParamSet, env) -> bool:
 
         self.dummy_run_start(param_set)
 
@@ -219,7 +224,7 @@ class Vtm(EncoderBase):
                 "-o", os.devnull,
             )
 
-        return_value = self.dummy_run_finish(dummy_cmd, param_set)
+        return_value = self.dummy_run_finish(dummy_cmd, param_set, env)
 
         os.remove(str(dummy_sequence_path))
 
@@ -231,26 +236,20 @@ class Vtm(EncoderBase):
         if not self.encode_start(encoding_run):
             return
 
-        if encoding_run.qp_name == tester.QualityParam.QP:
-            quality = (f"--QP={encoding_run.qp_value}",)
-        elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
-                                      tester.QualityParam.RES_SCALED_BITRATE,
-                                      tester.QualityParam.BPP,
-                                      tester.QualityParam.RES_ROOT_SCALED_BITRATE):
-            quality = (f"--TargetBitrate={encoding_run.qp_value}", "--RateControl=1")
-        else:
-            assert 0, "Invalid quality parameter"
+        quality = encoding_run.param_set.get_quality_value(encoding_run.qp_value)
 
         encode_cmd = \
             (
                 str(self._exe_path),
             ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
                                                         include_frames=False) + (
-                "-i", str(encoding_run.input_sequence.get_filepath()),
+                "-i", str(encoding_run.input_sequence.get_encode_path()),
                 "-fr", str(encoding_run.input_sequence.get_framerate()),
                 "-wdt", str(encoding_run.input_sequence.get_width()),
                 "-hgt", str(encoding_run.input_sequence.get_height()),
                 "-b", str(encoding_run.output_file.get_filepath()),
+                f"--InputChromaFormat={encoding_run.input_sequence.get_chroma()}",
+                f"--InputBitDepth={encoding_run.input_sequence.get_bit_depth()}",
                 "-f", str(encoding_run.frames * cfg.Cfg().frame_step_size),
                 "-o", os.devnull,
             ) + quality
@@ -280,7 +279,7 @@ class Vtm(EncoderBase):
 
     @staticmethod
     def validate_config(test_config: test.Test):
-        if not git.git_remote_exists(cfg.Cfg().vtm_remote_url):
+        if not test_config.use_prebuilt and not git.git_remote_exists(cfg.Cfg().vtm_remote_url):
             console_log.error(f"VTM: Remote '{cfg.Cfg().vtm_remote_url}' is not available")
             raise RuntimeError
 
@@ -301,6 +300,24 @@ class Vtm(EncoderBase):
 
     class ParamSet(EncoderBase.ParamSet):
         """Represents the command line parameters passed to VTM when encoding."""
+        def __init__(self,
+                     quality_param_type: tester.QualityParam,
+                     quality_param_value: int,
+                     seek: int,
+                     frames: int,
+                     cl_args: str):
+
+            super().__init__(
+                quality_param_type,
+                quality_param_value,
+                seek,
+                frames,
+                cl_args
+            )
+
+            self._quality_formats[tester.QualityParam.QP] = "--QP="
+            for t in range(tester.QualityParam.BITRATE.value, len(tester.QualityParam) + 1):
+                self._quality_formats[tester.QualityParam(t)] = "--RateControl=1 --TargetBitrate="
 
         @staticmethod
         def _get_arg_order() -> list:
@@ -315,19 +332,8 @@ class Vtm(EncoderBase):
             args = self._cl_args
 
             if include_quality_param:
-                if self._quality_param_type == tester.QualityParam.QP:
-                    args += f" --QP={self._quality_param_value}"
-                elif self._quality_param_type == tester.QualityParam.BITRATE:
-                    args += f" --TargetBitrate={self._quality_param_value}"
-                elif self.get_quality_param_type() == tester.QualityParam.BPP:
-                    args += f" --TargetBitrate={self._quality_param_value}"
-                elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
-                    args += f" --TargetBitrate={self._quality_param_value}"
-                elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
-                    args += f" --TargetBitrate={self._quality_param_value}"
-                else:
-                    raise ValueError(
-                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+                args += " " + " ".join(self.get_quality_value(self.get_quality_param_value()))
+
             if include_seek and self._seek:
                 args += f" -fs {self._seek}"
             if include_frames and self._frames:

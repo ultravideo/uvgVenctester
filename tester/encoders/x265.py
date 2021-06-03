@@ -38,14 +38,19 @@ class X265(EncoderBase):
         elif tester.Cfg().system_os_name == "Linux":
             self._exe_src_path = self._git_local_path / "build" / "linux" / "x265"
 
-    def build(self) -> None:
+    def build(self) -> bool:
         if not self.build_start():
-            return
+            return False
 
+        env = None
         build_cmd = tuple()
 
         if tester.Cfg().system_os_name == "Windows":
             build_dir = self._git_local_path / "build" / tester.Cfg().x265_build_folder
+            if self.get_defines():
+                env = os.environ
+                temp = " ".join([f"/D{x}".replace("=", "#") for x in self.get_defines()])
+                env["CL"] = temp
             build_cmd = \
                 (
                     "cd", build_dir,
@@ -63,12 +68,20 @@ class X265(EncoderBase):
                 (
                     "cd", str(self._git_local_path / "build" / "linux"),
                     "&&", "cmake", "../../source", "-DENABLE_SHARED=OFF",
-                ) + (
-                    (f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}",) if tester.Cfg().nasm_path else tuple()
-                ) + (
+                )
+            if tester.Cfg().nasm_path:
+                build_cmd += (
+                    f"-DNASM_EXECUTABLE={tester.Cfg().nasm_path}",
+                )
+            if self.get_defines():
+                build_cmd += (
+                    "-DCMAKE_CXX_FLAGS " + " ".join([f"-D{x}" for x in self.get_defines()])
+                )
+
+            build_cmd += (
                     "&&", "make",
                 )
-        self.build_finish(build_cmd)
+        return self.build_finish(build_cmd, env)
 
     def clean(self) -> None:
         self.clean_start()
@@ -81,10 +94,16 @@ class X265(EncoderBase):
                 "&&", "make", "clean",
             )
 
+        elif tester.Cfg().system_os_name == "Windows":
+            msbuild_args = vs.get_msbuild_args(target="Clean")
+            clean_cmd = (
+                            "call", str(vs.get_vsdevcmd_bat_path()),
+                            "&&", "msbuild", str(self._git_local_path / "build" / tester.Cfg().x265_build_folder)
+                        ) + tuple(msbuild_args)
+
         self.clean_finish(clean_cmd)
 
-    def dummy_run(self,
-                  param_set: EncoderBase.ParamSet) -> bool:
+    def dummy_run(self, param_set: EncoderBase.ParamSet, env) -> bool:
         self.dummy_run_start(param_set)
 
         RESOLUTION_PLACEHOLDER = "64x64"
@@ -97,34 +116,25 @@ class X265(EncoderBase):
                         "--output", os.devnull,
                     ) + param_set.to_cmdline_tuple()
 
-        return self.dummy_run_finish(dummy_cmd, param_set)
+        return self.dummy_run_finish(dummy_cmd, param_set, env)
 
     def encode(self,
                encoding_run: test.EncodingRun) -> None:
         if not self.encode_start(encoding_run):
             return
 
-        if encoding_run.qp_name == tester.QualityParam.QP:
-            quality = ("--qp", str(encoding_run.qp_value))
-        elif encoding_run.qp_name in (tester.QualityParam.BITRATE,
-                                      tester.QualityParam.RES_SCALED_BITRATE,
-                                      tester.QualityParam.BPP,
-                                      tester.QualityParam.RES_ROOT_SCALED_BITRATE):
-            quality = ("--bitrate", str(int(encoding_run.qp_value / 1000)))
-        elif encoding_run.qp_name == tester.QualityParam.CRF:
-            quality = ("--crf", str(encoding_run.qp_value))
-        else:
-            assert 0, "Invalid quality parameter"
+        quality = encoding_run.param_set.get_quality_value(encoding_run.qp_value)
 
         encode_cmd = \
             (
                 str(self._exe_path),
                 "--input",
-                str(encoding_run.input_sequence.get_filepath()) if tester.Cfg().frame_step_size == 1 else "-",
+                str(encoding_run.input_sequence.get_encode_path()) if tester.Cfg().frame_step_size == 1 else "-",
                 "--input-res", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
                 "--fps", str(encoding_run.input_sequence.get_framerate()),
                 "--output", str(encoding_run.output_file.get_filepath()),
                 "--frames", str(encoding_run.frames),
+                "--input-csp", f"i{encoding_run.input_sequence.get_chroma()}"
             ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
                                                         include_frames=False) + quality
 
@@ -132,8 +142,8 @@ class X265(EncoderBase):
 
     @staticmethod
     def validate_config(test_config: test.Test):
-        if not git.git_remote_exists(tester.Cfg().x265_remote_url):
-            console_log.error(f"Kvazaar: Remote '{tester.Cfg().kvazaar_remote_url}' is unavailable")
+        if not test_config.use_prebuilt and not git.git_remote_exists(tester.Cfg().x265_remote_url):
+            console_log.error(f"x265: Remote '{tester.Cfg().x265_remote_url}' is unavailable")
             raise RuntimeError
 
         try:
@@ -159,6 +169,11 @@ class X265(EncoderBase):
                 cl_args
             )
 
+            self._quality_formats[tester.QualityParam.QP] = "--qp "
+            self._quality_formats[tester.QualityParam.CRF] = "--crf "
+            for t in range(tester.QualityParam.BITRATE.value, len(tester.QualityParam) + 1):
+                self._quality_formats[tester.QualityParam(t)] = "--bitrate "
+                self._quality_scales[tester.QualityParam(t)] = 1000
             # This checks the integrity of the parameters.
             self.to_cmdline_tuple(include_quality_param=False)
 
@@ -175,21 +190,7 @@ class X265(EncoderBase):
             args = self._cl_args
 
             if include_quality_param:
-                if self._quality_param_type == tester.QualityParam.QP:
-                    args += f" --qp {self._quality_param_value}"
-                elif self._quality_param_type == tester.QualityParam.BITRATE:
-                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
-                elif self.get_quality_param_type() == tester.QualityParam.BPP:
-                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
-                elif self.get_quality_param_type() == tester.QualityParam.RES_SCALED_BITRATE:
-                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
-                elif self.get_quality_param_type() == tester.QualityParam.RES_ROOT_SCALED_BITRATE:
-                    args += f" --bitrate {int(self._quality_param_value / 1000)}"
-                elif self.get_quality_param_type() == tester.QualityParam.CRF:
-                    args += f" --crf {self._quality_param_value}"
-                else:
-                    raise ValueError(
-                        f"{self.get_quality_param_type().pretty_name} not available for encoder {str(self)}")
+                args += " " + " ".join(self.get_quality_value(self.get_quality_param_value()))
 
             if include_seek and self._seek:
                 args += f" --seek {self._seek}"

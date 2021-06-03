@@ -17,7 +17,7 @@ import tester.core.cfg as cfg
 from tester.core.log import console_log
 
 # Compile Regex patterns only once for better performance.
-_PSNR_PATTERN: re.Pattern = re.compile(r".*psnr_avg:([0-9]+.[0-9]+).*", re.DOTALL)
+_PSNR_PATTERN: re.Pattern = re.compile(r".*psnr_avg:([0-9]+.[0-9]+|inf\s).*", re.DOTALL)
 _SSIM_PATTERN: re.Pattern = re.compile(r".*All:([0-9]+.[0-9]+).*", re.DOTALL)
 _VMAF_PATTERN: re.Pattern = re.compile(r".*\"VMAF score\":([0-9]+.[0-9]+).*", re.DOTALL)
 
@@ -26,6 +26,14 @@ _PATTERNS = {
     "ssim": _SSIM_PATTERN,
     "vmaf": _VMAF_PATTERN
 }
+
+_MAX_VALUES = {
+    "psnr": 999.99,
+    "ssim": 1.0,
+    "vmaf": 100.0,
+}
+
+__vmaf_version = "pkl"
 
 
 def ffmpeg_validate_config():
@@ -45,18 +53,26 @@ def ffmpeg_validate_config():
 
 
 def copy_vmaf_models(test: tester.Test):
-    temp = test.encoder.get_output_dir(test.subtests[0].param_set)
-    vmaf_model_src_path1 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
-    vmaf_model_src_path2 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
-    vmaf_model_dest_path1 = temp / "vmaf_v0.6.1.pkl"
-    vmaf_model_dest_path2 = temp / "vmaf_v0.6.1.pkl.model"
-    shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
-    shutil.copy(str(vmaf_model_src_path2), str(vmaf_model_dest_path2))
+    temp = test.encoder.get_output_dir(test.subtests[0].param_set, test.env)
+    if (cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.json").exists():
+        shutil.copy(
+            cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.json",
+            temp / "vmaf_v0.6.1.json"
+        )
+        global __vmaf_version
+        __vmaf_version = "json"
+    else:
+        vmaf_model_src_path1 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl"
+        vmaf_model_src_path2 = cfg.Cfg().vmaf_repo_path / "model" / "vmaf_v0.6.1.pkl.model"
+        vmaf_model_dest_path1 = temp / "vmaf_v0.6.1.pkl"
+        vmaf_model_dest_path2 = temp / "vmaf_v0.6.1.pkl.model"
+        shutil.copy(str(vmaf_model_src_path1), str(vmaf_model_dest_path1))
+        shutil.copy(str(vmaf_model_src_path2), str(vmaf_model_dest_path2))
 
 
 def remove_vmaf_models(test: tester.Test):
-    temp = test.encoder.get_output_dir(test.subtests[0].param_set)
-    vmaf_model_dest_path1 = temp / "vmaf_v0.6.1.pkl"
+    temp = test.encoder.get_output_dir(test.subtests[0].param_set, env=test.env)
+    vmaf_model_dest_path1 = temp / f"vmaf_v0.6.1.{__vmaf_version}"
     vmaf_model_dest_path2 = temp / "vmaf_v0.6.1.pkl.model"
     try:
         os.remove(vmaf_model_dest_path1)
@@ -73,7 +89,7 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
 
     logs = {x: encoding_run.get_log_path(x) for x in metrics}
 
-    vmaf_model = "vmaf_v0.6.1.pkl"
+    vmaf_model = f"vmaf_v0.6.1.{__vmaf_version}"
     # Build the filter based on which metrics are to be computed:
     no_of_metrics = len(metrics)
 
@@ -120,7 +136,7 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
             "-r", f"{cfg.Cfg().frame_step_size}",  # multiply framerate by step
             "-ss", f"{encoding_run.param_set.get_seek()}",
             "-t", f"{encoding_run.frames * cfg.Cfg().frame_step_size}",
-            "-i", f"{encoding_run.input_sequence.get_filepath()}",
+            "-i", f"{encoding_run.input_sequence.get_encode_path()}",
 
             # YUV output decoded from VVC output
             "-s:v", f"{encoding_run.output_file.get_width()}x{encoding_run.output_file.get_height()}",
@@ -148,7 +164,7 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
             "-r", f"{cfg.Cfg().frame_step_size}",
             "-ss", f"{encoding_run.param_set.get_seek()}",
             "-t", f"{encoding_run.frames * cfg.Cfg().frame_step_size}",
-            "-i", f"{encoding_run.input_sequence.get_filepath()}",
+            "-i", f"{encoding_run.input_sequence.get_encode_path()}",
 
             # HEVC output
             "-r", "1",
@@ -195,6 +211,9 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
                 lines = log.readlines()
                 for line in lines:
                     for item in _PATTERNS[metric].fullmatch(line).groups():
+                        if item == "inf":
+                            item = _MAX_VALUES[metric]
+                            console_log.warning(f"results: Infinite value for metric {metric} in {encoding_run}")
                         frame_results.append(float(item))
                 results[metric] = sum(frame_results) / len(frame_results)
 

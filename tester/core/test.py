@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from hashlib import md5
 from math import sqrt
 from pathlib import Path
@@ -22,8 +23,9 @@ class EncodingRun:
                  round_number: int = None,
                  encoder: encoders.EncoderBase = None,
                  param_set: encoders.EncoderBase.ParamSet = None,
-                 input_sequence: RawVideoSequence = None):
+                 input_sequence: RawVideoSequence = None,):
 
+        self.env = parent.parent.new_env
         self.parent: SubTest = parent
         self.name: str = name
         self.round_number: int = round_number
@@ -43,9 +45,9 @@ class EncodingRun:
 
         qp_name = self.qp_name.short_name
 
-        self.base_filename = f"{input_sequence.get_filepath().with_suffix('').name}_" \
+        self.base_filename = f"{input_sequence.get_constructed_name()}_" \
                              f"{qp_name}{self.param_set.get_quality_param_value()}_{round_number}"
-        self.output_dir_path = encoder.get_output_dir(param_set)
+        self.output_dir_path = encoder.get_output_dir(param_set, parent.parent.env)
 
         self.metrics_path: Path = self.output_dir_path / f"{self.base_filename}_metrics.json"
 
@@ -59,10 +61,13 @@ class EncodingRun:
             duration_seconds=input_sequence.get_duration_seconds()
         )
 
+        if not output_file_path.parent.exists():
+            output_file_path.parent.mkdir(parents=True)
+
         self.metrics = met.EncodingRunMetrics(self.metrics_path)
 
         self.decoded_output_file_path: [Path, None] = None
-        if type(encoder) == encoders.Vtm:
+        if encoder.file_suffix == "vvc":
             self.decoded_output_file_path: Path = self.output_dir_path / f"{self.base_filename}_decoded.yuv"
 
     @property
@@ -72,7 +77,8 @@ class EncodingRun:
         elif cfg.Cfg().overwrite_encoding == cfg.ReEncoding.SOFT:
             return not self.output_file.get_filepath().exists() or "encoding_time" not in self.metrics
         elif cfg.Cfg().overwrite_encoding == cfg.ReEncoding.OFF:
-            return not self.output_file.get_filepath().exists() and not self.metrics.has_calculated_metrics
+            return (not self.output_file.get_filepath().exists() and not self.metrics.has_calculated_metrics) \
+                   or "encoding_time" not in self.metrics
 
     def get_log_path(self, type_: str):
         return self.output_dir_path / f"{self.base_filename}_{type_}_log.txt"
@@ -124,6 +130,7 @@ class Test:
                  frames: int = None,
                  rounds: int = 1,
                  use_prebuilt=False,
+                 env=None,
                  **kwargs):
         # Kwargs are ignored, they are here just to enable easy cloning.
 
@@ -141,6 +148,14 @@ class Test:
         self.frames: int = frames
         self.rounds: int = rounds
         self.use_prebuilt = use_prebuilt
+        if env is None:
+            self.new_env = None
+            self.env = None
+        else:
+            temp = dict(os.environ)
+            temp.update(env)
+            self.new_env = temp
+            self.env = env.copy()
 
         self.subtests: list = []
 
@@ -190,7 +205,7 @@ class Test:
         for own, other_ in zip(self.subtests, other.subtests):
             if other_ != own:
                 return False
-        return self.encoder == other.encoder
+        return self.encoder == other.encoder and self.env == other.env
 
     def __hash__(self):
         return sum(hash(subtest) for subtest in self.subtests)

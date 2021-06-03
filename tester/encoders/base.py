@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import shutil
 import subprocess
 from enum import Enum
@@ -19,14 +20,14 @@ import tester.core.test as test
 class QualityParam(Enum):
     """An enumeration to identify the supported quality parameter types."""
 
-    QP: int = 1
-    CRF: int = 2
+    QP = 1
+    CRF = 2
     # The types using bitrate should be together so that bitrate can be
     # easily scaled with temporal subsampling
-    BITRATE: int = 3
-    BPP: int = 4
-    RES_SCALED_BITRATE: int = 5
-    RES_ROOT_SCALED_BITRATE: int = 6
+    BITRATE = 3
+    BPP = 4
+    RES_SCALED_BITRATE = 5
+    RES_ROOT_SCALED_BITRATE = 6
 
     @property
     def pretty_name(self):
@@ -80,19 +81,20 @@ class EncoderBase:
 
         self._use_prebuilt = use_prebuilt
 
-        self._exe_name: [str, None] = None
+        self._exe_directory: [str, None] = None
         self._exe_path: [Path, None] = None
         self._commit_hash: [str, None] = None
         self._commit_hash_short: [str, None] = None
         self._build_log_name: [str, None] = None
         self._build_log_path: [Path, None] = None
+
         # Initializes the above.
         if not self._use_prebuilt:
             self.prepare_sources()
         else:
-            self._exe_name = f"{self._name}_{self._user_given_revision}" + \
-                             f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}"
-            self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_name
+            self._exe_directory = f"{self._name}_{self._user_given_revision}"
+            self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_directory / (name + \
+                f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}")
             self._commit_hash = self._user_given_revision
 
         # This must be set in the constructor of derived classes.
@@ -172,16 +174,18 @@ class EncoderBase:
 
         # These can now be evaluated because the repo exists for certain.
         self._commit_hash_short = self._commit_hash[:tester.Cfg().tester_commit_hash_len]
-        self._exe_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}" \
-                         f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}"
-        self._exe_path = tester.Cfg().tester_binaries_dir_path / self._exe_name
+        self._exe_directory = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}"
+        self._exe_path = tester.Cfg().tester_binaries_dir_path / \
+                         self._exe_directory / \
+                         (self._name + f"{'.exe' if tester.Cfg().system_os_name == 'Windows' else ''}")
         self._build_log_name = f"{self._name.lower()}_{self._commit_hash_short}_{self._define_hash_short}_build_log.txt"
-        self._build_log_path = tester.Cfg().tester_binaries_dir_path / self._build_log_name
+        self._build_log_path = tester.Cfg().tester_binaries_dir_path / self._exe_directory / self._build_log_name
+        (self._build_log_path / "..").mkdir(parents=True, exist_ok=True)
 
         console_log.info(f"{self._name}: Revision '{self._user_given_revision}' "
                          f"maps to commit hash '{self._commit_hash}'")
 
-    def build(self) -> None:
+    def build(self) -> bool:
         """Builds the executable."""
         raise NotImplementedError
 
@@ -189,16 +193,16 @@ class EncoderBase:
         """Meant to be called as the first thing from the build() method of derived classes."""
         assert tester.Cfg().tester_binaries_dir_path.exists()
         if self._use_prebuilt:
-            console_log.info(f"{self._name}: Using prebuilt encoder '{self._exe_name}'")
+            console_log.info(f"{self._name}: Using prebuilt encoder '{self._exe_directory}'")
             if not self._exe_path.exists():
-                raise FileNotFoundError(f"Missing prebuilt encoder '{self._exe_name}'")
+                raise FileNotFoundError(f"Missing prebuilt encoder '{self._exe_directory}'")
             return True
 
-        console_log.info(f"{self._name}: Building executable '{self._exe_name}'")
+        console_log.info(f"{self._name}: Building executable '{self._exe_directory}'")
         console_log.info(f"{self._name}: Log: '{self._build_log_name}'")
 
         if self._exe_path.exists():
-            console_log.info(f"{self._name}: Executable '{self._exe_name}' already exists")
+            console_log.info(f"{self._name}: Executable '{self._exe_directory}' already exists")
             # Don't build unnecessarily.
             return False
 
@@ -220,10 +224,10 @@ class EncoderBase:
         return True
 
     def build_finish(self,
-                     build_cmd: tuple) -> None:
+                     build_cmd: tuple, env=None) -> bool:
         """Meant to be called as the last thing from the build() method of derived classes."""
         if self._use_prebuilt:
-            return
+            return False
 
         assert self._exe_src_path
 
@@ -233,7 +237,8 @@ class EncoderBase:
             output = subprocess.check_output(
                 subprocess.list2cmdline(build_cmd),
                 shell=True,
-                stderr=subprocess.STDOUT
+                stderr=subprocess.STDOUT,
+                env=env
             )
             from tester.core.cfg import Cfg
             if Cfg().system_os_name == "Windows":
@@ -258,6 +263,7 @@ class EncoderBase:
             console_log.error(str(exception))
             self._build_log.error(str(exception))
             raise
+        return True
 
     def clean(self) -> None:
         """Runs make clean or similar."""
@@ -279,8 +285,7 @@ class EncoderBase:
             console_log.error(exception.output.decode())
             raise
 
-    def dummy_run(self,
-                  param_set: EncoderBase.ParamSet) -> bool:
+    def dummy_run(self, param_set: EncoderBase.ParamSet, env) -> bool:
         """Performs a dummy run to validate the set of parameters before any actual encoding runs."""
         raise NotImplementedError
 
@@ -292,13 +297,15 @@ class EncoderBase:
 
     def dummy_run_finish(self,
                          dummy_cmd: tuple,
-                         param_set: EncoderBase.ParamSet) -> bool:
+                         param_set: EncoderBase.ParamSet,
+                         env) -> bool:
         """Meant to be called as the last thing from the dummy_run() method of derived classes."""
         try:
             subprocess.check_output(
                 subprocess.list2cmdline(dummy_cmd),
                 shell=True,
-                stderr=subprocess.STDOUT
+                stderr=subprocess.STDOUT,
+                env=env,
             )
         except subprocess.CalledProcessError as exception:
             console_log.error(f"{self._name}: Invalid arguments: "
@@ -326,8 +333,24 @@ class EncoderBase:
             # Don't encode unnecessarily.
             return False
 
-        if not encoding_run.output_file.get_filepath().parent.exists():
-            encoding_run.output_file.get_filepath().parent.mkdir(parents=True)
+        if tester.Cfg().warmup:
+            self.dummy_run(encoding_run.param_set, encoding_run.env)
+            cache_seq_cmd = (
+                "ffmpeg",
+                "-f", "rawvideo",
+                "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
+                "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
+                "-i", f"{encoding_run.input_sequence.get_encode_path()}",
+                "-c:v", "copy",
+                "-f", "rawvideo",
+                os.devnull,
+                "-y"
+            )
+            subprocess.check_call(
+                cache_seq_cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
 
         # Do encode.
         return True
@@ -348,10 +371,12 @@ class EncoderBase:
                     "-ss", f"{encoding_run.param_set.get_seek()}",
                     "-t", f"{encoding_run.frames * tester.Cfg().frame_step_size}",
                     "-f", "rawvideo",
-                    "-i", f"{encoding_run.input_sequence.get_filepath()}",
+                    "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
+                    "-i", f"{encoding_run.input_sequence.get_encode_path()}",
                     "-filter_complex", f"[0:v]select=not(mod(n\\, {tester.Cfg().frame_step_size}))",
                     "-t", f"{encoding_run.frames}",
                     "-f", "rawvideo",
+                    "-pix_fmt", f"{encoding_run.input_sequence.get_pixel_format()}",
                     "-r", "1",
                     "-",
                 )
@@ -360,12 +385,15 @@ class EncoderBase:
 
             with encoding_run.get_log_path('encoding').open("w") as encoding_log:
 
+                print(f"> {subprocess.list2cmdline(encode_cmd)}", file=encoding_log)
+
                 subprocess.check_call(
                     subprocess.list2cmdline(encode_cmd),
                     shell=True,
                     stderr=encoding_log,
                     stdout=encoding_log,
-                    stdin=ffmpeg_pipe.stdout if ffmpeg_pipe else None
+                    stdin=ffmpeg_pipe.stdout if ffmpeg_pipe else None,
+                    env=encoding_run.env
                 )
 
         except subprocess.CalledProcessError as exception:
@@ -379,8 +407,10 @@ class EncoderBase:
     def validate_config(test_config: test.Test):
         return True
 
-    def get_output_dir(self, paramset: EncoderBase.ParamSet):
+    def get_output_dir(self, paramset: EncoderBase.ParamSet, env: dict):
         params = paramset.to_cmdline_str(False, include_directory_data=True)
+        if env is not None:
+            params += " env= " + "".join(f"{x}: {y}"for x, y in env.items())
         if not self._use_prebuilt:
             base = tester.Cfg().tester_output_dir_path \
                    / f"{self.get_name().lower()}_{self.get_short_revision()}_" \
@@ -403,7 +433,7 @@ class EncoderBase:
             if not hash_in_file:
                 md5map_file.parent.mkdir(parents=True, exist_ok=True)
                 with open(md5map_file, "a") as md5_f:
-                    md5_f.write(f"{md5_params}:{params}")
+                    md5_f.write(f"{md5_params}:{params}\n")
 
             return base / md5_params
         return base / params
@@ -426,6 +456,10 @@ class EncoderBase:
             self._seek: int = seek
             self._frames: int = frames // tester.Cfg().frame_step_size if frames else frames
             self._cl_args: str = cl_args
+
+            self._quality_formats: dict = dict()
+            """The values defined in this dict MUST include any trailing whitespace or equality operator"""
+            self._quality_scales: dict = {x: 1 for x in QualityParam}
 
         def __eq__(self,
                    other: EncoderBase.ParamSet):
@@ -456,6 +490,13 @@ class EncoderBase:
         @staticmethod
         def _is_value(candidate: str):
             return not EncoderBase.ParamSet._is_option(candidate)
+
+        def get_quality_value(self, value: int):
+            try:
+                return tuple((f"{self._quality_formats[self._quality_param_type]}"
+                              f"{int(value/self._quality_scales[self._quality_param_type])}").split())
+            except KeyError:
+                raise ValueError(f"Unsupported quality parameter type {self._quality_param_value}")
 
         def _to_unordered_args_list(self,
                                     include_quality_param: bool = True,

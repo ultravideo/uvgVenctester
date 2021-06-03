@@ -43,6 +43,12 @@ class Cfg(metaclass=Singleton):
     def __init__(self):
         self.logging_level = self._logging_level
 
+    def __setattr__(self, key, value):
+        if key not in dir(self):
+            raise KeyError(f"Not found: {key}")
+
+        super().__setattr__(key, value)
+
     @property
     def system_os_name(self) -> str:
         """The return value of platform.system()."""
@@ -131,6 +137,15 @@ class Cfg(metaclass=Singleton):
 
     tester_define_hash_len: int = 6
     """How many characters of the define hash are included in file names."""
+
+    sequence_formats: list = [
+        r"(?P<name>.+)_(?P<width>\d+)x(?P<height>\d+)_?(?P<fps>\d+)?_?(?P<total_frames>\d+)?.yuv",
+        r"(?P<name>.+)_(?P<width>\d+)x(?P<height>\d+)_(?P<fps>\d+)fps_(?P<bit_depth>\d+)bit_?(?P<chroma>\d+)?.yuv",
+        r"(?P<name>.+)_(?P<width>\d+)x(?P<height>\d+)_(?P<fps>\d+)fps_(?P<chroma>\d+)_(?P<bit_depth>\d+)bit_YUV.yuv"
+    ]
+    """List of regexes that are used for determining values from the sequence names.
+    Must use named parameters for the values. `width` and `height` are mandatory and `fps`, `chroma`, `bit_depth` 
+    and `total_frames` are optional."""
 
     ##########################################################################
     # CSV
@@ -311,6 +326,11 @@ class Cfg(metaclass=Singleton):
     Heavily recommended to call `Tester.calculate_metrics()` explicitly if this is True
     """
 
+    warmup: bool = True
+    """
+    The framework tries to force the operating system to cache the sequence and encoder binary.
+    """
+
     ##########################################################################
     # HEVC
     ##########################################################################
@@ -357,6 +377,12 @@ class Cfg(metaclass=Singleton):
     @nasm_path.setter
     def nasm_path(self, value):
         self._nasm_path = value
+
+    ##########################################################################
+    # UVG266
+    ##########################################################################
+
+    uvg266_remote_url: str = "https://gitlab.tuni.fi/cs/ultravideo/vvc/uvg266.git"
 
     ##########################################################################
     # Visual Studio
@@ -420,3 +446,35 @@ class Cfg(metaclass=Singleton):
 
     _vtm_cfg_file_path: Union[str, Path] = None
     """The path of the VTM configuration file. Must be set by the user."""
+
+    ##########################################################################
+    # VVC
+    ##########################################################################
+
+    _vvc_reference_decoder = ""
+
+    @property
+    def vvc_reference_decoder(self) -> Path:
+        return Path(self._vvc_reference_decoder)
+
+    @vvc_reference_decoder.setter
+    def vvc_reference_decoder(self, value):
+        self._vvc_reference_decoder = value
+
+    ##########################################################################
+    # VVenc
+    ##########################################################################
+
+    vvenc_remote_url: str = "https://github.com/fraunhoferhhi/vvenc.git"
+
+    ##########################################################################
+    # VP9
+    ##########################################################################
+
+    svt_vp9_remote_url = "https://github.com/OpenVisualCloud/SVT-VP9.git"
+
+    ##########################################################################
+    # AV1
+    ##########################################################################
+
+    svt_av1_remote_url = "https://github.com/AOMediaCodec/SVT-AV1.git"

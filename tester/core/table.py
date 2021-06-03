@@ -255,7 +255,7 @@ def row_from_data(row_data, row_class: [str, None] = None):
     out = [
               f'''<tr{"" if not row_class else f' class="{row_class}"'}>''',
           ] + [
-              f'      <td> <div{""" style:"color: red";""" if isnan(row_data[x]) else ""}> ' +
+              f'      <td> <div{""" style:"color: red";""" if type(row_data[x]) == float and isnan(row_data[x]) else ""}> ' +
               f'{cfg.Cfg().table_column_formats[x](row_data[x])} </div> </td>'
               for x
               in cfg.Cfg().table_enabled_columns

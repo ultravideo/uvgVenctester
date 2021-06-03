@@ -2,7 +2,7 @@
 
 ## General
 
-**Venctester3** (to be renamed) is a HEVC video encoder testing framework. The framework provides an easy way to compare the efficiency and output quality of different encoders with a generic, simple API.
+**uvgVenctester** is a video encoder testing framework. The framework provides an easy way to compare the efficiency and output quality of different encoders with a generic, simple API.
 
 ## Supported encoders
 
@@ -10,6 +10,7 @@
 - [Kvazaar](https://github.com/ultravideo/kvazaar)
 - [VTM](https://vcgit.hhi.fraunhofer.de/jvet/VVCSoftware_VTM)
 - [x265](https://bitbucket.org/multicoreware/x265_git)
+- [vvenc](https://github.com/fraunhoferhhi/vvenc)
 
 ## Dependencies
 
@@ -23,12 +24,15 @@
 - [wkhtmltopdf](https://wkhtmltopdf.org/)
   - Only needed for the PDF generation otherwise optional
 - [Python interpreter (3.8+)](https://python.org/)
+- [vmaf](https://github.com/Netflix/vmaf)
+  - The VMAF release v2.0.0 changed how the models worked, and it is very likely that your version of FFmpeg does not support using those models. If this is the case, checkout v1.4.7 of the VMAF repository.
 - Python libraries
   - [requirements.txt](requirements.txt) has a list of needed libraris
   - [vmaf](https://github.com/Netflix/vmaf) is not currently on pypi and needs to be installed manually
     1. Clone the repository
     2. Go to vmaf/python
     3. Run `python setup.py install`
+- Generally any prerequisite of each encoder is required to build said encoders
 
 Windows 10 only:
 - [Visual Studio 2019](https://visualstudio.microsoft.com/)
@@ -71,6 +75,7 @@ Windows only:
 ### 1. Set the required configuration variables.
 
 - This example is on Windows
+- More comprehensive example in [examples](examples/my_cfg.py)
 
 `userconfig.py`:
 ```python
@@ -104,9 +109,10 @@ function called inside the guard will not be visible inside the parallel units. 
 
 - The file paths are relative to `tester_input_dir_path` (default: current working directory)
 - Wildcards can be used
-- The file names must contain the resolution, and may contain the framerate and frame count (`<name>_<width>x<height>_<framerate>_<frame count>.yuv`)
+- The file names must contain the resolution, and may contain the framerate,  frame count, bit depth, and chroma format `(?P<name>.+)_(?P<width>\d+)x(?P<height>\d+)_?(?P<fps>\d+)?_?(?P<total_frames>\d+)?.yuv`
     - If the name doesn't contain the framerate, it is assumed to be 25 FPS
     - If the name doesn't contain the frame count, it is computed automatically from the size of the file, with the assumption that chroma is 420 and 8 bits are used for each pixel
+    - Regexes that are used to match the file names can be added and removed to the variable `Cfg().sequence_formats`
 
 `main.py`:
 ```python
@@ -131,6 +137,7 @@ test1 = Test(
     anchor_names=["test1"],
     rounds=3,
     use_prebuilt=False,
+    env=None,
 )
 
 test2 = Test(
@@ -143,6 +150,7 @@ test2 = Test(
     encoder_defines=["NDEBUG"],
     anchor_names=["test1"],
     use_prebuilt=False,
+    env=None,
 )
 
 test3 = test2.clone(
@@ -168,9 +176,9 @@ Required parameters for `Test()`:
 - `encoder_revision` The Git revision of the encoder to be used
     - Anything that can be used with `git checkout` is valid
     - If `use_prebuilt` is defined then this will be concatenated to the encoder name, i.e., `"kvazaar_" + encoder_revision`
-- `anchor_names` A list containing the names of the configurations the configuration is compared to, if any
 
 Optional parameters for `Test()`:
+- `anchor_names` A list containing the names of the configurations the configuration is compared to, if any
 - `quality_param_type` The quality parameter to be used (QP or bitrate)
     - Default: QualityParam.QP
     - The type of quality parameter may vary between test configurations
@@ -192,6 +200,8 @@ Optional parameters for `Test()`:
     - All configurations must have the same `frames`
 - `rounds` An integer specifying how many times a test is repeated
     - Default: 1
+- `env` Dictionary of environmental variables passed for the encoder
+    - Default: None
 
 `Test.clone()` accepts the same parameters as `Test()`.
 
@@ -225,8 +235,10 @@ tester.compute_metrics(context,
   - Default: 1
   - If VMAF is included recommended value is cpu_cores / 16, without VMAF cpu_cores / 4. Keep in mind that VMAF requires quite a lot of RAM
 - `result_types` Which result types will be used for determining which metrics are necessary to calculate
-  - Default: (ResultTypes.TABLE, ResultTypes.CSV, ResultTypes.GRAPH, )
-  - If you don't know what you are doing it is recommended to not call `compute_metrics` explicitly
+  - Default: `(ResultTypes.TABLE, ResultTypes.CSV, ResultTypes.GRAPH, )`
+  - If you don't know what you are doing it is recommended to not call `compute_metrics` explicitly,
+    **except if removing encodings is turned on**. In that case the `compute_metrics` must be called explicitly
+    if you are generating more than one type of outputs.
 
 
 ### 8. Output the results to a CSV file.
@@ -328,7 +340,3 @@ Cfg().csv_field_names = {
     CsvField.TIME_SECONDS: "Encoding time (seconds)",
 }
 ```
-
-## Contacting the author
-
-The most reliable way to contact me is by sending me an e-mail at anton.ihonen@gmail.com. Please feel free to do so at any time if you have any questions.

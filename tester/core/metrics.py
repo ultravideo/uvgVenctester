@@ -116,7 +116,7 @@ class SequenceMetrics:
                  quality_values: Iterable,
                  rounds: int):
         base_paths = {x: path_prefix /
-                         f"{sequence.get_suffixless_name()}_{quality_type.short_name}{x}_{{}}_metrics.json"
+                         f"{sequence.get_constructed_name()}_{quality_type.short_name}{x}_{{}}_metrics.json"
                       for x in quality_values}
         self.__sequence = sequence
         self.__qp_type = quality_type
@@ -229,7 +229,7 @@ class SequenceMetrics:
 class TestMetrics:
     def __init__(self, test_instance: "Test", sequences):
         encoder: EncoderBase = test_instance.encoder
-        base_path = encoder.get_output_dir(test_instance.subtests[0].param_set)
+        base_path = encoder.get_output_dir(test_instance.subtests[0].param_set, test_instance.env)
 
         self.seq_data = {
             seq: SequenceMetrics(base_path,
