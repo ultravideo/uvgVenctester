@@ -410,7 +410,7 @@ class EncoderBase:
     def get_output_dir(self, paramset: EncoderBase.ParamSet, env: dict):
         params = paramset.to_cmdline_str(False, include_directory_data=True)
         if env is not None:
-            params += " env= " + "".join(f"{x}: {y}"for x, y in env.items())
+            params += " env= " + "".join(f"{x}={y}"for x, y in env.items())
         if not self._use_prebuilt:
             base = tester.Cfg().tester_output_dir_path \
                    / f"{self.get_name().lower()}_{self.get_short_revision()}_" \
@@ -419,7 +419,7 @@ class EncoderBase:
             base = tester.Cfg().tester_output_dir_path \
                    / f"{self.get_name().lower()}_{self.get_revision()}"
 
-        if tester.Cfg().system_os_name == "Windows" and len(str(base)) + len(params) > 200:
+        if tester.Cfg().system_os_name == "Windows" and len(str(base)) + len(params) > 160:
             md5_params = hashlib.md5(params.encode()).hexdigest()
             md5map_file = base / "hash_to_cmdline.txt"
             hash_in_file = False
