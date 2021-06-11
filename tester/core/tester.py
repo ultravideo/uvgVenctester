@@ -128,6 +128,8 @@ class TesterContext:
         return any(not test.use_prebuilt for test in self._tests)
 
     def __del__(self):
+        if not getattr(self, "_input_sequences", None):
+            return
         for seq in self._input_sequences:
             if seq._converted_path:
                 seq._converted_path.unlink()
