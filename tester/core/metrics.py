@@ -5,12 +5,107 @@ import statistics
 from pathlib import Path
 from typing import Iterable, Union
 
+import numpy as np
 from vmaf.tools.bd_rate_calculator import BDrateCalculator
 
 import tester.core.test as test
 from tester.core.log import console_log
 from tester.core.video import VideoFileBase, RawVideoSequence
 from tester.encoders.base import QualityParam, EncoderBase
+
+
+def bd_distortion(rate1, distortion1, rate2, distortion2):
+    """Get Bjøntegaard Delta -distortion for two RD-curves.
+
+    args:
+        - rateN: list of bitrates for line N.
+        - psnrN: list of psnr values for line N.
+
+    returns: Average distortion difference (BD-distortion).
+
+    """
+    # Sort inputs according to rate.
+    values1 = sorted(zip(rate1, distortion1))
+    rate1, distortion1 = zip(*values1)
+    values2 = sorted(zip(rate2, distortion2))
+    rate2, distortion2 = zip(*values2)
+
+    # Change inputs into numpy arrays for bdrint.
+    distortion1 = np.array(distortion1)
+    rate1 = np.array(rate1)
+    distortion2 = np.array(distortion2)
+    rate2 = np.array(rate2)
+
+    # Select integration limits such that bots curves are defined.
+    min_rate = np.log10(max(np.min(rate1), np.min(rate2)))
+    max_rate = np.log10(min(np.max(rate1), np.max(rate2)))
+
+    area1 = bdrint(distortion1, np.log10(rate1), min_rate, max_rate)
+    area2 = bdrint(distortion2, np.log10(rate2), min_rate, max_rate)
+
+    avg = (area2 - area1) / (max_rate - min_rate)
+
+    return avg
+
+
+def bdrint(y, x, low_x, high_x):
+    """Integrate a curve defined by rate and distortion between points low and high.
+
+    args:
+        y: numpy.array of 4 y coordinates.
+        x: numpy.array of 4 x coordinates.
+        low_x: start limit for interpolation
+        high_x: end limit for interpolation
+    """
+    def pchipend(tangent, d1, d2):
+        if tangent * d1 < 0:
+            # If tangent is different sign than the adjacent slope.
+            tangent = 0
+        elif d1 * d2 < 0 and abs(tangent) > abs(3 * d1):
+            # If the adjacent point is a peak.
+            tangent = 3 * d1
+        return tangent
+
+    def end_tangent(h1, h2, d1, d2):
+        return ((2*h1 + h2) * d1 - h1 * d2) / (h1 + h2)
+
+    def mid_tangent(h1, h2, d1, d2):
+        # Divides by zero if h2 == h1 and d1 == -d2, but thats not likely
+        # to happen in real RD curves. Happened in my tests though.
+        return (3*h1 + 3*h2) / ( (2*h2 + h1) / d1 + (h2 + 2*h1) / d2)
+
+    h = x[1:] - x[:-1]
+    delta = (y[1:] - y[:-1]) / h
+
+    # I don't know where these equations are from, but it seems they are
+    # supposed to provide for a smooth piecewise monotonic curve.
+    t = np.zeros(4)
+    t[0] = end_tangent(h[0], h[1], delta[0], delta[1])
+    t[1] = mid_tangent(h[0], h[1], delta[0], delta[1])
+    t[2] = mid_tangent(h[1], h[2], delta[1], delta[2])
+    t[3] = end_tangent(h[2], h[1], delta[2], delta[1])
+
+    # Modify end points to ensure the interpolated curve doesn't overshoot the
+    # second data point.
+    t[0] = pchipend(t[0], delta[0], delta[1])
+    t[3] = pchipend(t[3], delta[2], delta[1])
+
+    result = np.float64(0)
+
+    c = (3*delta - 2*t[:-1] - t[1:]) / h
+    b = (t[:-1] - 2*delta + t[1:]) / (h * h)
+    for i in range(3):
+        # Constrain the integration between low_x and high_x.
+        s0 = min(high_x, max(low_x, x[i])) - x[i]
+        s1 = min(high_x, max(low_x, x[i+1])) - x[i]
+
+        assert(s0 <= s1)
+        result += (s1 -  s0) * y[i]
+        result += (s1**2 - s0**2) * t[i] / 2
+        result += (s1**3 - s0**3) * c[i] / 3
+        result += (s1**4 - s0**4) * b[i] / 4
+
+    return result
 
 
 class EncodingRunMetrics:
@@ -131,9 +226,17 @@ class SequenceMetrics:
         return self._compute_bdbr(anchor.get_quality_with_bitrates(quality_metric),
                                   self.get_quality_with_bitrates(quality_metric))
 
+    def _compute_bd_distortion_to_anchor(self, anchor: SequenceMetrics, quality_metric: str):
+        anchor_data = sorted(anchor.get_quality_with_bitrates(quality_metric), key=lambda x:x[0])
+        own_data = sorted(self.get_quality_with_bitrates(quality_metric), key=lambda x:x[0])
+        return bd_distortion([x[0] for x in anchor_data], [x[1] for x in anchor_data],
+                             [x[0] for x in own_data], [x[1] for x in own_data], )
+
     def compare_to_anchor(self, anchor: SequenceMetrics, quality_metric: str):
         if quality_metric == "encoding_time":
             return self._average_speedup(anchor)
+        elif quality_metric.endswith("-bddistortion"):
+            return self._compute_bd_distortion_to_anchor(anchor, quality_metric[:-13])
         return self._compute_bdbr_to_anchor(anchor, quality_metric)
 
     def _average_speedup(self, anchor: SequenceMetrics):

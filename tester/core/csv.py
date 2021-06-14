@@ -46,6 +46,7 @@ class CsvFieldValueType(Enum):
     COMPARISON = 3
     CROSSINGS = 4
     OVERLAP = 5
+    COMPARISON2 = 6
 
     def __or__(self, other: Union[Enum, int]):
         if type(other) is int:
@@ -86,18 +87,21 @@ class CsvField(Enum):
     BDBR_PSNR: int = CsvFieldBaseType.PSNR | CsvFieldValueType.COMPARISON
     PSNR_CURVE_CROSSINGS: int = CsvFieldBaseType.PSNR | CsvFieldValueType.CROSSINGS
     PSNR_OVERLAP: int = CsvFieldBaseType.PSNR | CsvFieldValueType.OVERLAP
+    BD_PSNR: int = CsvFieldBaseType.PSNR | CsvFieldValueType.COMPARISON2
 
     SSIM_AVG: int = CsvFieldBaseType.SSIM | CsvFieldValueType.VALUE
     SSIM_STDEV: int = CsvFieldBaseType.SSIM | CsvFieldValueType.STDEV
     BDBR_SSIM: int = CsvFieldBaseType.SSIM | CsvFieldValueType.COMPARISON
     SSIM_CURVE_CROSSINGS: int = CsvFieldBaseType.SSIM | CsvFieldValueType.CROSSINGS
     SSIM_OVERLAP: int = CsvFieldBaseType.SSIM | CsvFieldValueType.OVERLAP
+    BD_SSIM: int = CsvFieldBaseType.SSIM | CsvFieldValueType.COMPARISON2
 
     VMAF_AVG: int = CsvFieldBaseType.VMAF | CsvFieldValueType.VALUE
     VMAF_STDEV: int = CsvFieldBaseType.VMAF | CsvFieldValueType.STDEV
     BDBR_VMAF: int = CsvFieldBaseType.VMAF | CsvFieldValueType.COMPARISON
     VMAF_CURVE_CROSSINGS: int = CsvFieldBaseType.VMAF | CsvFieldValueType.CROSSINGS
     VMAF_OVERLAP: int = CsvFieldBaseType.VMAF | CsvFieldValueType.OVERLAP
+    BD_VMAF: int = CsvFieldBaseType.VMAF | CsvFieldValueType.COMPARISON2
 
     CONFORMANCE: int = 12
 
@@ -182,6 +186,11 @@ class CsvFile:
             try:
                 values_by_field[CsvField(base_type | CsvFieldValueType.OVERLAP)] = \
                     lambda base_type=base_type: sequence_metric.metric_overlap(anchor_seq, str(base_type))
+            except ValueError:
+                pass
+            try:
+                values_by_field[CsvField(base_type | CsvFieldValueType.COMPARISON2)] = \
+                    lambda base_type=base_type: sequence_metric.compare_to_anchor(anchor_seq, str(base_type)+"-bddistortion")
             except ValueError:
                 pass
 
