@@ -25,3 +25,16 @@ To add support for a new encoder, the following things need to be done:
 
 
 `tester/encoders/kvazaar.py` and `tester/core/test.py` together provide a full example.
+
+## Adding new metrics and metric calculation
+
+The commit `c41a1aa104d219ff783d846b142da80d635bb9bf` is a great example on how to both add a new metric and the calculation
+
+- If the metric is an absolute metric the call to the calculation should be added to the 
+  `_calculate_metrics_for_one_run` function in `tester.py::Tester`
+- For comparative metrics the calculation should be added under the `SequenceMetrics` class in
+  `metrics.py` and the call should be added into the `values_by_field` in `CsvField.add_entry` or the equivalent in
+  `table.py` if the metric should be included in tables
+- The enums in `csv.py`, `table.py`, and `graph.py` need to be updated to include the metric for each output type that
+  should include the metric.
+- Also suggested adding default values to the corresponding `Cfg()` structures.

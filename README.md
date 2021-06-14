@@ -47,6 +47,8 @@ Linux only:
 
 Clone this repository and install the dependencies.
 
+Adding new feature is covered in [here](tester/README.md).
+
 ## Setup
 
 ### 1. SSH
