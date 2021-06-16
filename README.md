@@ -10,24 +10,27 @@
 - [Kvazaar](https://github.com/ultravideo/kvazaar)
 - [VTM](https://vcgit.hhi.fraunhofer.de/jvet/VVCSoftware_VTM)
 - [x265](https://bitbucket.org/multicoreware/x265_git)
-- [vvenc](https://github.com/fraunhoferhhi/vvenc)
+- [VVenC](https://github.com/fraunhoferhhi/vvenc)
+- [SVT-VP9](https://github.com/OpenVisualCloud/SVT-VP9)
+- [SVT-AV1](https://github.com/AOMediaCodec/SVT-AV1)
 
 ## Dependencies
 
 - Windows 10 or Linux
-- [Ffmpeg](https://ffmpeg.org/)
+- [FFmpeg](https://ffmpeg.org/)
   - Must be in `PATH` and able to be used as `ffmpeg`
 - [CMake](https://cmake.org)
   - Must be in `PATH` and able to be used as `cmake`
 - [git](https://git-scm.com/)
-  - Must be in `PATH``, in particular this might require some work in Windows
+  - Must be in `PATH`, in particular this might require some work in Windows
 - [wkhtmltopdf](https://wkhtmltopdf.org/)
   - Only needed for the PDF generation otherwise optional
 - [Python interpreter (3.8+)](https://python.org/)
 - [vmaf](https://github.com/Netflix/vmaf)
-  - The VMAF release v2.0.0 changed how the models worked, and it is very likely that your version of FFmpeg does not support using those models. If this is the case, checkout v1.4.7 of the VMAF repository.
+  - The VMAF release v2.0.0 changed how the models worked, and older versions of FFmpeg do not support using those models. If this is the case, checkout v1.4.7 of the VMAF repository.
+  - FFmpge version 4.2 and the older VMAF model versions are confirmed to work
 - Python libraries
-  - [requirements.txt](requirements.txt) has a list of needed libraris
+  - [requirements.txt](requirements.txt) has a list of needed libraries. `pip install -r requirements.txt`
   - [vmaf](https://github.com/Netflix/vmaf) is not currently on pypi and needs to be installed manually
     1. Clone the repository
     2. Go to vmaf/python
@@ -53,7 +56,7 @@ Adding new feature is covered in [here](tester/README.md).
 
 ### 1. SSH
 
-The tester clones source code from gitlab.tut.fi using SSH. Make sure you have an SSH key set up. Or use HTTPS for cloning.
+The tester clones source code from relevant git repositories using SSH or HTTPS. Make sure you have an SSH key set up, or use HTTPS for cloning.
 
 ### 2. Tester configuration
 
@@ -63,6 +66,7 @@ Windows/Linux:
 - `csv_decimal_point`
 - `csv_field_delimiter`
 - `vmaf_repo_path`
+- Relevant git repositories
 
 Windows only:
 - `vs_install_path`
@@ -90,6 +94,7 @@ Cfg().vs_major_version = "16"
 Cfg().vs_edition = "Enterprise"
 Cfg().vs_msvc_version = "19.26"
 Cfg().vs_msbuild_platformtoolset = "v142"
+Cfg().kvazaar_remote_url = "https://github.com/ultravideo/kvazaar"
 ```
 
 ### 2. Import your configuration file and the tester library.
@@ -114,7 +119,7 @@ function called inside the guard will not be visible inside the parallel units. 
 - The file names must contain the resolution, and may contain the framerate,  frame count, bit depth, and chroma format `(?P<name>.+)_(?P<width>\d+)x(?P<height>\d+)_?(?P<fps>\d+)?_?(?P<total_frames>\d+)?.yuv`
     - If the name doesn't contain the framerate, it is assumed to be 25 FPS
     - If the name doesn't contain the frame count, it is computed automatically from the size of the file, with the assumption that chroma is 420 and 8 bits are used for each pixel
-    - Regexes that are used to match the file names can be added and removed to the variable `Cfg().sequence_formats`
+    - Regexes that are used to match the file names can be added and removed to the variable `Cfg().sequence_formats` and must use named parameters.
 
 `main.py`:
 ```python
@@ -271,7 +276,7 @@ tester.create_tables(context,
   - Default: `None` , i.e., guessed from the file extension
   - `table.TableFormat.PDF` and `table.TableFormat.HTML` currently supported
 - `parallel_calculations` will be passed to the `compute_metrics` and not used in any way for the csv generation
-- pdf generation requires `wkhtmltopdf` and setting the Cfg().wkhtmltopdf varialble to point to the executable
+- pdf generation requires `wkhtmltopdf` and setting the `Cfg().wkhtmltopdf` varialble to point to the executable
 
 
 ### 10. Output RD-graphs
