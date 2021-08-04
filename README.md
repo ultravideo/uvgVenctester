@@ -52,6 +52,15 @@ Clone this repository and install the dependencies.
 
 Adding new feature is covered in [here](tester/README.md).
 
+### Dockerfile
+Build the Dockerfile with `docker build -t venctester .`
+
+Then the build container can be run like `docker run -v /path/to/test_sequences./test_seqs -v /path/to/output:/out venctester ./simple.py`
+Alternatively one can set the paths correctly in the `run_docker.sh` file and call it as `./run_docker.sh ./simple.py`
+
+One should note that the output files should be prefixed with `/out/` for them to exist outside of the docker container.
+For example `/out/example.csv`
+
 ## Setup
 
 ### 1. SSH
@@ -81,6 +90,7 @@ Windows only:
 ### 1. Set the required configuration variables.
 
 - This example is on Windows
+- To use the existing examples copy them from the examples directory to the root level of the repository
 - More comprehensive example in [examples](examples/my_cfg.py)
 
 `userconfig.py`:
@@ -114,7 +124,7 @@ function called inside the guard will not be visible inside the parallel units. 
 
 ### 3. Specify the video sequences you want to have encoded.
 
-- The file paths are relative to `tester_input_dir_path` (default: current working directory)
+- The file paths are relative to `tester_sequence_dir_path` (default: current working directory)
 - Wildcards can be used
 - The file names must contain the resolution, and may contain the framerate,  frame count, bit depth, and chroma format `(?P<name>.+)_(?P<width>\d+)x(?P<height>\d+)_?(?P<fps>\d+)?_?(?P<total_frames>\d+)?.yuv`
     - If the name doesn't contain the framerate, it is assumed to be 25 FPS
