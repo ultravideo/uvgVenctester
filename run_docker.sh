@@ -26,4 +26,4 @@ docker run \
 #  -v "$SOURCE_DIR":/source \
 #  -v "$BINARY_DIR":/binaries \
 #  -v "ENCODINGS_DIR":/encodes \
-#  venctester ./simple2.py
+#  venctester $1
