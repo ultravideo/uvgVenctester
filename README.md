@@ -55,7 +55,7 @@ Adding new feature is covered in [here](tester/README.md).
 ### Dockerfile
 Build the Dockerfile with `docker build -t venctester .`
 
-Then the build container can be run like `docker run -v /path/to/test_sequences./test_seqs -v /path/to/output:/out venctester ./simple.py`
+Then the build container can be run like `docker run -v /path/to/test_sequences:/test_seqs -v /path/to/output:/out venctester ./simple.py`
 Alternatively one can set the paths correctly in the `run_docker.sh` file and call it as `./run_docker.sh ./simple.py`
 
 One should note that the output files should be prefixed with `/out/` for them to exist outside of the docker container.
