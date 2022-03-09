@@ -151,10 +151,15 @@ class EncoderBase:
         console_log.info(f"{self._name}: Revision: '{self._user_given_revision}'")
 
         # Convert the user-given revision into the actual full revision.
-        cmd, output, exception = self._git_repo.rev_parse(self._user_given_revision)
-        if not exception:
-            self._commit_hash = output.decode().strip()
-        else:
+        try:
+            output, is_hash = self._git_repo.rev_parse(self._user_given_revision)
+            if not is_hash:
+                self._git_repo.fetch_all()
+                self._git_repo.checkout(self._user_given_revision)
+                self._git_repo.pull(branch=self._user_given_revision)
+                output, is_hash = self._git_repo.rev_parse(self._user_given_revision)
+            self._commit_hash = output.strip()
+        except subprocess.CalledProcessError as exception:
             console_log.error(f"{self._name}: Invalid revision '{self._user_given_revision}'")
             raise exception
 
@@ -194,7 +199,10 @@ class EncoderBase:
 
         self._build_log = setup_build_log(self._build_log_path)
 
-        self._git_repo.fetch_all()
+        try:
+            self._git_repo.fetch_all()
+        except subprocess.CalledProcessError:
+            console_log.error(f"{self._name}: Failed to fetch repository")
         # Checkout to the desired version.
         cmd_str, output, exception = self._git_repo.checkout(self._commit_hash)
         if not exception:

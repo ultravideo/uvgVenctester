@@ -40,6 +40,7 @@ class GitRepository(object):
         self._local_repo_path: Path = local_repo_path
         self._git_dir_path: Path = local_repo_path / ".git"
         self._remote_url = remote
+        self._has_fetched = False
         if remote is not None and not self.exists():
             self._clone(remote)
         else:
@@ -131,40 +132,36 @@ class GitRepository(object):
             return cmd_as_str, None, exception
 
     def fetch_all(self) -> (str, bytes, subprocess.CalledProcessError):
+        if self._has_fetched:
+            return
         fetch_cmd: tuple = (
             "git",
             "--work-tree", str(self._local_repo_path),
             "--git-dir", str(self._git_dir_path),
             "fetch", "--all",
         )
-        cmd_as_str: str = subprocess.list2cmdline(fetch_cmd)
-        try:
-            output: bytes = subprocess.check_output(
-                subprocess.list2cmdline(fetch_cmd),
-                shell=True,
-            )
-            return cmd_as_str, output, None
-        except subprocess.CalledProcessError as exception:
-            return cmd_as_str, None, exception
+        output: bytes = subprocess.check_output(
+            fetch_cmd
+        )
+        self._has_fetched = True
+        return output
 
     def rev_parse(self,
-                  revision: str) -> (str, bytes, subprocess.CalledProcessError):
+                  revision: str) -> (str, bool):
         rev_parse_cmd: tuple = (
             "git",
             "--work-tree", str(self._local_repo_path),
             "--git-dir", str(self._git_dir_path),
             "rev-parse", revision,
         )
-        cmd_as_str: str = subprocess.list2cmdline(rev_parse_cmd)
-        try:
-            output: bytes = subprocess.check_output(
-                subprocess.list2cmdline(rev_parse_cmd),
-                shell=True,
-                stderr=subprocess.STDOUT
-            )
-            return cmd_as_str, output, None
-        except subprocess.CalledProcessError as exception:
-            return cmd_as_str, None, exception
+
+        output = subprocess.check_output(
+            rev_parse_cmd,
+            shell=True,
+            stderr=subprocess.STDOUT
+        ).decode().strip()
+
+        return output, output.startswith(revision)
 
     def get_latest_commit_between(self, start: datetime, finish: datetime, branch="origin/master"):
         cmd = (
