@@ -226,7 +226,7 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
         raise
 
 
-def generate_dummy_sequence() -> Path:
+def generate_dummy_sequence(resolution=16) -> Path:
     dummy_sequence_path = cfg.Cfg().tester_sequences_dir_path / '_dummy.yuv'
 
     console_log.debug(f"ffmpeg: Dummy sequence '{dummy_sequence_path}' already exists")
@@ -238,12 +238,13 @@ def generate_dummy_sequence() -> Path:
     ffmpeg_cmd = (
         "ffmpeg",
         "-f", "lavfi",
-        "-i", "mandelbrot=size=16x16",
+        "-i", f"mandelbrot=size={resolution}x{resolution}",
         "-vframes", "60",
         "-pix_fmt", "yuv420p",
         "-f", "yuv4mpegpipe", str(dummy_sequence_path),
     )
 
+    print(subprocess.list2cmdline(ffmpeg_cmd))
     try:
         subprocess.check_output(subprocess.list2cmdline(ffmpeg_cmd),
                                 shell=True,

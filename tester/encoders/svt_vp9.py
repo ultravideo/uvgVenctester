@@ -186,6 +186,7 @@ class SvtAv1(SvtVp9):
 
         self._exe_src_path: Path = None
         self._dll_name: str = "SvtAv1Enc.dll"
+        self.sln = "svt-av1.sln"
         if tester.Cfg().system_os_name == "Windows":
             self._exe_src_path = self._git_local_path / "Bin" / "Release" / "SvtAv1EncApp.exe"
         elif tester.Cfg().system_os_name == "Linux":
@@ -196,21 +197,62 @@ class SvtAv1(SvtVp9):
         self.dummy_run_start(param_set)
 
         RESOLUTION_PLACEHOLDER = "64"
-        dummy_sequence_path = ffmpeg.generate_dummy_sequence()
+        dummy_sequence_path = ffmpeg.generate_dummy_sequence(RESOLUTION_PLACEHOLDER)
 
         dummy_cmd = \
             (
                 str(self._exe_path),
-                "-i", dummy_sequence_path,
+                "-i", str(dummy_sequence_path),
                 "-w", RESOLUTION_PLACEHOLDER,
                 "-h", RESOLUTION_PLACEHOLDER,
                 "-b", os.devnull,
                 "-n", "1"
             ) + param_set.to_cmdline_tuple()
 
+        print(" ".join(dummy_cmd))
         finish = self.dummy_run_finish(dummy_cmd, param_set, env)
         os.remove(str(dummy_sequence_path))
         return finish
 
+
+    def encode(self,
+               encoding_run: test.EncodingRun) -> None:
+        if not self.encode_start(encoding_run):
+            return
+
+        quality = encoding_run.param_set.get_quality_value(encoding_run.qp_value)
+
+        encode_cmd = \
+            (
+                str(self._exe_path),
+                "-i", str(encoding_run.input_sequence.get_encode_path()),
+                "-w", str(encoding_run.input_sequence.get_width()),
+                "-h", str(encoding_run.input_sequence.get_height()),
+                "--fps", str(encoding_run.input_sequence.get_framerate()),
+                "-n", str(encoding_run.frames),
+                "-b", str(encoding_run.output_file.get_filepath()),
+            ) + encoding_run.param_set.to_cmdline_tuple(include_quality_param=False,
+                                                        include_frames=False) + quality
+
+        self.encode_finish(encode_cmd, encoding_run)
+
     class ParamSet(SvtVp9.ParamSet):
-        pass
+        def __init__(self,
+                     quality_param_type: tester.QualityParam,
+                     quality_param_value: int,
+                     seek: int,
+                     frames: int,
+                     cl_args: str):
+            super().__init__(
+                quality_param_type,
+                quality_param_value,
+                seek,
+                frames,
+                cl_args
+            )
+
+            self._quality_formats[tester.QualityParam.QP] = "--rc 0 -q "
+            for t in range(tester.QualityParam.BITRATE.value, len(tester.QualityParam) + 1):
+                self._quality_formats[tester.QualityParam(t)] = "--tbr "
+            # This checks the integrity of the parameters.
+            self.to_cmdline_tuple(include_quality_param=False)
