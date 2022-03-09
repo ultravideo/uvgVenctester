@@ -131,7 +131,10 @@ class Vtm(EncoderBase):
                 stderr=subprocess.STDOUT
             )
         except subprocess.CalledProcessError as exception:
-            console_log.error(exception.output.decode())
+            if exception.output is not None:
+                console_log.error(exception.output.decode())
+            else:
+                console_log.error(f"{self.get_name()}: Failed to build VTM decoder")
             raise
 
         assert self._decoder_exe_src_path.exists()
@@ -196,7 +199,8 @@ class Vtm(EncoderBase):
                 stderr=subprocess.STDOUT
             )
         except subprocess.CalledProcessError as exception:
-            console_log.error(exception.output.decode())
+            if exception.output is not None:
+                console_log.error(exception.output.decode())
             raise
 
     def dummy_run(self, param_set: EncoderBase.ParamSet, env) -> bool:

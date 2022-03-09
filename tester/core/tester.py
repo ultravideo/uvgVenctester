@@ -353,7 +353,7 @@ class Tester:
 
         except Exception as exception:
             console_log.error(f"Tester: Failed to compute metrics for '{encoding_run.name}'")
-            if isinstance(exception, subprocess.CalledProcessError):
+            if isinstance(exception, subprocess.CalledProcessError) and exception.output is not None:
                 console_log.error(exception.output.decode())
             log_exception(exception)
             console_log.info(f"Tester: Ignoring error")

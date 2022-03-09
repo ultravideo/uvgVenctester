@@ -221,7 +221,7 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
 
     except Exception as exception:
         console_log.error(f"ffmpeg: Failed to compute metrics")
-        if isinstance(exception, subprocess.CalledProcessError):
+        if isinstance(exception, subprocess.CalledProcessError) and exception.output is not None:
             console_log.error(exception.output.decode())
         raise
 
@@ -250,7 +250,7 @@ def generate_dummy_sequence(resolution=16) -> Path:
                                 stderr=subprocess.STDOUT)
     except Exception as exception:
         console_log.error(f"ffmpeg: Failed to generate dummy sequence '{dummy_sequence_path}'")
-        if isinstance(exception, subprocess.CalledProcessError):
+        if isinstance(exception, subprocess.CalledProcessError) and exception.output is not None:
             console_log.error(exception.output.decode())
         raise
 

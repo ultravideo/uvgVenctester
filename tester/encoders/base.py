@@ -244,8 +244,11 @@ class EncoderBase:
             else:
                 self._build_log.info(output.decode())
         except subprocess.CalledProcessError as exception:
-            console_log.error(exception.output.decode())
-            self._build_log.error(exception.output.decode())
+            if exception.output is not None:
+                console_log.error(exception.output.decode())
+                self._build_log.error(exception.output.decode())
+            else:
+                console_log.error(f"{self._name}: Failed to build {self._exe_path}")
             raise
 
         # Copy the executable to its destination.
@@ -278,7 +281,10 @@ class EncoderBase:
                 stderr=subprocess.STDOUT
             )
         except subprocess.CalledProcessError as exception:
-            console_log.error(exception.output.decode())
+            if exception.output is not None:
+                console_log.error(exception.output.decode())
+            else:
+                console_log.error(f"{self._name}: Failed to clean encoder artifacts.")
             raise
 
     def dummy_run(self, param_set: EncoderBase.ParamSet, env) -> bool:
@@ -306,7 +312,8 @@ class EncoderBase:
         except subprocess.CalledProcessError as exception:
             console_log.error(f"{self._name}: Invalid arguments: "
                               f"'{param_set.to_cmdline_str()}'")
-            console_log.error(exception.output.decode().strip())
+            if exception.output is not None:
+                console_log.error(exception.output.decode().strip())
             return False
         return True
 
@@ -396,7 +403,8 @@ class EncoderBase:
             console_log.error(f"{self._name}: Encoding failed "
                               f"(input: '{encoding_run.input_sequence.get_filepath()}', "
                               f"output: '{encoding_run.output_file.get_filepath()}')")
-            console_log.error(exception.output.decode().strip())
+            if exception.output is not None:
+                console_log.error(exception.output.decode().strip())
             raise
 
     @staticmethod
