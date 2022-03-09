@@ -244,7 +244,6 @@ def generate_dummy_sequence(resolution=16) -> Path:
         "-f", "yuv4mpegpipe", str(dummy_sequence_path),
     )
 
-    print(subprocess.list2cmdline(ffmpeg_cmd))
     try:
         subprocess.check_output(subprocess.list2cmdline(ffmpeg_cmd),
                                 shell=True,

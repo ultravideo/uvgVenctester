@@ -1,6 +1,7 @@
 """This module defines functionality related to Git."""
 
 import subprocess
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Union
@@ -10,7 +11,7 @@ from tester.core.log import console_log
 
 def git_validate_config():
     try:
-        subprocess.check_output("git --version", shell=True)
+        subprocess.check_output(["git", "--version"],)
     except FileNotFoundError:
         console_log.error("Git: Executable 'git' was not found")
         raise RuntimeError
@@ -23,8 +24,7 @@ def git_remote_exists(remote_url: str) -> bool:
             "ls-remote", remote_url
         )
         subprocess.check_output(
-            subprocess.list2cmdline(ls_remote_cmd),
-            shell=True
+            ls_remote_cmd,
         )
         return True
     except subprocess.CalledProcessError:
@@ -33,6 +33,7 @@ def git_remote_exists(remote_url: str) -> bool:
 
 class GitRepository(object):
     """Represents a Git repository."""
+    has_fetched = defaultdict(lambda: False)
 
     def __init__(self,
                  local_repo_path: Path,
@@ -40,16 +41,15 @@ class GitRepository(object):
         self._local_repo_path: Path = local_repo_path
         self._git_dir_path: Path = local_repo_path / ".git"
         self._remote_url = remote
-        self._has_fetched = False
         if remote is not None and not self.exists():
-            self._clone(remote)
+            self._clone()
         else:
             self.check_remote_url()
 
     def exists(self) -> bool:
         return self._local_repo_path.exists() and self._git_dir_path.exists()
 
-    def check_remote_url(self) -> str:
+    def check_remote_url(self):
         if self._remote_url is None:
             return
         cmd = [
@@ -95,7 +95,7 @@ class GitRepository(object):
         console_log.debug(f"[git] succesfully cloned {self._remote_url} with {output.decode()}")
 
     def checkout(self,
-                 revision: str) -> (str, bytes, subprocess.CalledProcessError):
+                 revision: str) -> (str, bytes):
         checkout_cmd: tuple = (
             "git",
             "--work-tree", str(self._local_repo_path),
@@ -103,17 +103,14 @@ class GitRepository(object):
             "checkout", revision,
         )
         cmd_as_str: str = subprocess.list2cmdline(checkout_cmd)
-        try:
-            output: bytes = subprocess.check_output(
-                subprocess.list2cmdline(checkout_cmd),
-                shell=True,
-                stderr=subprocess.STDOUT
-            )
-            return cmd_as_str, output, None
-        except subprocess.CalledProcessError as exception:
-            return cmd_as_str, None, exception
 
-    def pull(self, remote: str = "origin", branch: str = "master") -> (str, bytes, subprocess.CalledProcessError):
+        output: bytes = subprocess.check_output(
+            checkout_cmd,
+            stderr=subprocess.STDOUT
+        )
+        return cmd_as_str, output
+
+    def pull(self, remote: str = "origin", branch: str = "master") -> (str, bytes):
         pull_cmd: tuple = (
             "git",
             "--work-tree", str(self._local_repo_path),
@@ -121,19 +118,15 @@ class GitRepository(object):
             "pull", remote, branch
         )
         cmd_as_str: str = subprocess.list2cmdline(pull_cmd)
-        try:
-            output: bytes = subprocess.check_output(
-                subprocess.list2cmdline(pull_cmd),
-                shell=True,
-                stderr=subprocess.STDOUT
-            )
-            return cmd_as_str, output, None
-        except subprocess.CalledProcessError as exception:
-            return cmd_as_str, None, exception
+        output: bytes = subprocess.check_output(
+            pull_cmd,
+            stderr=subprocess.STDOUT
+        )
+        return cmd_as_str, output
 
-    def fetch_all(self) -> (str, bytes, subprocess.CalledProcessError):
-        if self._has_fetched:
-            return
+    def fetch_all(self) -> (bytes):
+        if self.has_fetched[self._remote_url]:
+            return b""
         fetch_cmd: tuple = (
             "git",
             "--work-tree", str(self._local_repo_path),
@@ -143,7 +136,7 @@ class GitRepository(object):
         output: bytes = subprocess.check_output(
             fetch_cmd
         )
-        self._has_fetched = True
+        self.has_fetched[self._remote_url] = True
         return output
 
     def rev_parse(self,
@@ -175,7 +168,7 @@ class GitRepository(object):
             branch
         )
         try:
-            out = subprocess.check_output(subprocess.list2cmdline(cmd), shell=True, stderr=subprocess.STDOUT).decode()
+            out = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode()
             return out.strip()
 
         except subprocess.CalledProcessError as e:
@@ -193,8 +186,7 @@ class GitRepository(object):
         )
         try:
             data = {}
-            output = subprocess.check_output(subprocess.list2cmdline(cmd),
-                                             shell=True,
+            output = subprocess.check_output(cmd,
                                              stderr=subprocess.STDOUT).decode().split("\n")
             data["Date"] = datetime.fromisoformat(output[0])
             data["Author"] = output[1]

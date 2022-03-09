@@ -209,7 +209,6 @@ class SvtAv1(SvtVp9):
                 "-n", "1"
             ) + param_set.to_cmdline_tuple()
 
-        print(" ".join(dummy_cmd))
         finish = self.dummy_run_finish(dummy_cmd, param_set, env)
         os.remove(str(dummy_sequence_path))
         return finish

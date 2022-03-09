@@ -204,14 +204,16 @@ class EncoderBase:
         except subprocess.CalledProcessError:
             console_log.error(f"{self._name}: Failed to fetch repository")
         # Checkout to the desired version.
-        cmd_str, output, exception = self._git_repo.checkout(self._commit_hash)
-        if not exception:
+        try:
+            cmd_str, output = self._git_repo.checkout(self._commit_hash)
+
             self._build_log.info(cmd_str)
             self._build_log.info(output.decode())
-        else:
-            self._build_log.info(cmd_str)
-            self._build_log.info(exception.output.decode())
-            console_log.error(exception.output.decode())
+        except subprocess.CalledProcessError as exception:
+            self._build_log.info(f"{self._name}: Failed to checkout {self._commit_hash}")
+            if exception.output is not None:
+                self._build_log.info(exception.output.decode())
+                console_log.error(exception.output.decode())
             raise exception
 
         # Do build.
