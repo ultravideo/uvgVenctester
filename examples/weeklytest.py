@@ -28,9 +28,7 @@ def main():
         "hevc-B/*.yuv",
         "xiph-fullhd/*.yuv"
     ]
-    kvz_repo = git.GitRepository(Cfg().tester_sources_dir_path / "kvazaar", )
-    if not kvz_repo._local_repo_path.exists():
-        kvz_repo.clone(Cfg().kvazaar_remote_url)
+    kvz_repo = git.GitRepository(Cfg().tester_sources_dir_path / "kvazaar", Cfg().kvazaar_remote_url)
 
     kvz_repo.fetch_all()
     master_list = []

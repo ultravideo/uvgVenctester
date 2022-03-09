@@ -75,9 +75,8 @@ class EncoderBase:
         self._define_hash: str = hashlib.md5(str(defines).encode()).hexdigest()
         self._define_hash_short: str = self._define_hash[:tester.Cfg().tester_define_hash_len]
         self._git_local_path: Path = git_local_path
-        self._git_remote_url: str = git_remote_url
 
-        self._git_repo: git.GitRepository = git.GitRepository(git_local_path)
+        self._git_repo: git.GitRepository = git.GitRepository(git_local_path, git_remote_url)
 
         self._use_prebuilt = use_prebuilt
 
@@ -150,19 +149,6 @@ class EncoderBase:
         console_log.info(f"{self._name}: Preparing sources")
         console_log.info(f"{self._name}: Repository: '{self._git_repo._local_repo_path}'")
         console_log.info(f"{self._name}: Revision: '{self._user_given_revision}'")
-
-        # Clone the remote if the local repo doesn't exist yet.
-        if not self._git_local_path.exists():
-            cmd_str, output, exception = self._git_repo.clone(self._git_remote_url)
-            if not exception:
-                pass
-            else:
-                console_log.error(cmd_str)
-                console_log.error(exception.output.decode())
-                raise exception
-        else:
-            console_log.info(f"{self._name}: Repository '{self._git_local_path}' "
-                             f"already exists")
 
         # Convert the user-given revision into the actual full revision.
         cmd, output, exception = self._git_repo.rev_parse(self._user_given_revision)

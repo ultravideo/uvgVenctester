@@ -3,6 +3,7 @@
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from typing import Union
 
 from tester.core.log import console_log
 
@@ -34,31 +35,63 @@ class GitRepository(object):
     """Represents a Git repository."""
 
     def __init__(self,
-                 local_repo_path: Path):
+                 local_repo_path: Path,
+                 remote: Union[str, None] = None):
         self._local_repo_path: Path = local_repo_path
         self._git_dir_path: Path = local_repo_path / ".git"
+        self._remote_url = remote
+        if remote is not None and not self.exists():
+            self._clone(remote)
+        else:
+            self.check_remote_url()
 
     def exists(self) -> bool:
         return self._local_repo_path.exists() and self._git_dir_path.exists()
 
-    def clone(self,
-              remote_url: str) -> (str, bytes, subprocess.CalledProcessError):
+    def check_remote_url(self) -> str:
+        if self._remote_url is None:
+            return
+        cmd = [
+            "git",
+            "--work-tree", str(self._local_repo_path),
+            "--git-dir", str(self._git_dir_path),
+            "remote",
+            "get-url",
+            "origin"
+        ]
+        try:
+            output = subprocess.check_output(cmd).decode()
+            if output.strip() == self._remote_url:
+                return
+            else:
+                subprocess.check_output(
+                    [
+                        "git",
+                        "--work-tree", str(self._local_repo_path),
+                        "--git-dir", str(self._git_dir_path),
+                        "remote",
+                        "set-url",
+                        "origin",
+                        self._remote_url
+                    ]
+                )
+        except subprocess.CalledProcessError as e:
+            console_log.error(f"[git] Failed to get or set remote url for {self._git_dir_path}")
+            raise e
+
+    def _clone(self) -> (str, bytes, subprocess.CalledProcessError):
         if self._git_dir_path.exists():
-            return None, None, None
+            return
         clone_cmd: tuple = (
             "git",
-            "clone", remote_url, str(self._local_repo_path),
+            "clone", self._remote_url, str(self._local_repo_path),
         )
         cmd_as_str: str = subprocess.list2cmdline(clone_cmd)
-        try:
-            output: bytes = subprocess.check_output(
-                subprocess.list2cmdline(clone_cmd),
-                shell=True,
-                stderr=subprocess.STDOUT
-            )
-            return cmd_as_str, output, None
-        except subprocess.CalledProcessError as exception:
-            return cmd_as_str, None, exception
+        output: bytes = subprocess.check_output(
+            clone_cmd,
+            stderr=subprocess.STDOUT
+        )
+        console_log.debug(f"[git] succesfully cloned {self._remote_url} with {output.decode()}")
 
     def checkout(self,
                  revision: str) -> (str, bytes, subprocess.CalledProcessError):
