@@ -271,5 +271,5 @@ class Uvg266(Kvazaar):
             console_log.error(f"UVG266: Remote '{tester.Cfg().uvg266_remote_url}' is not available")
             raise RuntimeError
 
-        if not tester.Cfg().vvc_reference_decoder.exists():
+        if not tester.Cfg().vvc_reference_decoder.exists() or tester.Cfg().vvc_reference_decoder == Path("."):
             raise RuntimeError("UVG266: VVC reference decoder is needed for decoding VVC currently")
