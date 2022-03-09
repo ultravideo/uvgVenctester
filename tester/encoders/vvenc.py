@@ -205,8 +205,7 @@ class Vvenc(EncoderBase):
 
         try:
             subprocess.check_output(
-                subprocess.list2cmdline(decode_cmd),
-                shell=True,
+                decode_cmd,
                 stderr=subprocess.STDOUT
             )
         except:

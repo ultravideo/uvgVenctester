@@ -255,8 +255,7 @@ class Uvg266(Kvazaar):
         try:
             with open(encoding_run.get_log_path("decode"), "w") as decode_log:
                 subprocess.run(
-                    subprocess.list2cmdline(decode_cmd),
-                    shell=True,
+                    decode_cmd,
                     stderr=decode_log,
                     stdout=decode_log
                 )

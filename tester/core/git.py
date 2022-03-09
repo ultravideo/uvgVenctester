@@ -150,7 +150,6 @@ class GitRepository(object):
 
         output = subprocess.check_output(
             rev_parse_cmd,
-            shell=True,
             stderr=subprocess.STDOUT
         ).decode().strip()
 

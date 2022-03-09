@@ -391,8 +391,7 @@ class EncoderBase:
                 print(f"> {subprocess.list2cmdline(encode_cmd)}", file=encoding_log)
 
                 subprocess.check_call(
-                    subprocess.list2cmdline(encode_cmd),
-                    shell=True,
+                    encode_cmd,
                     stderr=encoding_log,
                     stdout=encoding_log,
                     stdin=ffmpeg_pipe.stdout if ffmpeg_pipe else None,

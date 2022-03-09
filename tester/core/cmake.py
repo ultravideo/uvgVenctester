@@ -9,7 +9,7 @@ CMAKE_ARCHITECTURE: str = "x64"
 
 def cmake_validate_config():
     try:
-        subprocess.check_output(f"cmake --version", shell=True)
+        subprocess.check_output(f"cmake --version")
     except FileNotFoundError:
         console_log.error(f"CMake: Executable 'cmake' was not found")
         raise RuntimeError

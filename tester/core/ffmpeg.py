@@ -17,6 +17,8 @@ import tester.core.cfg as cfg
 from tester.core.log import console_log
 
 # Compile Regex patterns only once for better performance.
+from tester.core.system import pushd
+
 _PSNR_PATTERN: re.Pattern = re.compile(r".*psnr_avg:([0-9]+.[0-9]+|inf\s).*", re.DOTALL)
 _SSIM_PATTERN: re.Pattern = re.compile(r".*All:([0-9]+.[0-9]+).*", re.DOTALL)
 _VMAF_PATTERN: re.Pattern = re.compile(r".*\"VMAF score\":([0-9]+.[0-9]+).*", re.DOTALL)
@@ -38,7 +40,7 @@ __vmaf_version = "pkl"
 
 def ffmpeg_validate_config():
     try:
-        output = subprocess.check_output("ffmpeg -version", shell=True)
+        output = subprocess.check_output("ffmpeg -version")
         if csv.CsvField.VMAF_AVG in cfg.Cfg().csv_enabled_fields \
                 or csv.CsvField.VMAF_STDEV in cfg.Cfg().csv_enabled_fields:
             for line in output.decode().split("\n"):
@@ -125,9 +127,7 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
     if encoding_run.decoded_output_file_path:
         encoding_run.encoder._decode(encoding_run)
         ffmpeg_command = (
-            # Change working directory to make relative paths work.
-            "cd", f"{encoding_run.output_file.get_filepath().parent}",
-            "&&", "ffmpeg",
+            "ffmpeg",
 
             # YUV input
             "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
@@ -154,8 +154,7 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
     else:
 
         ffmpeg_command = (
-            "cd", f"{encoding_run.output_file.get_filepath().parent}",
-            "&&", "ffmpeg",
+            "ffmpeg",
 
             # YUV input
             "-s:v", f"{encoding_run.input_sequence.get_width()}x{encoding_run.input_sequence.get_height()}",
@@ -183,11 +182,11 @@ def compute_metrics(encoding_run: test.EncodingRun, metrics: list) -> Dict[str: 
         for m in metrics:
             console_log.debug(f"ffmpeg: {m.upper()} log: '{m}'")
 
-        subprocess.check_output(
-            subprocess.list2cmdline(ffmpeg_command),
-            stderr=subprocess.STDOUT,
-            shell=True
-        )
+        with pushd(encoding_run.output_file.get_filepath().parent):
+            subprocess.check_output(
+                ffmpeg_command,
+                stderr=subprocess.STDOUT
+            )
 
         if encoding_run.decoded_output_file_path:
             os.remove(encoding_run.decoded_output_file_path)
@@ -245,8 +244,7 @@ def generate_dummy_sequence(resolution=16) -> Path:
     )
 
     try:
-        subprocess.check_output(subprocess.list2cmdline(ffmpeg_cmd),
-                                shell=True,
+        subprocess.check_output(ffmpeg_cmd,
                                 stderr=subprocess.STDOUT)
     except Exception as exception:
         console_log.error(f"ffmpeg: Failed to generate dummy sequence '{dummy_sequence_path}'")
