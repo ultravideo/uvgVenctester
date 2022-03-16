@@ -159,14 +159,6 @@ class Test:
 
         self.subtests: list = []
 
-        # Order quality parameters in ascending order by resulting bitrate,
-        # since that is the order in which the results have to be when BD-BR is computed.
-        if quality_param_type in [QualityParam.QP, QualityParam.CRF]:
-            quality_param_list = sorted(quality_param_list, reverse=True)
-        elif quality_param_type in [QualityParam.RES_ROOT_SCALED_BITRATE, QualityParam.RES_SCALED_BITRATE,
-                                    QualityParam.BPP, QualityParam.BITRATE]:
-            quality_param_list = sorted(quality_param_list)
-
         param_sets = [
             self.encoder.ParamSet(quality_param_type,
                                   quality_param_value,

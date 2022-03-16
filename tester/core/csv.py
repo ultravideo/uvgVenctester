@@ -72,6 +72,7 @@ class CsvField(Enum):
     TIME_SECONDS: int = CsvFieldBaseType.TIME | CsvFieldValueType.VALUE
     TIME_STDEV: int = CsvFieldBaseType.TIME | CsvFieldValueType.STDEV
     SPEEDUP: int = CsvFieldBaseType.TIME | CsvFieldValueType.COMPARISON
+    ITEM_WISE_SPEEDUP: int = CsvFieldBaseType.TIME | CsvFieldValueType.COMPARISON2
     # Crossings
     # Overlap
 
@@ -131,7 +132,6 @@ class CsvFile:
     def add_entry(self, metrics, test, subtest, anchor, anchor_subtest, sequence) -> None:
 
         metric = metrics[test.name][sequence][subtest.param_set.get_quality_param_value()]
-        # TODO: Two speedup metrics. Piecewise and overall, currently there is only overall
         anchor_metric = metrics[anchor.name][sequence][anchor_subtest.param_set.get_quality_param_value()]
         sequence_metric: SequenceMetrics = metrics[test.name][sequence]
         anchor_seq: SequenceMetrics = metrics[anchor.name][sequence]
@@ -193,6 +193,9 @@ class CsvFile:
                     lambda base_type=base_type: sequence_metric.compare_to_anchor(anchor_seq, str(base_type)+"-bddistortion")
             except ValueError:
                 pass
+
+        values_by_field[CsvField.ITEM_WISE_SPEEDUP] = \
+            lambda: anchor_metric["encoding_time_avg"] / metric["encoding_time_avg"]
 
         new_row = []
         for field_id in cfg.Cfg().csv_enabled_fields:
